@@ -1,10 +1,13 @@
 package gov.bf.ascelc.univers_audits.model.dto;
+
 import gov.bf.ascelc.univers_audits.abstracts.AuditEntityDto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+
+import java.util.UUID;
 
 
 @Getter
@@ -22,6 +25,5 @@ public class DeclarantDto extends AuditEntityDto {
     private String profession;
     private String commune;
     private String address;
-
-
+    private UUID dossierId;
 }

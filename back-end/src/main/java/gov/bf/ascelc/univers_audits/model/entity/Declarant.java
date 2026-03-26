@@ -2,6 +2,9 @@ package gov.bf.ascelc.univers_audits.model.entity;
 import gov.bf.ascelc.univers_audits.abstracts.AuditEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import lombok.AllArgsConstructor;
@@ -30,7 +33,7 @@ public class Declarant extends AuditEntity {
     private String commune;
     private String address;
 
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dossier_id")
+    private Dossier dossier;
 }
-
-

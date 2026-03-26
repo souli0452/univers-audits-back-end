@@ -1,7 +1,7 @@
 package gov.bf.ascelc.univers_audits.controller;
 
-import gov.bf.ascelc.univers_audits.model.dto.AgentDto;
-import gov.bf.ascelc.univers_audits.service.AgentService;
+import gov.bf.ascelc.univers_audits.model.dto.ObservationDto;
+import gov.bf.ascelc.univers_audits.service.ObservationService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,14 +14,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(ApiUrls.AGENTS)
-public class AgentController {
-
-    private final AgentService agentService;
-
+@RequestMapping(ApiUrls.OBSERVATIONS)
+public class ObservationController {
+    private final ObservationService observationService;
     @PostMapping
-    public ResponseEntity<AgentDto> create(@Valid @RequestBody AgentDto agentDto) {
-        AgentDto createdAgent = agentService.create(agentDto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdAgent);
+    public ResponseEntity<ObservationDto> create(@Valid @RequestBody ObservationDto observationDto){
+        ObservationDto createdObservation = observationService.create(observationDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdObservation);
     }
 }

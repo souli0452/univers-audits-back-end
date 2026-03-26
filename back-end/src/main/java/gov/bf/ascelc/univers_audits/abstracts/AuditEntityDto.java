@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.abstracts;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,15 +18,30 @@ import java.util.UUID;
 @AllArgsConstructor
 public abstract class AuditEntityDto {
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private UUID id;
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd' à 'HH:mm:ss")
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd' à 'HH:mm:ss")
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String createdById;
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String updatedById;
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String currentFirstName;
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String currentLastName;
+
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String currentUserEmail;
 
 }

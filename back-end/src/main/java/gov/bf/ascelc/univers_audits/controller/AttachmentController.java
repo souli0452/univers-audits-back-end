@@ -1,7 +1,7 @@
 package gov.bf.ascelc.univers_audits.controller;
 
-import gov.bf.ascelc.univers_audits.model.dto.AgentDto;
-import gov.bf.ascelc.univers_audits.service.AgentService;
+import gov.bf.ascelc.univers_audits.model.dto.AttachmentDto;
+import gov.bf.ascelc.univers_audits.service.AttachmentService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,14 +14,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(ApiUrls.AGENTS)
-public class AgentController {
+@RequestMapping(ApiUrls.ATTACHMENTS)
+public class AttachmentController {
 
-    private final AgentService agentService;
+    private final AttachmentService attachmentService;
 
     @PostMapping
-    public ResponseEntity<AgentDto> create(@Valid @RequestBody AgentDto agentDto) {
-        AgentDto createdAgent = agentService.create(agentDto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdAgent);
+    public ResponseEntity<AttachmentDto> create(@Valid @RequestBody AttachmentDto attachmentDto) {
+        AttachmentDto createdAttachment = attachmentService.create(attachmentDto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdAttachment);
     }
 }

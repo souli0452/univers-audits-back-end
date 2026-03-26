@@ -1,10 +1,13 @@
 package gov.bf.ascelc.univers_audits.model.dto;
+
 import gov.bf.ascelc.univers_audits.abstracts.AuditEntityDto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -20,4 +23,5 @@ public class WitnessDto extends AuditEntityDto {
     private String email;
     private String profession;
     private String interrogationDate;
+    private UUID dossierId;
 }
