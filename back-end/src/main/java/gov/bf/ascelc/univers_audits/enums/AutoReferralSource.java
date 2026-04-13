@@ -1,13 +1,14 @@
 package gov.bf.ascelc.univers_audits.enums;
 
 public enum AutoReferralSource {
-    printMedia,
-    television,
-    radio,
-    auditReport,
-    inspectionReport,
-    socialMedia,
-    internalReport,
-    other
-
+    WRITTEN_PRESS,
+    TELEVISION,
+    RADIO,
+    SOCIAL_MEDIA,
+    AUDIT_REPORT,
+    INSPECTION_REPORT,
+    INTERNAL_TIP,
+    PARTNER_INSTITUTION,
+    PROSECUTOR_REFERRAL,
+    OTHER
 }

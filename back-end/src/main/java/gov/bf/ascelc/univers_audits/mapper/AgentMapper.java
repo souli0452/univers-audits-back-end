@@ -1,25 +1,26 @@
 package gov.bf.ascelc.univers_audits.mapper;
 
-import gov.bf.ascelc.univers_audits.model.dto.AgentDto;
+import gov.bf.ascelc.univers_audits.model.dto.response.AgentSummaryResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
-import org.mapstruct.Builder;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
+import org.mapstruct.*;
 
-import java.util.List;
-
-@Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE
+)
 public interface AgentMapper {
 
-    AgentDto toDto(Agent agent);
+    @Mapping(
+            target = "departementLabel",
+            expression = "java(mapDepartement(agent))"
+    )
+    AgentSummaryResponse toSummaryResponse(Agent agent);
 
-    Agent toEntity(AgentDto agentDto);
-
-    List<AgentDto> toDtos(List<Agent> agents);
-
-    List<Agent> toEntities(List<AgentDto> agentDtos);
-
-    @Mapping(target = "id", ignore = true)
-    void updateEntityFromDto(AgentDto agentDto, @MappingTarget Agent agent);
+    // Méthode SAFE (évite NullPointerException)
+    default String mapDepartement(Agent agent) {
+        if (agent == null || agent.getDepartement() == null) {
+            return null;
+        }
+        return agent.getDepartement().getLibelle();
+    }
 }

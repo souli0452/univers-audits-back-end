@@ -1,18 +1,19 @@
 package gov.bf.ascelc.univers_audits.abstracts;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -28,32 +29,26 @@ public abstract class AuditEntity implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false,
+            columnDefinition = "uuid")
     private UUID id;
     @CreatedDate
-    @Column(name = "created_at")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd' 'HH:mm:ss")
-    private LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
     @LastModifiedDate
     @Column(name = "updated_at")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd' 'HH:mm:ss")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
-    @Column(name = "created_by_id")
+    @CreatedBy
+    @Column(name = "created_by_id", updatable = false, length = 100)
     private String createdById;
 
-    @Column(name = "updated_by_id")
+    @LastModifiedBy
+    @Column(name = "updated_by_id", length = 100)
     private String updatedById;
 
-    @Column(name = "current_user_first_name")
-    private String currentFirstName;
-
-    @Column(name = "current_user_last_name")
-    private String currentLastName;
-
-    @Column(name = "current_user_email")
-    private String currentUserEmail;
-
-
-
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }
-

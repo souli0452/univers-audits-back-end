@@ -1,0 +1,87 @@
+# ════════════════════════════════════════════════════════════════
+#  Docker Compose
+#  Commande : docker-compose up -d
+# ════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL ────────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    container_name: asce_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bd_univers_audit
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - asce_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bd_univers_audit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - asce-network
+
+  # ── Keycloak ──────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.4
+    container_name: asce_keycloak
+    restart: unless-stopped
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/bd_univers_audit
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: admin
+      KC_DB_SCHEMA: keycloak
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_LOG_LEVEL: INFO
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - asce_keycloak_data:/opt/keycloak/data
+    networks:
+      - asce-network
+
+  # ── Redis ─────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: asce_redis
+    restart: unless-stopped
+    command: redis-server --requirepass Asce2021 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - asce_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "Asce2021", "--no-auth-warning", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - asce-network
+
+volumes:
+  asce_postgres_data:
+    driver: local
+  asce_keycloak_data:
+    driver: local
+  asce_redis_data:
+    driver: local
+
+networks:
+  asce-network:
+    driver: bridge
+    name: asce-network

@@ -1,0 +1,305 @@
+package gov.bf.ascelc.univers_audits.service.impl;
+
+import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.NotificationChannel;
+import gov.bf.ascelc.univers_audits.enums.NotificationStatus;
+import gov.bf.ascelc.univers_audits.enums.NotificationType;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
+import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
+import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.Notification;
+import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
+import gov.bf.ascelc.univers_audits.service.NotificationService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ *  • Récépissé B4    : remis immédiatement au guichet
+ *  • Accusé B5       : envoyé dans les 7 jours (signé CGE)
+ *  • Complément      : délai 14 jours pour le déclarant
+ *  • Décision        : irrecevabilité motivée sous 3 jours
+ *  • Transfert       : notification de transfert sous 7 jours
+ *  • Alertes délai   : avertissement si deadline proche
+ *
+ *  Canaux d'envoi :
+ *  EMAIL
+ *  SMS
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class NotificationServiceImpl
+        implements NotificationService {
+
+    private final NotificationRepository notificationRepository;
+    private final DossierRepository      dossierRepository;
+    private final DossierDetailsMapper   detailsMapper;
+    @Override
+    public Page<NotificationResponse> findByDossierId(
+            UUID dossierId, Pageable pageable) {
+        return notificationRepository
+                .findAll(pageable)
+                .map(detailsMapper::toResponse);
+    }
+
+    @Override
+    public List<NotificationResponse> findOverdue() {
+        return notificationRepository
+                .findOverdue(Instant.now())
+                .stream()
+                .map(detailsMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<NotificationResponse> findPending() {
+        return notificationRepository
+                .findByStatus(NotificationStatus.PENDING)
+                .stream()
+                .map(detailsMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public NotificationResponse sendNow(UUID notificationId) {
+        Notification notif = getNotificationOrThrow(notificationId);
+
+
+        if (notif.getStatus() == NotificationStatus.SENT) {
+            throw new BusinessException(
+                    "Cette notification a déjà été envoyée");
+        }
+        if (notif.getStatus() == NotificationStatus.CANCELLED) {
+            throw new BusinessException(
+                    "Cette notification a été annulée");
+        }
+
+
+        doSend(notif);
+
+        return detailsMapper.toResponse(
+                notificationRepository.save(notif));
+    }
+
+    @Override
+    @Transactional
+    public NotificationResponse cancel(UUID notificationId,
+                                       String reason) {
+        Notification notif = getNotificationOrThrow(notificationId);
+
+        if (notif.getStatus() == NotificationStatus.SENT) {
+            throw new BusinessException(
+                    "Impossible d'annuler une notification "
+                            + "déjà envoyée");
+        }
+
+        notif.setStatus(NotificationStatus.CANCELLED);
+        notif.setErrorMessage("Annulée manuellement : " + reason);
+
+        return detailsMapper.toResponse(
+                notificationRepository.save(notif));
+    }
+
+    @Override
+    @Transactional
+    public NotificationResponse retry(UUID notificationId) {
+        Notification notif = getNotificationOrThrow(notificationId);
+
+        if (!notif.canRetry()) {
+            throw new BusinessException(
+                    "Maximum de tentatives atteint (3) "
+                            + "ou notification non échouée");
+        }
+
+        doSend(notif);
+
+        return detailsMapper.toResponse(
+                notificationRepository.save(notif));
+    }
+
+    @Override
+    @Scheduled(fixedDelay = 900_000)
+    @Transactional
+    public void processPendingNotifications() {
+        log.info("Traitement des notifications en attente...");
+
+        // Notifications dont la date limite est dépassée
+        List<Notification> overdueNotifs =
+                notificationRepository.findOverdue(Instant.now());
+
+        int sent = 0;
+        int failed = 0;
+
+        for (Notification notif : overdueNotifs) {
+            try {
+                doSend(notif);
+                notificationRepository.save(notif);
+                sent++;
+            } catch (Exception e) {
+                log.error("Échec envoi notification {} : {}",
+                        notif.getId(), e.getMessage());
+                failed++;
+            }
+        }
+
+        // Relancer les notifications échouées (< 3 tentatives)
+        List<Notification> retryable =
+                notificationRepository.findRetryable();
+
+        for (Notification notif : retryable) {
+            try {
+                doSend(notif);
+                notificationRepository.save(notif);
+                sent++;
+            } catch (Exception e) {
+                log.error("Échec relance notification {} : {}",
+                        notif.getId(), e.getMessage());
+                failed++;
+            }
+        }
+
+        log.info("Notifications traitées — envoyées: {}, "
+                + "échouées: {}", sent, failed);
+    }
+
+    @Override
+    @Scheduled(cron = "0 0 8 * * MON-FRI")
+    @Transactional
+    public void sendDeadlineAlerts() {
+        log.info("Envoi des alertes de délai dépassé...");
+
+
+        List<Dossier> overdueAcknowledgments =
+                dossierRepository.findOverdueAcknowledgments(
+                        Instant.now());
+
+        for (Dossier dossier : overdueAcknowledgments) {
+
+            boolean alreadyAlerted = notificationRepository
+                    .existsByDossierIdAndType(
+                            dossier.getId(),
+                            NotificationType.DEADLINE_ALERT);
+
+            if (!alreadyAlerted) {
+                Notification alert = Notification.builder()
+                        .dossier(dossier)
+                        .type(NotificationType.DEADLINE_ALERT)
+                        .channel(NotificationChannel.PORTAL)
+                        .subject("ALERTE : Délai dépassé — "
+                                + dossier.getNumber())
+                        .content("Le délai légal de 7 jours pour "
+                                + "l'envoi de l'accusé de réception "
+                                + "B5 est dépassé pour le dossier "
+                                + dossier.getNumber()
+                                + ". Action requise immédiatement.")
+                        .scheduledAt(Instant.now())
+                        .build();
+
+                notificationRepository.save(alert);
+                log.warn("Alerte délai créée — dossier: {}",
+                        dossier.getNumber());
+            }
+        }
+
+
+        List<Dossier> overdueComplements =
+                dossierRepository.findOverdueComplementRequests(
+                        Instant.now());
+
+        for (Dossier dossier : overdueComplements) {
+            log.warn("Délai complément dépassé — dossier: {}",
+                    dossier.getNumber());
+        }
+
+        log.info("Alertes délai traitées — {} dossiers en retard",
+                overdueAcknowledgments.size());
+    }
+
+    private void doSend(Notification notif) {
+        try {
+            switch (notif.getChannel()) {
+                case EMAIL -> sendEmail(notif);
+                case SMS   -> sendSms(notif);
+                case POSTAL_MAIL -> logPostalMail(notif);
+                case PORTAL -> markAsPortalVisible(notif);
+            }
+
+            notif.markAsSent();
+            log.info("Notification envoyée — id: {}, canal: {}",
+                    notif.getId(), notif.getChannel());
+
+        } catch (Exception e) {
+            notif.markAsFailed(e.getMessage());
+            log.error("Échec envoi — id: {}, erreur: {}",
+                    notif.getId(), e.getMessage());
+
+        }
+    }
+
+    private void sendEmail(Notification notif) {
+        if (notif.getRecipient() == null
+                || notif.getRecipient().isBlank()) {
+            throw new BusinessException(
+                    "Adresse email du destinataire manquante");
+        }
+
+
+
+        log.info("EMAIL simulé → {} : {}",
+                notif.getRecipient(), notif.getSubject());
+    }
+
+
+    private void sendSms(Notification notif) {
+        if (notif.getRecipient() == null
+                || notif.getRecipient().isBlank()) {
+            throw new BusinessException(
+                    "Numéro de téléphone du destinataire manquant");
+        }
+
+        String phone = notif.getRecipient();
+        if (!phone.startsWith("+226") && !phone.startsWith("00226")
+                && phone.length() < 8) {
+            log.warn("Format téléphone suspect : {}", phone);
+        }
+
+        log.info("SMS simulé → {} : {}",
+                phone, notif.getContent());
+    }
+
+    private void logPostalMail(Notification notif) {
+        log.info("Courrier postal à préparer — dossier: {}, "
+                        + "destinataire: {}",
+                notif.getDossier().getNumber(),
+                notif.getRecipient());
+    }
+
+    private void markAsPortalVisible(Notification notif) {
+        // Aucun envoi externe nécessaire.
+        // La notification est déjà en base — elle sera
+        // retournée dans la réponse findByAccessCode().
+        log.info("Notification portail disponible — dossier: {}",
+                notif.getDossier().getNumber());
+    }
+
+    private Notification getNotificationOrThrow(UUID id) {
+        return notificationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Notification introuvable : " + id));
+    }
+}
