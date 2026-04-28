@@ -29,6 +29,7 @@ public class InvestigationResponse {
     private String extensionReason;
     private Boolean overdue;
     private Long remainingDays;
+    private Integer memberCount;
     private String finalReport;
     private String conclusions;
     private String recommendations;

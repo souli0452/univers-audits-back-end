@@ -9,6 +9,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -17,13 +18,10 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "attachment", indexes = {
-        // Recherche de toutes les pièces d'un dossier
         @Index(name = "idx_attachment_case",
                 columnList = "case_id"),
-        // Recherche des pièces collectées pendant une investigation
         @Index(name = "idx_attachment_investigation",
                 columnList = "investigation_id"),
-        // Filtrage par statut de validation
         @Index(name = "idx_attachment_status",
                 columnList = "status")
 })
@@ -37,34 +35,55 @@ public class Attachment extends AuditEntity {
     @JoinColumn(name = "investigation_id")
     private Investigation investigation;
 
+    // ── Fichier ───────────────────────────────────────────
+
     @Column(name = "file_name", nullable = false, length = 255)
     private String fileName;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false, length = 20)
-    private AttachmentType type;
+    @Column(name = "original_name", length = 255)
+    private String originalName;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "source", nullable = false, length = 25)
-    private AttachmentSource source;
-
-    @Column(name = "mime_type", nullable = false, length = 100)
-    private String mimeType;
-
-    @Column(name = "file_size_bytes", nullable = false)
-    private Long fileSizeBytes;
+    @Column(name = "stored_name", length = 255)
+    private String storedName;
 
     @Column(name = "file_path", nullable = false, length = 500)
     private String filePath;
 
+    @Column(name = "content_type", length = 100)
+    private String contentType;
 
-    @Column(name = "hash_sha256", nullable = false, length = 64)
-    private String hashSha256;
+    @Column(name = "mime_type", length = 100)
+    private String mimeType;
+
+    @Column(name = "file_size_bytes")
+    private Long fileSizeBytes;
+
+    @Column(name = "file_size")
+    private Long fileSize;
+
+    @Column(name = "uploaded_at")
+    private LocalDateTime uploadedAt;
+
+    // ── Classification ────────────────────────────────────
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 20)
+    private AttachmentType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", length = 25)
+    private AttachmentSource source;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 25)
     @Builder.Default
-    private AttachmentStatus status = AttachmentStatus.PENDING_VALIDATION;
+    private AttachmentStatus status =
+            AttachmentStatus.PENDING_VALIDATION;
+
+    // ── Métadonnées ───────────────────────────────────────
+
+    @Column(name = "hash_sha256", length = 64)
+    private String hashSha256;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
@@ -72,15 +91,8 @@ public class Attachment extends AuditEntity {
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
-
-    @Column(name = "validated_at")
-    private Instant validatedAt;
-
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "validated_by_id")
-    private Agent validatedBy;
-
+    @Column(name = "thumbnail_path", length = 500)
+    private String thumbnailPath;
 
     @Column(name = "direct_capture")
     private Boolean directCapture;
@@ -91,9 +103,16 @@ public class Attachment extends AuditEntity {
     @Column(name = "longitude")
     private Double longitude;
 
-    @Column(name = "thumbnail_path", length = 500)
-    private String thumbnailPath;
+    // ── Validation ────────────────────────────────────────
 
+    @Column(name = "validated_at")
+    private Instant validatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "validated_by_id")
+    private Agent validatedBy;
+
+    // ── Méthodes métier ───────────────────────────────────
 
     public void validate(Agent agent) {
         this.status = AttachmentStatus.VALIDATED;
@@ -108,11 +127,9 @@ public class Attachment extends AuditEntity {
         this.validatedAt = Instant.now();
     }
 
-
     public boolean isImage() {
         return mimeType != null && mimeType.startsWith("image/");
     }
-
 
     public boolean hasGpsCoordinates() {
         return latitude != null && longitude != null;

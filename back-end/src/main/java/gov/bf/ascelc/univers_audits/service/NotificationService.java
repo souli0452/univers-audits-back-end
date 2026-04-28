@@ -20,19 +20,15 @@ public interface NotificationService {
     // Envoie immédiatement une notification spécifique
     NotificationResponse sendNow(UUID notificationId);
 
-    // Annule une notification planifiée avant son envoi
     NotificationResponse cancel(UUID notificationId,
                                 String reason);
 
-    // Relance une notification échouée (max 3 tentatives)
+
     NotificationResponse retry(UUID notificationId);
 
-    // ── Envoi automatique (appelé par le scheduler) ───────────────
 
-    // Traite toutes les notifications en attente dont la date
-    // limite est dépassée — appelé toutes les 15 minutes
     void processPendingNotifications();
 
-    // Envoie les alertes de délai pour les dossiers en retard
+
     void sendDeadlineAlerts();
 }

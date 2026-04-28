@@ -17,5 +17,7 @@ public enum NotificationType {
     // Décision finale du CGE
     FINAL_DECISION,
     // Alerte interne : délai légal dépassé
-    DEADLINE_ALERT
+    DEADLINE_ALERT,
+
+    INTERNAL_ALERT
 }

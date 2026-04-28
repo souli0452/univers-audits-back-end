@@ -21,26 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-/**
- * ═══════════════════════════════════════════════════════════════
- *  DossierController — API REST des dossiers ASCE-LC
- * ═══════════════════════════════════════════════════════════════
- *
- *  BASE URL : /api/v1/dossiers
- *
- *  WORKFLOW MANUEL B :
- *  POST   /public/submit          → Citoyen soumet (sans auth)
- *  GET    /public/track/{code}    → Citoyen suit (sans auth)
- *  PATCH  /{id}/register          → BRPD enregistre (SOUMIS→RECU)
- *  PATCH  /{id}/start-study       → Conseiller démarre étude
- *  PATCH  /{id}/request-complement→ Complément demandé
- *  PATCH  /{id}/complement-received→ Complément reçu
- *  PATCH  /{id}/submit-ctadp      → Soumis au CTADP
- *  PATCH  /{id}/declare-admissible → CGE : RECEVABLE
- *  PATCH  /{id}/declare-inadmissible→ CGE : IRRECEVABLE
- *  PATCH  /{id}/transfer          → CGE : TRANSFERE
- *  PATCH  /{id}/close             → Clôture finale
- */
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor

@@ -12,22 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 
-/**
- * ═══════════════════════════════════════════════════════════════
- *  StatistiqueController — API REST des statistiques Processus D
- * ═══════════════════════════════════════════════════════════════
- *
- *  BASE URL : /api/v1/stats
- *
- *  Fournit les indicateurs de performance en temps réel
- *  pour les tableaux de bord Angular et les rapports officiels
- *  du Processus D du Manuel ASCE-LC :
- *
- *  - Volume et tendances (dossiers par période, par canal)
- *  - Résultats du traitement (recevables, classés, transférés)
- *  - Impact financier (montants en cause en FCFA)
- *  - Ratios de performance (délais moyens)
- */
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor

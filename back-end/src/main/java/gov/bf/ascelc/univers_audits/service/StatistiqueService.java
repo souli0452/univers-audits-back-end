@@ -7,10 +7,10 @@ import java.time.Instant;
 
 public interface StatistiqueService {
 
-    // Tableau de bord global — tous les indicateurs
+
     StatistiqueResponse getDashboard(Instant start, Instant end);
 
-    // Statistiques par période
+
     StatistiqueResponse getQuarterlyStats(int year, int quarter);
 
     StatistiqueResponse getAnnualStats(int year);

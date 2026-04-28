@@ -117,6 +117,23 @@ public class DossierServiceImpl implements DossierService {
             dossier.setAccessCode(accessCode);
 
             Dossier saved = dossierRepository.save(dossier);
+            // Notification interne agents BRPD si dénonciation audio
+            if (request.getSubmissionMode() != null &&
+                    (request.getSubmissionMode().name().contains("AUDIO") ||
+                            request.getSubmissionMode() == gov.bf.ascelc.univers_audits.enums.SubmissionMode.PHONE)) {
+
+                createNotification(saved,
+                        NotificationType.INTERNAL_ALERT,
+                        NotificationChannel.PORTAL,
+                        "ALERTE — Denonciation audio a traiter",
+                        "Un citoyen a soumis une denonciation vocale. " +
+                                "Veuillez ecouter l'enregistrement et constituer le dossier. " +
+                                "Code: " + saved.getAccessCode(),
+                        Instant.now());
+
+                log.info("Alerte BRPD generee pour denonciation audio — code: {}",
+                        saved.getAccessCode());
+            }
 
             recordStatusChange(
                     saved, null, DossierStatus.SOUMIS,

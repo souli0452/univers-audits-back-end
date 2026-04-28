@@ -6,6 +6,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationCreateRequest
 import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -21,21 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-/**
- *
- *  BASE URL : /api/v1/investigations
- *
- *  CYCLE DE VIE (90 jours Manuel B) :
- *  POST /dossier/{id}/open     → CGEA ouvre l'investigation
- *  PATCH /{id}/start           → Démarrage officiel (chrono 90j)
- *  PATCH /{id}/suspend         → Suspension temporaire
- *  PATCH /{id}/resume          → Reprise
- *  PATCH /{id}/extend-deadline → Extension délai (CGEA)
- *  PATCH /{id}/submit-report   → Rapport final soumis
- *  PATCH /{id}/approve-dei     → Approbation DEI (15j)
- *  PATCH /{id}/approve-legal   → Approbation Conseiller (10j)
- *  PATCH /{id}/approve-cge     → Décision finale CGE (20j)
- */
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -62,14 +49,17 @@ public class InvestigationController {
         return ResponseEntity.ok(
                 investigationService.findById(id));
     }
-
     @GetMapping("/dossier/{dossierId}")
     @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'CONTROLEUR_ETAT',"
             + "'MEMBRE_CTADP', 'ADMIN_DDIC')")
     public ResponseEntity<InvestigationResponse> findByDossierId(
             @PathVariable UUID dossierId) {
-        return ResponseEntity.ok(
-                investigationService.findByDossierId(dossierId));
+        try {
+            return ResponseEntity.ok(
+                    investigationService.findByDossierId(dossierId));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.noContent().build();
+        }
     }
 
     @GetMapping("/overdue")

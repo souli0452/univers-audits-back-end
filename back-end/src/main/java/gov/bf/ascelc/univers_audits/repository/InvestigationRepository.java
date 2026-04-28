@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.repository;
 
 import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,14 +18,78 @@ import java.util.UUID;
 public interface InvestigationRepository
         extends JpaRepository<Investigation, UUID> {
 
-    Optional<Investigation> findByDossierId(UUID dossierId);
+    @Query("""
+            SELECT DISTINCT i FROM Investigation i
+            LEFT JOIN FETCH i.members m
+            LEFT JOIN FETCH m.agent
+            WHERE i.id = :id
+            """)
+    Optional<Investigation> findById(@Param("id") UUID id);
+
+    @Query("""
+            SELECT DISTINCT i FROM Investigation i
+            LEFT JOIN FETCH i.members m
+            LEFT JOIN FETCH m.agent
+            WHERE i.dossier.id = :dossierId
+            """)
+    Optional<Investigation> findByDossierId(
+            @Param("dossierId") UUID dossierId);
 
     boolean existsByDossierId(UUID dossierId);
 
-    List<Investigation> findByStatus(InvestigationStatus status);
+
+
+    @Query(
+            value = """
+                SELECT DISTINCT i FROM Investigation i
+                LEFT JOIN FETCH i.members m
+                LEFT JOIN FETCH m.agent
+                """,
+            countQuery = """
+                SELECT COUNT(DISTINCT i) FROM Investigation i
+                """
+    )
+    Page<Investigation> findAllWithMembers(Pageable pageable);
+
+
 
     @Query("""
-            SELECT i FROM Investigation i
+            SELECT DISTINCT i FROM Investigation i
+            LEFT JOIN FETCH i.members m
+            LEFT JOIN FETCH m.agent
+            WHERE i.status = :status
+            """)
+    List<Investigation> findByStatus(
+            @Param("status") InvestigationStatus status);
+
+    @Query("""
+            SELECT DISTINCT i FROM Investigation i
+            LEFT JOIN FETCH i.members m
+            LEFT JOIN FETCH m.agent
+            WHERE i.status = 'IN_PROGRESS'
+            AND (
+                (i.extendedDeadline IS NOT NULL
+                 AND i.extendedDeadline < :now)
+                OR
+                (i.extendedDeadline IS NULL
+                 AND i.plannedEndDate IS NOT NULL
+                 AND i.plannedEndDate < :now)
+            )
+            ORDER BY i.plannedEndDate ASC
+            """)
+    List<Investigation> findOverdue(@Param("now") Instant now);
+
+
+    @Query("""
+            SELECT i.status, COUNT(i)
+            FROM Investigation i
+            GROUP BY i.status
+            """)
+    List<Object[]> countByStatus();
+
+    @Query("""
+            SELECT COUNT(i)
+            FROM Investigation i
             WHERE i.status = 'IN_PROGRESS'
             AND (
                 (i.extendedDeadline IS NOT NULL
@@ -32,24 +98,25 @@ public interface InvestigationRepository
                 (i.extendedDeadline IS NULL
                  AND i.plannedEndDate < :now)
             )
-            ORDER BY i.plannedEndDate ASC
             """)
-    List<Investigation> findOverdue(@Param("now") Instant now);
+    long countOverdue(@Param("now") Instant now);
 
-    @Query("""
-        SELECT AVG((i.actualEndDate - i.startDate) by day)
-        FROM Investigation i
-        WHERE i.status = 'COMPLETED'
-        AND i.startDate BETWEEN :start AND :end
-        """)
+
+    @Query(
+            value = """
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (i.actual_end_date - i.start_date))
+                    / 86400.0
+                )
+                FROM investigation i
+                WHERE i.actual_end_date IS NOT NULL
+                  AND i.start_date      IS NOT NULL
+                  AND i.start_date >= :start
+                  AND i.start_date <  :end
+                """,
+            nativeQuery = true
+    )
     Double avgDurationInDays(
             @Param("start") Instant start,
-            @Param("end") Instant end);
-
-    @Query("""
-            SELECT i.status, COUNT(i)
-            FROM Investigation i
-            GROUP BY i.status
-            """)
-    List<Object[]> countByStatus();
+            @Param("end")   Instant end);
 }

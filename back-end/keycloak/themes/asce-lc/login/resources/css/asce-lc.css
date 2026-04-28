@@ -1,0 +1,331 @@
+/* ═══════════════════════════════════════════════════════
+   Thème ASCE-LC — Autorité Supérieure de Contrôle d'État
+   Couleurs : Vert institutionnel + Or
+   ═══════════════════════════════════════════════════════ */
+
+/* Variables couleurs ASCE-LC */
+:root {
+    --asce-vert:        #1a6b3c;
+    --asce-vert-fonce:  #0f4a28;
+    --asce-vert-clair:  #2d8a52;
+    --asce-or:          #c9a227;
+    --asce-or-clair:    #e8c547;
+    --asce-blanc:       #ffffff;
+    --asce-gris-clair:  #f5f5f5;
+    --asce-gris:        #e0e0e0;
+    --asce-texte:       #1a1a1a;
+    --asce-texte-doux:  #555555;
+}
+
+/* ── Body et fond ──────────────────────────────────────── */
+body {
+    background: linear-gradient(
+        135deg,
+        #0f4a28 0%,
+        #1a6b3c 40%,
+        #1e7d44 70%,
+        #0f4a28 100%
+    ) !important;
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ── Conteneur principal ───────────────────────────────── */
+.login-pf body {
+    background: linear-gradient(
+        135deg,
+        #0f4a28 0%,
+        #1a6b3c 50%,
+        #0f4a28 100%
+    ) !important;
+}
+
+#kc-header {
+    display: none;
+}
+
+/* ── Card de connexion ─────────────────────────────────── */
+.card-pf {
+    border-radius: 16px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4) !important;
+    border: none !important;
+    overflow: hidden;
+    max-width: 440px !important;
+    margin: 0 auto;
+}
+
+/* En-tête de la card avec logo */
+.card-pf::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(
+        90deg,
+        var(--asce-or),
+        var(--asce-or-clair),
+        var(--asce-or)
+    );
+}
+
+/* ── Logo et titre ─────────────────────────────────────── */
+#kc-header-wrapper {
+    background: var(--asce-vert) !important;
+    padding: 32px 24px 24px !important;
+    text-align: center;
+    border-bottom: 3px solid var(--asce-or);
+}
+
+.login-pf-header {
+    background: var(--asce-vert) !important;
+    padding: 32px 24px 20px !important;
+    text-align: center;
+}
+
+/* Logo ASCE-LC simulé avec CSS */
+.login-pf-header::before {
+    content: '🛡️';
+    display: block;
+    font-size: 48px;
+    margin-bottom: 8px;
+}
+
+.login-pf-header h1 {
+    color: var(--asce-blanc) !important;
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    margin: 0 0 4px 0 !important;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.login-pf-header h1::after {
+    content: 'ASCE-LC';
+}
+
+/* Sous-titre */
+.login-pf-header p,
+.login-pf-header .subtitle {
+    color: var(--asce-or-clair) !important;
+    font-size: 12px !important;
+    margin: 0 !important;
+}
+
+/* ── Formulaire ────────────────────────────────────────── */
+.login-pf-page .card-pf {
+    padding: 0 !important;
+}
+
+#kc-form {
+    padding: 28px 32px 24px !important;
+    background: var(--asce-blanc) !important;
+}
+
+#kc-form-login {
+    padding: 28px 32px 24px !important;
+}
+
+/* Labels */
+.pf-c-form__label,
+label,
+.control-label {
+    color: var(--asce-texte) !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    margin-bottom: 6px !important;
+    display: block;
+}
+
+/* Champs de saisie */
+.pf-c-form-control,
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+    border: 2px solid var(--asce-gris) !important;
+    border-radius: 8px !important;
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    background: var(--asce-blanc) !important;
+    color: var(--asce-texte) !important;
+}
+
+.pf-c-form-control:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus {
+    border-color: var(--asce-vert) !important;
+    box-shadow: 0 0 0 3px rgba(26, 107, 60, 0.15) !important;
+    outline: none !important;
+}
+
+/* ── Bouton principal ──────────────────────────────────── */
+.pf-c-button.pf-m-primary,
+#kc-login,
+input[type="submit"],
+.btn-primary {
+    background: linear-gradient(
+        135deg,
+        var(--asce-vert),
+        var(--asce-vert-clair)
+    ) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 12px 24px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: var(--asce-blanc) !important;
+    width: 100% !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    margin-top: 8px !important;
+}
+
+.pf-c-button.pf-m-primary:hover,
+#kc-login:hover,
+input[type="submit"]:hover,
+.btn-primary:hover {
+    background: linear-gradient(
+        135deg,
+        var(--asce-vert-fonce),
+        var(--asce-vert)
+    ) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(26, 107, 60, 0.4) !important;
+}
+
+/* ── Messages d'erreur ─────────────────────────────────── */
+#kc-error-message,
+.alert-error,
+.pf-c-alert.pf-m-danger {
+    background: #fef2f2 !important;
+    border: 1px solid #fca5a5 !important;
+    border-radius: 8px !important;
+    color: #dc2626 !important;
+    padding: 12px 16px !important;
+    margin-bottom: 16px !important;
+    font-size: 13px !important;
+}
+
+/* ── Messages de succès ────────────────────────────────── */
+.alert-success,
+.pf-c-alert.pf-m-success {
+    background: #f0fdf4 !important;
+    border: 1px solid #86efac !important;
+    border-radius: 8px !important;
+    color: var(--asce-vert) !important;
+    padding: 12px 16px !important;
+}
+
+/* ── Liens ─────────────────────────────────────────────── */
+a,
+a:visited {
+    color: var(--asce-vert) !important;
+    text-decoration: none !important;
+    font-size: 13px !important;
+}
+
+a:hover {
+    color: var(--asce-vert-clair) !important;
+    text-decoration: underline !important;
+}
+
+/* ── Footer ────────────────────────────────────────────── */
+#kc-info,
+.login-pf-footer,
+.pf-c-login__footer {
+    text-align: center !important;
+    padding: 16px !important;
+    background: var(--asce-gris-clair) !important;
+    border-top: 1px solid var(--asce-gris) !important;
+    font-size: 11px !important;
+    color: var(--asce-texte-doux) !important;
+}
+
+#kc-info::after {
+    content: 'ASCE-LC — Burkina Faso | Numéro vert : 80 00 11 57';
+    display: block;
+    margin-top: 4px;
+    color: var(--asce-texte-doux);
+    font-size: 11px;
+}
+
+/* ── Titre du formulaire ───────────────────────────────── */
+#kc-page-title,
+.login-pf-header h2 {
+    color: var(--asce-texte) !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 12px !important;
+    border-bottom: 2px solid var(--asce-gris) !important;
+}
+
+/* ── Checkbox "Se souvenir de moi" ─────────────────────── */
+#kc-form-options {
+    margin-bottom: 16px !important;
+}
+
+#kc-form-options input[type="checkbox"] {
+    accent-color: var(--asce-vert) !important;
+    width: auto !important;
+}
+
+/* ── Séparateur ────────────────────────────────────────── */
+.separator,
+.pf-c-divider {
+    border-color: var(--asce-gris) !important;
+    margin: 16px 0 !important;
+}
+
+/* ── Responsive mobile ─────────────────────────────────── */
+@media (max-width: 480px) {
+    .card-pf {
+        margin: 0 !important;
+        border-radius: 0 !important;
+        min-height: 100vh;
+    }
+
+    #kc-form,
+    #kc-form-login {
+        padding: 20px 20px !important;
+    }
+}
+
+/* ── Animation d'entrée ────────────────────────────────── */
+.card-pf {
+    animation: slideIn 0.4s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Barre de chargement ───────────────────────────────── */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(
+        90deg,
+        var(--asce-or),
+        var(--asce-or-clair),
+        var(--asce-or)
+    );
+    z-index: 9999;
+}

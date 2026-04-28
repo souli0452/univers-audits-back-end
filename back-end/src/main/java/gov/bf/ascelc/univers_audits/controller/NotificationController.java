@@ -1,6 +1,9 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.enums.NotificationStatus;
 import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
+import gov.bf.ascelc.univers_audits.model.entity.Notification;
+import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
 import lombok.RequiredArgsConstructor;
@@ -15,21 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * ═══════════════════════════════════════════════════════════════
- *  NotificationController — API REST des notifications légales
- * ═══════════════════════════════════════════════════════════════
- *
- *  BASE URL : /api/v1/notifications
- *
- *  Gère les notifications obligatoires du Manuel B :
- *  - Récépissé B4 (immédiat au guichet)
- *  - Accusé B5 signé CGE (dans les 7 jours)
- *  - Demande de complément (dans les 14 jours)
- *  - Réponse d'irrecevabilité (dans les 3 jours après CTADP)
- *  - Notification de transfert (dans les 7 jours)
- *  - Alertes de dépassement de délai
- */
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -37,6 +26,8 @@ import java.util.UUID;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
+
     @GetMapping("/dossier/{dossierId}")
     @PreAuthorize("hasAnyRole('AGENT_BRPD', 'CONSEILLER_JURIDIQUE',"
             + "'CGEA', 'CGE', 'ADMIN_DDIC')")
@@ -93,5 +84,52 @@ public class NotificationController {
         log.info("Relance notification {}", id);
         return ResponseEntity.ok(
                 notificationService.retry(id));
+    }
+
+    @GetMapping("/my")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getMyNotifications(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean unreadOnly) {
+
+        org.springframework.data.domain.PageRequest pageable =
+                org.springframework.data.domain.PageRequest.of(
+                        page, size,
+                        org.springframework.data.domain.Sort
+                                .by("createdAt").descending()
+                );
+
+        org.springframework.data.domain.Page<Notification> result =
+                unreadOnly
+                        ? notificationRepository.findByStatusIn(
+                        java.util.List.of(NotificationStatus.PENDING),
+                        pageable)
+                        : notificationRepository.findAll(pageable);
+
+        return ResponseEntity.ok(java.util.Map.of(
+                "content", result.getContent().stream()
+                        .map(n -> java.util.Map.of(
+                                "id", n.getId().toString(),
+                                "type", n.getType() != null
+                                        ? n.getType().name() : "",
+                                "subject", n.getSubject() != null
+                                        ? n.getSubject() : "",
+                                "content", n.getContent() != null
+                                        ? n.getContent() : "",
+                                "createdAt", n.getCreatedAt() != null
+                                        ? n.getCreatedAt().toString() : "",
+                                "status", n.getStatus() != null
+                                        ? n.getStatus().name() : "",
+                                "dossierId", n.getDossier() != null
+                                        ? n.getDossier().getId().toString() : "",
+                                "dossierNumber", n.getDossier() != null
+                                        && n.getDossier().getNumber() != null
+                                        ? n.getDossier().getNumber() : ""
+                        ))
+                        .toList(),
+                "totalElements", result.getTotalElements(),
+                "totalPages", result.getTotalPages()
+        ));
     }
 }

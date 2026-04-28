@@ -43,6 +43,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/dossiers/public/submit")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/attachments/dossier/**")
+                        .permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/info").permitAll()
                         .requestMatchers(
@@ -51,6 +54,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api-docs/**")
                         .permitAll()
+                        .requestMatchers("/api/v1/pdf/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
@@ -108,17 +112,16 @@ public class SecurityConfig {
                 "Access-Control-Request-Headers"
         ));
 
-        // Headers exposés dans la réponse (visibles par Angular)
+
         config.setExposedHeaders(List.of(
                 "Authorization",
-                "Content-Disposition"              // Pour les téléchargements
+                "Content-Disposition"
         ));
 
-        // Durée de mise en cache de la réponse preflight OPTIONS
-        // 3600 secondes = 1 heure → évite les requêtes OPTIONS répétées
+
         config.setMaxAge(3600L);
 
-        // Appliquer cette configuration à tous les endpoints
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

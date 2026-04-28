@@ -9,10 +9,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Crée l'agent admin initial en base de données au démarrage.
- * Le keycloakId correspond au "sub" du compte Keycloak.
- */
+
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
@@ -29,7 +26,7 @@ public class DataInitializer {
         return args -> {
 
             if (adminKeycloakId == null || adminKeycloakId.isBlank()) {
-                log.warn("⚠️  Property 'asce.admin.keycloak-sub' non configurée "
+                log.warn("Property 'asce.admin.keycloak-sub' non configurée "
                         + "— initialisation admin ignorée");
                 return;
             }
@@ -45,10 +42,10 @@ public class DataInitializer {
                         .build();
 
                 agentRepository.save(admin);
-                log.info("✅ Agent admin créé — matricule: ASCE-ADMIN-003, "
+                log.info("Agent admin créé — matricule: ASCE-ADMIN-003, "
                         + "keycloakId: {}", adminKeycloakId);
             } else {
-                log.info("✅ Agent admin déjà présent en base");
+                log.info("Agent admin déjà présent en base");
             }
         };
     }

@@ -52,6 +52,7 @@ services:
         condition: service_healthy
     volumes:
       - asce_keycloak_data:/opt/keycloak/data
+      - ./keycloak/themes/asce-lc:/opt/keycloak/themes/asce-lc
     networks:
       - asce-network
 

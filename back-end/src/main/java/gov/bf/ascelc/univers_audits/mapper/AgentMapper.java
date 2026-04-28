@@ -10,13 +10,9 @@ import org.mapstruct.*;
 )
 public interface AgentMapper {
 
-    @Mapping(
-            target = "departementLabel",
-            expression = "java(mapDepartement(agent))"
-    )
+    @Mapping(target = "departementLabel", expression = "java(mapDepartement(agent))")
     AgentSummaryResponse toSummaryResponse(Agent agent);
 
-    // Méthode SAFE (évite NullPointerException)
     default String mapDepartement(Agent agent) {
         if (agent == null || agent.getDepartement() == null) {
             return null;

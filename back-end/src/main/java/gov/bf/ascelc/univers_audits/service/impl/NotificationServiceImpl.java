@@ -26,18 +26,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- *  • Récépissé B4    : remis immédiatement au guichet
- *  • Accusé B5       : envoyé dans les 7 jours (signé CGE)
- *  • Complément      : délai 14 jours pour le déclarant
- *  • Décision        : irrecevabilité motivée sous 3 jours
- *  • Transfert       : notification de transfert sous 7 jours
- *  • Alertes délai   : avertissement si deadline proche
- *
- *  Canaux d'envoi :
- *  EMAIL
- *  SMS
- */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -138,7 +127,7 @@ public class NotificationServiceImpl
     public void processPendingNotifications() {
         log.info("Traitement des notifications en attente...");
 
-        // Notifications dont la date limite est dépassée
+
         List<Notification> overdueNotifs =
                 notificationRepository.findOverdue(Instant.now());
 
@@ -157,7 +146,7 @@ public class NotificationServiceImpl
             }
         }
 
-        // Relancer les notifications échouées (< 3 tentatives)
+
         List<Notification> retryable =
                 notificationRepository.findRetryable();
 
@@ -290,9 +279,7 @@ public class NotificationServiceImpl
     }
 
     private void markAsPortalVisible(Notification notif) {
-        // Aucun envoi externe nécessaire.
-        // La notification est déjà en base — elle sera
-        // retournée dans la réponse findByAccessCode().
+
         log.info("Notification portail disponible — dossier: {}",
                 notif.getDossier().getNumber());
     }

@@ -15,11 +15,13 @@ import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -38,7 +40,6 @@ public class InvestigationServiceImpl
     private final InvestigationMapper           investigationMapper;
     private final SecurityUtils                 securityUtils;
 
-
     @Override
     public InvestigationResponse findById(UUID id) {
         return investigationMapper.toResponse(
@@ -47,6 +48,7 @@ public class InvestigationServiceImpl
 
     @Override
     public InvestigationResponse findByDossierId(UUID dossierId) {
+
         Investigation inv = investigationRepository
                 .findByDossierId(dossierId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -56,18 +58,34 @@ public class InvestigationServiceImpl
 
     @Override
     public Page<InvestigationResponse> findAll(Pageable pageable) {
-        return investigationRepository.findAll(pageable)
+
+        return investigationRepository
+                .findAllWithMembers(pageable)
                 .map(investigationMapper::toResponse);
     }
 
     @Override
-    public Page<InvestigationResponse> findOverdue(
-            Pageable pageable) {
+    public Page<InvestigationResponse> findOverdue(Pageable pageable) {
 
-        return investigationRepository
-                .findAll(pageable)
-                .map(investigationMapper::toResponse);
+        List<Investigation> overdueList =
+                investigationRepository.findOverdue(Instant.now());
+
+        int start = (int) pageable.getOffset();
+        int end   = Math.min(start + pageable.getPageSize(),
+                overdueList.size());
+
+        List<InvestigationResponse> pageContent =
+                (start >= overdueList.size()
+                        ? List.<Investigation>of()
+                        : overdueList.subList(start, end))
+                        .stream()
+                        .map(investigationMapper::toResponse)
+                        .toList();
+
+        return new PageImpl<>(pageContent, pageable, overdueList.size());
     }
+
+
 
     @Override
     @Transactional
@@ -75,7 +93,6 @@ public class InvestigationServiceImpl
             UUID dossierId,
             InvestigationCreateRequest request,
             String ipAddress) {
-
 
         Dossier dossier = dossierRepository.findById(dossierId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -93,9 +110,7 @@ public class InvestigationServiceImpl
                     "Une investigation existe déjà pour ce dossier");
         }
 
-
         Agent cgea = getCurrentAgent();
-
 
         Investigation investigation = Investigation.builder()
                 .dossier(dossier)
@@ -107,13 +122,10 @@ public class InvestigationServiceImpl
                                 : 90)
                 .build();
 
-        Investigation saved = investigationRepository
-                .save(investigation);
-
+        Investigation saved = investigationRepository.save(investigation);
 
         dossier.setStatus(DossierStatus.EN_INVESTIGATION);
         dossierRepository.save(dossier);
-
 
         recordDossierStatusChange(dossier,
                 DossierStatus.RECEVABLE,
@@ -121,16 +133,13 @@ public class InvestigationServiceImpl
                 "Investigation ouverte par le CGEA",
                 cgea, ipAddress);
 
-
         addObservation(dossier,
                 ObservationType.INTERNAL_NOTE,
                 "Investigation ouverte. Durée prévue : "
-                        + saved.getPlannedDurationDays()
-                        + " jours.",
+                        + saved.getPlannedDurationDays() + " jours.",
                 true, cgea);
 
-        log.info("Investigation ouverte — dossier: {}",
-                dossier.getNumber());
+        log.info("Investigation ouverte — dossier: {}", dossier.getNumber());
         return investigationMapper.toResponse(saved);
     }
 
@@ -139,18 +148,10 @@ public class InvestigationServiceImpl
     public InvestigationResponse start(UUID investigationId,
                                        String ipAddress) {
 
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
-
-
-        boolean hasLeader = memberRepository
-                .existsByInvestigationIdAndAgentIdAndActiveTrue(
-                        investigationId,
-                        getCurrentAgent().getId());
+        Investigation inv = getInvestigationOrThrow(investigationId);
 
         long memberCount = memberRepository
-                .countByInvestigationIdAndActiveTrue(
-                        investigationId);
+                .countByInvestigationIdAndActiveTrue(investigationId);
 
         if (memberCount == 0) {
             throw new BusinessException(
@@ -158,9 +159,7 @@ public class InvestigationServiceImpl
                             + "au moins un membre avant le démarrage");
         }
 
-
         inv.start();
-
         Investigation saved = investigationRepository.save(inv);
 
         addObservation(inv.getDossier(),
@@ -180,15 +179,12 @@ public class InvestigationServiceImpl
                                          String reason,
                                          String ipAddress) {
 
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
 
         if (inv.getStatus() != InvestigationStatus.IN_PROGRESS) {
             throw new BusinessException(
-                    "Seule une investigation en cours "
-                            + "peut être suspendue");
+                    "Seule une investigation en cours peut être suspendue");
         }
-
 
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(
@@ -212,13 +208,11 @@ public class InvestigationServiceImpl
                                         String reason,
                                         String ipAddress) {
 
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
 
         if (inv.getStatus() != InvestigationStatus.SUSPENDED) {
             throw new BusinessException(
-                    "Seule une investigation suspendue "
-                            + "peut être reprise");
+                    "Seule une investigation suspendue peut être reprise");
         }
 
         inv.setStatus(InvestigationStatus.IN_PROGRESS);
@@ -227,13 +221,11 @@ public class InvestigationServiceImpl
 
         addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
-                "Investigation reprise. " + (reason != null
-                        ? reason : ""),
+                "Investigation reprise. " + (reason != null ? reason : ""),
                 true, getCurrentAgent());
 
         return investigationMapper.toResponse(saved);
     }
-
 
     @Override
     @Transactional
@@ -242,11 +234,9 @@ public class InvestigationServiceImpl
             ExtendDeadlineRequest request,
             String ipAddress) {
 
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
         Agent cgea = getCurrentAgent();
 
-        // Extension enregistrée avec trace complète
         inv.extendDeadline(
                 request.getNewDeadline(),
                 request.getReason(),
@@ -273,8 +263,7 @@ public class InvestigationServiceImpl
             InvestigationUpdateRequest request,
             String ipAddress) {
 
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
 
         if (inv.getStatus() != InvestigationStatus.IN_PROGRESS) {
             throw new BusinessException(
@@ -287,7 +276,6 @@ public class InvestigationServiceImpl
         inv.setRecommendations(request.getRecommendations());
         inv.setOutcome(request.getOutcome());
         inv.complete();
-
 
         Dossier dossier = inv.getDossier();
         dossier.setStatus(DossierStatus.RAPPORT_PRODUIT);
@@ -307,19 +295,18 @@ public class InvestigationServiceImpl
                         + request.getConclusions(),
                 true, getCurrentAgent());
 
-        log.info("Rapport soumis — investigation: {}",
-                investigationId);
+        log.info("Rapport soumis — investigation: {}", investigationId);
         return investigationMapper.toResponse(saved);
     }
+
+
 
     @Override
     @Transactional
     public InvestigationResponse approveDei(UUID investigationId,
                                             String ipAddress) {
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
         Agent agent = getCurrentAgent();
-
 
         inv.setDeiApprovedAt(Instant.now());
         inv.setDeiApprovedBy(agent);
@@ -337,11 +324,9 @@ public class InvestigationServiceImpl
     @Transactional
     public InvestigationResponse approveLegalAdvisor(
             UUID investigationId, String ipAddress) {
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
         Agent agent = getCurrentAgent();
 
-        // Conseiller juridique dispose de 10 jours ouvrables
         inv.setLegalAdvisorApprovedAt(Instant.now());
         inv.setLegalAdvisorApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
@@ -359,8 +344,7 @@ public class InvestigationServiceImpl
     public InvestigationResponse approveCge(UUID investigationId,
                                             String reason,
                                             String ipAddress) {
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
         Agent cge = getCurrentAgent();
 
         inv.setCgeApprovedAt(Instant.now());
@@ -384,10 +368,11 @@ public class InvestigationServiceImpl
                 "Décision finale rendue par le CGE. " + reason,
                 true, cge);
 
-        log.info("Décision CGE rendue — dossier: {}",
-                dossier.getNumber());
+        log.info("Décision CGE rendue — dossier: {}", dossier.getNumber());
         return investigationMapper.toResponse(saved);
     }
+
+
 
     @Override
     @Transactional
@@ -396,31 +381,23 @@ public class InvestigationServiceImpl
             AddMemberRequest request,
             String ipAddress) {
 
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
 
         if (inv.getStatus() == InvestigationStatus.COMPLETED
-                || inv.getStatus()
-                == InvestigationStatus.ARCHIVED) {
+                || inv.getStatus() == InvestigationStatus.ARCHIVED) {
             throw new BusinessException(
-                    "Impossible d'ajouter un membre à une "
-                            + "investigation terminée");
+                    "Impossible d'ajouter un membre à une investigation terminée");
         }
 
-        // Vérifier que l'agent n'est pas déjà dans l'équipe
-        if (memberRepository
-                .existsByInvestigationIdAndAgentIdAndActiveTrue(
-                        investigationId, request.getAgentId())) {
+        if (memberRepository.existsByInvestigationIdAndAgentIdAndActiveTrue(
+                investigationId, request.getAgentId())) {
             throw new BusinessException(
-                    "Cet agent est déjà membre de cette "
-                            + "investigation");
+                    "Cet agent est déjà membre de cette investigation");
         }
 
-        Agent agent = agentRepository
-                .findById(request.getAgentId())
+        Agent agent = agentRepository.findById(request.getAgentId())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Agent introuvable : "
-                                + request.getAgentId()));
+                        "Agent introuvable : " + request.getAgentId()));
 
         Agent currentAgent = getCurrentAgent();
 
@@ -441,6 +418,7 @@ public class InvestigationServiceImpl
                         + " (" + request.getTeamRole() + ")",
                 true, currentAgent);
 
+
         return investigationMapper.toResponse(
                 getInvestigationOrThrow(investigationId));
     }
@@ -452,10 +430,8 @@ public class InvestigationServiceImpl
             UUID agentId,
             String ipAddress) {
 
-        Investigation inv = getInvestigationOrThrow(
-                investigationId);
+        Investigation inv = getInvestigationOrThrow(investigationId);
         Agent currentAgent = getCurrentAgent();
-
 
         var members = memberRepository
                 .findByInvestigationIdAndActiveTrue(investigationId);
@@ -475,11 +451,15 @@ public class InvestigationServiceImpl
                         + member.getAgent().getNomComplet(),
                 true, currentAgent);
 
+
         return investigationMapper.toResponse(
                 getInvestigationOrThrow(investigationId));
     }
 
+
+
     private Investigation getInvestigationOrThrow(UUID id) {
+
         return investigationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Investigation introuvable : " + id));
@@ -491,8 +471,7 @@ public class InvestigationServiceImpl
                         "Agent non authentifié"));
         return agentRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> new BusinessException(
-                        "Agent introuvable. "
-                                + "Contactez l'administrateur DDIC."));
+                        "Agent introuvable. Contactez l'administrateur DDIC."));
     }
 
     private void addObservation(Dossier dossier,
