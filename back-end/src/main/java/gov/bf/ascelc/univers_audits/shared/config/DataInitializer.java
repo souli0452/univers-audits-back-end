@@ -34,7 +34,7 @@ public class DataInitializer {
             if (!agentRepository.existsByKeycloakId(adminKeycloakId)) {
                 Agent admin = Agent.builder()
                         .keycloakId(adminKeycloakId)
-                        .matricule("ASCE-ADMIN-003")
+                        .matricule("ASCE-ADMIN-001")
                         .firstName("Admin")
                         .lastName("ASCE")
                         .email("dsi@asce-lc.bf")
@@ -42,7 +42,7 @@ public class DataInitializer {
                         .build();
 
                 agentRepository.save(admin);
-                log.info("Agent admin créé — matricule: ASCE-ADMIN-003, "
+                log.info("Agent admin créé — matricule: ASCE-ADMIN-001, "
                         + "keycloakId: {}", adminKeycloakId);
             } else {
                 log.info("Agent admin déjà présent en base");

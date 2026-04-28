@@ -1,11 +1,6 @@
-# ════════════════════════════════════════════════════════════════
-#  Docker Compose
-#  Commande : docker-compose up -d
-# ════════════════════════════════════════════════════════════════
-
 services:
 
-  # ── PostgreSQL ────────────────────────────────────────────────
+  # ── POSTGRESQL ────────────────────────────────────────────────
   postgres:
     image: postgres:16
     container_name: asce_postgres
@@ -13,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: bd_univers_audit
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
@@ -27,7 +22,7 @@ services:
     networks:
       - asce-network
 
-  # ── Keycloak ──────────────────────────────────────────────────
+  # ── KEYCLOAK ──────────────────────────────────────────────────
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.4
     container_name: asce_keycloak
@@ -36,34 +31,27 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/bd_univers_audit
       KC_DB_USERNAME: postgres
-      KC_DB_PASSWORD: admin
-      KC_DB_SCHEMA: keycloak
+      KC_DB_PASSWORD: postgres
+
       KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
       KC_LOG_LEVEL: INFO
     ports:
       - "8080:8080"
+    volumes:
+      - ./keycloak/import:/opt/keycloak/data/import
+      - ./keycloak/themes:/opt/keycloak/themes
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1" ]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 60s
-    volumes:
-      - asce_keycloak_data:/opt/keycloak/data
-      - ./keycloak/import:/opt/keycloak/data/import
-      - ./keycloak/themes/asce-lc:/opt/keycloak/themes/asce-lc
     networks:
       - asce-network
 
-  # ── Redis ─────────────────────────────────────────────────────
+  # ── REDIS ─────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: asce_redis
@@ -71,25 +59,12 @@ services:
     command: redis-server --requirepass Asce2021 --appendonly yes
     ports:
       - "6379:6379"
-    volumes:
-      - asce_redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "Asce2021", "--no-auth-warning", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - asce-network
 
 volumes:
   asce_postgres_data:
-    driver: local
-  asce_keycloak_data:
-    driver: local
-  asce_redis_data:
-    driver: local
 
 networks:
   asce-network:
     driver: bridge
-    name: asce-network
