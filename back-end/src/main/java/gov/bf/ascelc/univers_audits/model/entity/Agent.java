@@ -6,8 +6,6 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 @Getter
 @Setter
@@ -59,22 +57,7 @@ public class Agent extends AuditEntity {
     @JoinColumn(name = "departement_id")
     private Departement departement;
 
-    @OneToMany(mappedBy = "agent",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true)
-    @Builder.Default
-    private List<AgentRole> roles = new ArrayList<>();
-
     public String getNomComplet() {
         return firstName + " " + lastName;
     }
-
-    public boolean aLe(String codeRole) {
-        return roles.stream()
-                .filter(ar -> Boolean.TRUE.equals(ar.getActif()))
-                .anyMatch(ar -> ar.getRoleFonctionnel()
-                        .getCode()
-                        .equals(codeRole));
-    }
-
 }

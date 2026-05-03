@@ -4,24 +4,22 @@ import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.NotificationChannel;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.enums.ObservationType;
-import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
-import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.mapper.DeclarantMapper;
 import gov.bf.ascelc.univers_audits.mapper.DossierMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
-import gov.bf.ascelc.univers_audits.model.dto.response.TargetedPartyResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierService;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jboss.logging.MDC;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,10 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.Year;
-import java.util.List;
-import java.util.UUID;
 import java.util.Optional;
-
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -51,12 +47,13 @@ public class DossierServiceImpl implements DossierService {
     private final AccessCodeGenerator     accessCodeGenerator;
     private final SecurityUtils           securityUtils;
 
+    // ── Lecture ───────────────────────────────────────────────
+
     @Override
     public DossierResponse findById(UUID id) {
         Dossier dossier = getDossierOrThrow(id);
         DossierResponse response = dossierMapper.toResponse(dossier);
-        Agent agent = getCurrentAgent();
-        return maskSensitiveData(response, agent);
+        return maskSensitiveData(response);
     }
 
     @Override
@@ -65,17 +62,16 @@ public class DossierServiceImpl implements DossierService {
                 .findByAccessCode(accessCode)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Dossier introuvable avec ce code d'accès"));
-        return dossierMapper.toResponse(dossier);
+        // Le portail public ne voit jamais les données masquées
+        return maskSensitiveData(dossierMapper.toResponse(dossier));
     }
 
     @Override
     public Page<DossierResponse> findByStatus(
             DossierStatus status, Pageable pageable) {
-        Agent agent = getCurrentAgent();
         return dossierRepository
                 .findByStatus(status, pageable)
-                .map(dossier -> maskSensitiveData(
-                        dossierMapper.toResponse(dossier), agent));
+                .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
     }
 
     @Override
@@ -83,81 +79,70 @@ public class DossierServiceImpl implements DossierService {
         Agent agent = getCurrentAgent();
         return dossierRepository
                 .findByAgentInChargeId(agent.getId(), pageable)
-                .map(dossier -> maskSensitiveData(
-                        dossierMapper.toResponse(dossier), agent));
+                .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
     }
 
     @Override
     public Page<DossierResponse> findAll(Pageable pageable) {
-        Agent agent = getCurrentAgent();
         return dossierRepository.findAll(pageable)
-                .map(dossier -> maskSensitiveData(
-                        dossierMapper.toResponse(dossier), agent));
+                .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
     }
+
+    // ── Soumission publique ───────────────────────────────────
 
     @Override
-    @Transactional(rollbackFor = {Exception.class, BusinessException.class})
+    @Transactional(rollbackFor = Exception.class)
     public DossierResponse submit(DossierCreateRequest request,
                                   String ipAddress) {
-        MDC.put("dossier_type", Optional.ofNullable(request.getType()).map(Enum::name).orElse("UNKNOWN"));
-        MDC.put("submission_mode", Optional.ofNullable(request.getSubmissionMode()).map(Enum::name).orElse("UNKNOWN"));
-        MDC.put("client_ip", ipAddress);
-        try {
-            log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
+        log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
 
-            Declarant declarant = resolveDeclarant(request);
-            Dossier dossier = dossierMapper.toEntity(request);
-            dossier.setDeclarant(declarant);
-            dossier.setStatus(DossierStatus.SOUMIS);
+        Declarant declarant = resolveDeclarant(request);
+        Dossier dossier = dossierMapper.toEntity(request);
+        dossier.setDeclarant(declarant);
+        dossier.setStatus(DossierStatus.SOUMIS);
 
-            String accessCode;
-            do {
-                accessCode = accessCodeGenerator.generate();
-            } while (dossierRepository.existsByAccessCode(accessCode));
-            dossier.setAccessCode(accessCode);
+        String accessCode;
+        do {
+            accessCode = accessCodeGenerator.generate();
+        } while (dossierRepository.existsByAccessCode(accessCode));
+        dossier.setAccessCode(accessCode);
 
-            Dossier saved = dossierRepository.save(dossier);
-            // Notification interne agents BRPD si dénonciation audio
-            if (request.getSubmissionMode() != null &&
-                    (request.getSubmissionMode().name().contains("AUDIO") ||
-                            request.getSubmissionMode() == gov.bf.ascelc.univers_audits.enums.SubmissionMode.PHONE)) {
+        Dossier saved = dossierRepository.save(dossier);
 
-                createNotification(saved,
-                        NotificationType.INTERNAL_ALERT,
-                        NotificationChannel.PORTAL,
-                        "ALERTE — Denonciation audio a traiter",
-                        "Un citoyen a soumis une denonciation vocale. " +
-                                "Veuillez ecouter l'enregistrement et constituer le dossier. " +
-                                "Code: " + saved.getAccessCode(),
-                        Instant.now());
+        // Alerte BRPD pour les dépôts audio
+        if (request.getSubmissionMode() != null &&
+                (request.getSubmissionMode().name().contains("AUDIO") ||
+                        request.getSubmissionMode() ==
+                                gov.bf.ascelc.univers_audits.enums.SubmissionMode.PHONE)) {
 
-                log.info("Alerte BRPD generee pour denonciation audio — code: {}",
-                        saved.getAccessCode());
-            }
-
-            recordStatusChange(
-                    saved, null, DossierStatus.SOUMIS,
-                    "Dossier soumis via " + request.getSubmissionMode(),
-                    null, ipAddress);
-
-            log.info("Dossier créé — accessCode: {}", accessCode);
-            return dossierMapper.toResponse(saved);
-        } finally {
-            MDC.clear();
+            createNotification(saved,
+                    NotificationType.INTERNAL_ALERT,
+                    NotificationChannel.PORTAL,
+                    "ALERTE — Dénonciation audio à traiter",
+                    "Un citoyen a soumis une dénonciation vocale. "
+                            + "Veuillez écouter l'enregistrement et constituer le dossier. "
+                            + "Code: " + saved.getAccessCode(),
+                    Instant.now());
         }
+
+        recordStatusChange(saved, null, DossierStatus.SOUMIS,
+                "Dossier soumis via " + request.getSubmissionMode(),
+                null, ipAddress);
+
+        log.info("Dossier créé — accessCode: {}", accessCode);
+        return dossierMapper.toResponse(saved);
     }
+
+    // ── Transitions de statut ─────────────────────────────────
 
     @Override
     @Transactional
     public DossierResponse registerReception(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.RECU);
         Agent agent = getCurrentAgent();
-
 
         String number = generateUniqueNumber();
         dossier.setNumber(number);
@@ -168,34 +153,25 @@ public class DossierServiceImpl implements DossierService {
                 "Dossier enregistré. Numéro attribué : " + number,
                 false, agent);
 
-
         createNotification(dossier,
                 NotificationType.RECEIPT_B4,
                 NotificationChannel.PORTAL,
                 "Récépissé de dépôt — " + number,
-                "Votre dossier a été enregistré sous le numéro "
-                        + number
-                        + ". Code de suivi : "
-                        + dossier.getAccessCode(),
+                "Votre dossier a été enregistré sous le numéro " + number
+                        + ". Code de suivi : " + dossier.getAccessCode(),
                 Instant.now());
-
 
         createNotification(dossier,
                 NotificationType.ACKNOWLEDGMENT_B5,
                 resolveNotificationChannel(dossier),
                 "Accusé de réception — Dossier " + number,
-                "L'ASCE-LC accuse réception de votre dossier "
-                        + number
-                        + " et vous informera des suites dans les "
-                        + "meilleurs délais.",
+                "L'ASCE-LC accuse réception de votre dossier " + number
+                        + " et vous informera des suites dans les meilleurs délais.",
                 dossier.getAcknowledgmentDeadline());
 
         Dossier saved = dossierRepository.save(dossier);
-
-        recordStatusChange(saved,
-                DossierStatus.SOUMIS, DossierStatus.RECU,
-                "Enregistrement officiel BRPD",
-                agent, ipAddress);
+        recordStatusChange(saved, DossierStatus.SOUMIS, DossierStatus.RECU,
+                "Enregistrement officiel BRPD", agent, ipAddress);
 
         log.info("Dossier {} enregistré par {}", number, agent.getMatricule());
         return dossierMapper.toResponse(saved);
@@ -204,9 +180,7 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse startOpportunityStudy(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.EN_ETUDE_OPPORTUNITE);
@@ -221,8 +195,7 @@ public class DossierServiceImpl implements DossierService {
                 true, agent);
 
         Dossier saved = dossierRepository.save(dossier);
-        recordStatusChange(saved,
-                DossierStatus.RECU,
+        recordStatusChange(saved, DossierStatus.RECU,
                 DossierStatus.EN_ETUDE_OPPORTUNITE,
                 request.getReason(), agent, ipAddress);
 
@@ -232,14 +205,11 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse requestComplement(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.EN_ATTENTE_COMPLEMENT);
         Agent agent = getCurrentAgent();
-
 
         if (request.getReason() == null || request.getReason().isBlank()) {
             throw new BusinessException(
@@ -257,14 +227,12 @@ public class DossierServiceImpl implements DossierService {
                 NotificationType.COMPLEMENT_REQUEST,
                 resolveNotificationChannel(dossier),
                 "Complément requis — Dossier " + dossier.getNumber(),
-                "L'ASCE-LC a besoin d'informations supplémentaires "
-                        + "pour traiter votre dossier. Motif : "
+                "L'ASCE-LC a besoin d'informations supplémentaires. Motif : "
                         + request.getReason(),
                 dossier.getAdditionalInfoDeadline());
 
         Dossier saved = dossierRepository.save(dossier);
-        recordStatusChange(saved,
-                DossierStatus.EN_ETUDE_OPPORTUNITE,
+        recordStatusChange(saved, DossierStatus.EN_ETUDE_OPPORTUNITE,
                 DossierStatus.EN_ATTENTE_COMPLEMENT,
                 request.getReason(), agent, ipAddress);
 
@@ -274,9 +242,7 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse complementReceived(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.EN_ETUDE_OPPORTUNITE);
@@ -290,8 +256,7 @@ public class DossierServiceImpl implements DossierService {
                 false, agent);
 
         Dossier saved = dossierRepository.save(dossier);
-        recordStatusChange(saved,
-                DossierStatus.EN_ATTENTE_COMPLEMENT,
+        recordStatusChange(saved, DossierStatus.EN_ATTENTE_COMPLEMENT,
                 DossierStatus.EN_ETUDE_OPPORTUNITE,
                 "Complément reçu", agent, ipAddress);
 
@@ -301,9 +266,7 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse submitToCtadp(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.EN_REVUE_CTADP);
@@ -317,8 +280,7 @@ public class DossierServiceImpl implements DossierService {
                 true, agent);
 
         Dossier saved = dossierRepository.save(dossier);
-        recordStatusChange(saved,
-                DossierStatus.EN_ETUDE_OPPORTUNITE,
+        recordStatusChange(saved, DossierStatus.EN_ETUDE_OPPORTUNITE,
                 DossierStatus.EN_REVUE_CTADP,
                 request.getReason(), agent, ipAddress);
 
@@ -328,9 +290,7 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse declareAdmissible(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.RECEVABLE);
@@ -345,7 +305,6 @@ public class DossierServiceImpl implements DossierService {
                         + (request.getReason() != null ? request.getReason() : ""),
                 true, agent);
 
-
         createNotification(dossier,
                 NotificationType.ACKNOWLEDGMENT_B5,
                 resolveNotificationChannel(dossier),
@@ -355,8 +314,7 @@ public class DossierServiceImpl implements DossierService {
                 Instant.now().plusSeconds(3L * 24 * 3600));
 
         Dossier saved = dossierRepository.save(dossier);
-        recordStatusChange(saved,
-                DossierStatus.EN_REVUE_CTADP,
+        recordStatusChange(saved, DossierStatus.EN_REVUE_CTADP,
                 DossierStatus.RECEVABLE,
                 request.getReason(), agent, ipAddress);
 
@@ -366,9 +324,7 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse declareInadmissible(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.IRRECEVABLE);
@@ -391,13 +347,12 @@ public class DossierServiceImpl implements DossierService {
                 NotificationType.INADMISSIBILITY_DECISION,
                 resolveNotificationChannel(dossier),
                 "Décision sur votre dossier " + dossier.getNumber(),
-                "L'ASCE-LC ne peut pas donner suite à votre "
-                        + "dossier. Motif : " + request.getReason(),
+                "L'ASCE-LC ne peut pas donner suite à votre dossier. Motif : "
+                        + request.getReason(),
                 Instant.now().plusSeconds(3L * 24 * 3600));
 
         Dossier saved = dossierRepository.save(dossier);
-        recordStatusChange(saved,
-                DossierStatus.EN_REVUE_CTADP,
+        recordStatusChange(saved, DossierStatus.EN_REVUE_CTADP,
                 DossierStatus.IRRECEVABLE,
                 request.getReason(), agent, ipAddress);
 
@@ -407,16 +362,14 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse transfer(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.TRANSFERE);
         Agent agent = getCurrentAgent();
 
-
-        if (request.getTransferInstitution() == null || request.getTransferInstitution().isBlank()) {
+        if (request.getTransferInstitution() == null
+                || request.getTransferInstitution().isBlank()) {
             throw new BusinessException(
                     "L'institution destinataire est obligatoire pour un transfert");
         }
@@ -442,8 +395,7 @@ public class DossierServiceImpl implements DossierService {
                 Instant.now().plusSeconds(7L * 24 * 3600));
 
         Dossier saved = dossierRepository.save(dossier);
-        recordStatusChange(saved,
-                DossierStatus.EN_REVUE_CTADP,
+        recordStatusChange(saved, DossierStatus.EN_REVUE_CTADP,
                 DossierStatus.TRANSFERE,
                 request.getReason(), agent, ipAddress);
 
@@ -453,15 +405,12 @@ public class DossierServiceImpl implements DossierService {
     @Override
     @Transactional
     public DossierResponse close(
-            UUID dossierId,
-            StatusTransitionRequest request,
-            String ipAddress) {
+            UUID dossierId, StatusTransitionRequest request, String ipAddress) {
 
         Dossier dossier = getDossierOrThrow(dossierId);
         Agent agent = getCurrentAgent();
 
         DossierStatus previousStatus = dossier.getStatus();
-
         DossierStatus newStatus = (previousStatus == DossierStatus.DECISION_RENDUE)
                 ? DossierStatus.CLOS
                 : DossierStatus.CLASSE;
@@ -471,7 +420,8 @@ public class DossierServiceImpl implements DossierService {
 
         addObservation(dossier,
                 ObservationType.INTERNAL_NOTE,
-                "Dossier clôturé. " + (request.getReason() != null ? request.getReason() : ""),
+                "Dossier clôturé. "
+                        + (request.getReason() != null ? request.getReason() : ""),
                 false, agent);
 
         Dossier saved = dossierRepository.save(dossier);
@@ -483,8 +433,7 @@ public class DossierServiceImpl implements DossierService {
 
     @Override
     @Transactional
-    public DossierResponse update(UUID dossierId,
-                                  DossierUpdateRequest request) {
+    public DossierResponse update(UUID dossierId, DossierUpdateRequest request) {
         Dossier dossier = getDossierOrThrow(dossierId);
 
         if (dossier.isClosed()) {
@@ -495,6 +444,8 @@ public class DossierServiceImpl implements DossierService {
         dossierMapper.updateEntity(request, dossier);
         return dossierMapper.toResponse(dossierRepository.save(dossier));
     }
+
+    // ── Helpers privés ────────────────────────────────────────
 
     private Dossier getDossierOrThrow(UUID id) {
         return dossierRepository.findById(id)
@@ -512,11 +463,13 @@ public class DossierServiceImpl implements DossierService {
 
     private void validateTransition(Dossier dossier, DossierStatus target) {
         if (dossier.isClosed()) {
-            throw new BusinessException("Ce dossier est clôturé — aucune action possible");
+            throw new BusinessException(
+                    "Ce dossier est clôturé — aucune action possible");
         }
 
         boolean allowed = switch (target) {
-            case RECU -> dossier.getStatus() == DossierStatus.SOUMIS;
+            case RECU ->
+                    dossier.getStatus() == DossierStatus.SOUMIS;
             case EN_ETUDE_OPPORTUNITE ->
                     dossier.getStatus() == DossierStatus.RECU
                             || dossier.getStatus() == DossierStatus.EN_ATTENTE_COMPLEMENT;
@@ -542,12 +495,12 @@ public class DossierServiceImpl implements DossierService {
 
         if (!allowed) {
             throw new BusinessException(
-                    "Transition invalide : " + dossier.getStatus() + " → " + target);
+                    "Transition invalide : "
+                            + dossier.getStatus() + " → " + target);
         }
     }
 
     private Declarant resolveDeclarant(DossierCreateRequest request) {
-
         if (request.getDeclarantId() != null) {
             return declarantRepository.findById(request.getDeclarantId())
                     .orElseThrow(() -> new ResourceNotFoundException(
@@ -581,10 +534,8 @@ public class DossierServiceImpl implements DossierService {
         return number;
     }
 
-    private void addObservation(Dossier dossier,
-                                ObservationType type,
-                                String content,
-                                boolean confidential,
+    private void addObservation(Dossier dossier, ObservationType type,
+                                String content, boolean confidential,
                                 Agent agent) {
         Observation obs = Observation.builder()
                 .dossier(dossier)
@@ -627,57 +578,54 @@ public class DossierServiceImpl implements DossierService {
                 .newStatus(next)
                 .reason(reason)
                 .agent(agent)
-                .agentFullName(agent != null ? agent.getNomComplet() : "Système")
+                .agentFullName(agent != null
+                        ? agent.getNomComplet() : "Système")
                 .ipAddress(ipAddress)
                 .build();
         statusHistoryRepository.save(history);
     }
 
     private NotificationChannel resolveNotificationChannel(Dossier dossier) {
-        if (dossier.getDeclarant() == null) {
-            return NotificationChannel.PORTAL;
-        }
-        if (dossier.getDeclarant().getEmail() != null) {
-            return NotificationChannel.EMAIL;
-        }
-        if (dossier.getDeclarant().getPhoneNumber() != null) {
-            return NotificationChannel.SMS;
-        }
+        if (dossier.getDeclarant() == null) return NotificationChannel.PORTAL;
+        if (dossier.getDeclarant().getEmail() != null) return NotificationChannel.EMAIL;
+        if (dossier.getDeclarant().getPhoneNumber() != null) return NotificationChannel.SMS;
         return NotificationChannel.PORTAL;
     }
 
-    private DossierResponse maskSensitiveData(DossierResponse response, Agent connectedAgent) {
-        boolean isCge = connectedAgent != null && connectedAgent.aLe("CGE");
+    /**
+     * Masquage des données sensibles selon le rôle de l'appelant.
+     * Le CGE voit tout. Les autres rôles voient les données masquées
+     * pour les déclarants et témoins anonymes.
+     */
+    private DossierResponse maskSensitiveData(DossierResponse response) {
+        // Le CGE a accès à toutes les données sans masquage
+        boolean isCge = securityUtils.hasRole("CGE");
 
-        if (response.getDeclarant() != null
-                && Boolean.TRUE.equals(response.getDeclarant().getAnonymous())
-                && !isCge) {
-            response.getDeclarant().setFirstName(null);
-            response.getDeclarant().setLastName(null);
-            response.getDeclarant().setEmail(null);
-            response.getDeclarant().setPhoneNumber(null);
-            response.getDeclarant().setAddress(null);
-            response.getDeclarant().setCommune(null);
-            response.getDeclarant().setProvince(null);
-        }
-
-        if (response.getWitnesses() != null && !isCge) {
-            for (WitnessResponse witness : response.getWitnesses()) {
-                if (Boolean.TRUE.equals(witness.getAnonymous())) {
-                    witness.setFirstName(null);
-                    witness.setLastName(null);
-                    witness.setEmail(null);
-                    witness.setPhoneNumber(null);
-                    witness.setAddress(null);
-                    witness.setProfession(null);
-                }
+        if (!isCge) {
+            // Masquer les données du déclarant anonyme
+            if (response.getDeclarant() != null
+                    && Boolean.TRUE.equals(response.getDeclarant().getAnonymous())) {
+                response.getDeclarant().setFirstName(null);
+                response.getDeclarant().setLastName(null);
+                response.getDeclarant().setEmail(null);
+                response.getDeclarant().setPhoneNumber(null);
+                response.getDeclarant().setAddress(null);
+                response.getDeclarant().setCommune(null);
+                response.getDeclarant().setProvince(null);
             }
-        }
 
-
-        if (response.getTargetedParties() != null && !isCge) {
-            for (TargetedPartyResponse party : response.getTargetedParties()) {
-
+            // Masquer les données des témoins anonymes
+            if (response.getWitnesses() != null) {
+                for (WitnessResponse witness : response.getWitnesses()) {
+                    if (Boolean.TRUE.equals(witness.getAnonymous())) {
+                        witness.setFirstName(null);
+                        witness.setLastName(null);
+                        witness.setEmail(null);
+                        witness.setPhoneNumber(null);
+                        witness.setAddress(null);
+                        witness.setProfession(null);
+                    }
+                }
             }
         }
 

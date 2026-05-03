@@ -37,51 +37,47 @@ public class Attachment extends AuditEntity {
 
     // ── Fichier ───────────────────────────────────────────
 
-    @Column(name = "file_name", nullable = false, length = 255)
-    private String fileName;
-
-    @Column(name = "original_name", length = 255)
+    /** Nom original tel que fourni par l'utilisateur */
+    @Column(name = "original_name", nullable = false, length = 255)
     private String originalName;
 
-    @Column(name = "stored_name", length = 255)
+    /** Nom de stockage sur disque (UUID + extension) */
+    @Column(name = "stored_name", nullable = false, length = 255)
     private String storedName;
 
+    /** Chemin absolu sur le serveur */
     @Column(name = "file_path", nullable = false, length = 500)
     private String filePath;
 
-    @Column(name = "content_type", length = 100)
-    private String contentType;
-
-    @Column(name = "mime_type", length = 100)
+    /** Type MIME détecté (ex: image/jpeg, application/pdf) */
+    @Column(name = "mime_type", nullable = false, length = 100)
     private String mimeType;
 
-    @Column(name = "file_size_bytes")
+    /** Taille en octets */
+    @Column(name = "file_size_bytes", nullable = false)
     private Long fileSizeBytes;
 
-    @Column(name = "file_size")
-    private Long fileSize;
-
-    @Column(name = "uploaded_at")
+    @Column(name = "uploaded_at", nullable = false)
     private LocalDateTime uploadedAt;
 
     // ── Classification ────────────────────────────────────
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", length = 20)
+    @Column(name = "type", nullable = false, length = 20)
     private AttachmentType type;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "source", length = 25)
+    @Column(name = "source", nullable = false, length = 25)
     private AttachmentSource source;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 25)
     @Builder.Default
-    private AttachmentStatus status =
-            AttachmentStatus.PENDING_VALIDATION;
+    private AttachmentStatus status = AttachmentStatus.PENDING_VALIDATION;
 
     // ── Métadonnées ───────────────────────────────────────
 
+    /** Empreinte SHA-256 pour détecter les doublons et les altérations */
     @Column(name = "hash_sha256", length = 64)
     private String hashSha256;
 
@@ -94,9 +90,11 @@ public class Attachment extends AuditEntity {
     @Column(name = "thumbnail_path", length = 500)
     private String thumbnailPath;
 
+    /** true si capturé directement depuis l'appareil (caméra, micro) */
     @Column(name = "direct_capture")
     private Boolean directCapture;
 
+    /** Coordonnées GPS si disponibles (photo terrain) */
     @Column(name = "latitude")
     private Double latitude;
 

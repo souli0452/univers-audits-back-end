@@ -1,6 +1,11 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.model.dto.request.ChangePasswordRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.UpdateProfileRequest;
 import gov.bf.ascelc.univers_audits.service.KeycloakAdminService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,49 +22,33 @@ public class ProfileController {
 
     private final KeycloakAdminService keycloakAdminService;
 
-    /** Modifier prénom / nom / email */
     @PutMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> updateProfile(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestBody UpdateProfileRequest req) {
+            @Valid @RequestBody UpdateProfileRequest req) {
 
-        String keycloakId = jwt.getSubject();
         keycloakAdminService.updateUserProfile(
-                keycloakId, req.firstName(), req.lastName(), req.email()
-        );
+                jwt.getSubject(),
+                req.firstName(),
+                req.lastName(),
+                req.email());
         return ResponseEntity.ok(Map.of("message", "Profil mis à jour"));
     }
 
-    /** Changer le mot de passe */
     @PutMapping("/password")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> changePassword(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestBody ChangePasswordRequest req) {
+            @Valid @RequestBody ChangePasswordRequest req) {
 
         if (!req.newPassword().equals(req.confirmPassword())) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Les mots de passe ne correspondent pas"));
-        }
-        if (req.newPassword().length() < 8) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Le mot de passe doit contenir au moins 8 caractères"));
+                    .body(Map.of("message",
+                            "Les mots de passe ne correspondent pas"));
         }
 
-        String keycloakId = jwt.getSubject();
-        keycloakAdminService.changePassword(keycloakId, req.newPassword());
+        keycloakAdminService.changePassword(jwt.getSubject(), req.newPassword());
         return ResponseEntity.ok(Map.of("message", "Mot de passe modifié"));
     }
-
-    public record UpdateProfileRequest(
-            String firstName,
-            String lastName,
-            String email
-    ) {}
-
-    public record ChangePasswordRequest(
-            String newPassword,
-            String confirmPassword
-    ) {}
 }

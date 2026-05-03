@@ -1,92 +1,122 @@
 package gov.bf.ascelc.univers_audits.shared.utils;
 
+/**
+ * Constantes centralisées des URLs de l'API.
+ * Chaque constante correspond à un endpoint réellement
+ * exposé dans un contrôleur.
+ */
 public final class ApiUrls {
 
-
     private ApiUrls() {}
-    public static final String API     = "/api";
-    public static final String VERSION = "/v1";
-    public static final String BASE    = API + VERSION;
 
-    // Dossiers
+    private static final String API     = "/api";
+    private static final String VERSION = "/v1";
+    private static final String BASE    = API + VERSION;
 
-    public static final String DOSSIERS              = BASE + "/dossiers";
-    public static final String DOSSIERS_BY_ID        = DOSSIERS + "/{id}";
+    // ── Dossiers ──────────────────────────────────────────────
 
-    // Endpoints publics — accessibles sans authentification
-    public static final String DOSSIERS_PUBLIC       = DOSSIERS + "/public";
-    public static final String DOSSIERS_TRACK        = DOSSIERS_PUBLIC + "/track/{accessCode}";
-    public static final String DOSSIERS_SUBMIT       = DOSSIERS_PUBLIC + "/submit";
+    public static final String DOSSIERS   = BASE + "/dossiers";
 
-    // Filtres et recherche
-    public static final String DOSSIERS_BY_STATUS    = DOSSIERS + "/status/{status}";
-    public static final String DOSSIERS_MY           = DOSSIERS + "/my";
+    // Portail public — sans authentification
+    public static final String DOSSIERS_TRACK  = DOSSIERS + "/public/track/{accessCode}";
+    public static final String DOSSIERS_SUBMIT = DOSSIERS + "/public/submit";
 
-    // Transitions de statut
-    public static final String DOSSIERS_REGISTER     = DOSSIERS_BY_ID + "/register";
-    public static final String DOSSIERS_START_STUDY  = DOSSIERS_BY_ID + "/start-study";
-    public static final String DOSSIERS_REQ_COMPL    = DOSSIERS_BY_ID + "/request-complement";
-    public static final String DOSSIERS_COMPL_RECV   = DOSSIERS_BY_ID + "/complement-received";
-    public static final String DOSSIERS_CTADP        = DOSSIERS_BY_ID + "/submit-ctadp";
-    public static final String DOSSIERS_ADMISSIBLE   = DOSSIERS_BY_ID + "/declare-admissible";
-    public static final String DOSSIERS_INADMISSIBLE = DOSSIERS_BY_ID + "/declare-inadmissible";
-    public static final String DOSSIERS_TRANSFER     = DOSSIERS_BY_ID + "/transfer";
-    public static final String DOSSIERS_CLOSE        = DOSSIERS_BY_ID + "/close";
+    // Filtres
+    public static final String DOSSIERS_BY_STATUS = DOSSIERS + "/status/{status}";
+    public static final String DOSSIERS_MY        = DOSSIERS + "/my";
 
-    // Investigations
+    // Transitions de statut sur un dossier existant
+    public static final String DOSSIERS_REGISTER     = DOSSIERS + "/{id}/register";
+    public static final String DOSSIERS_START_STUDY  = DOSSIERS + "/{id}/start-study";
+    public static final String DOSSIERS_REQ_COMPL    = DOSSIERS + "/{id}/request-complement";
+    public static final String DOSSIERS_COMPL_RECV   = DOSSIERS + "/{id}/complement-received";
+    public static final String DOSSIERS_CTADP        = DOSSIERS + "/{id}/submit-ctadp";
+    public static final String DOSSIERS_ADMISSIBLE   = DOSSIERS + "/{id}/declare-admissible";
+    public static final String DOSSIERS_INADMISSIBLE = DOSSIERS + "/{id}/declare-inadmissible";
+    public static final String DOSSIERS_TRANSFER     = DOSSIERS + "/{id}/transfer";
+    public static final String DOSSIERS_CLOSE        = DOSSIERS + "/{id}/close";
 
-    public static final String INVESTIGATIONS              = BASE + "/investigations";
-    public static final String INVESTIGATIONS_BY_ID        = INVESTIGATIONS + "/{id}";
-    public static final String INVESTIGATIONS_OVERDUE      = INVESTIGATIONS + "/overdue";
-    public static final String INVESTIGATIONS_BY_DOSSIER   = INVESTIGATIONS + "/dossier/{dossierId}";
-    public static final String INVESTIGATIONS_OPEN         = INVESTIGATIONS + "/dossier/{dossierId}/open";
+    // ── Parties visées (sous-ressource d'un dossier) ──────────
+
+    public static final String PARTIES       = DOSSIERS + "/{dossierId}/parties";
+    public static final String PARTIES_BY_ID = DOSSIERS + "/{dossierId}/parties/{partyId}";
+
+    // ── Témoins (sous-ressource d'un dossier) ─────────────────
+
+    public static final String WITNESSES       = DOSSIERS + "/{dossierId}/witnesses";
+    public static final String WITNESSES_BY_ID = DOSSIERS + "/{dossierId}/witnesses/{witnessId}";
+
+    // ── Observations (sous-ressource d'un dossier) ────────────
+
+    public static final String OBSERVATIONS = DOSSIERS + "/{dossierId}/observations";
+
+    // ── Investigations ────────────────────────────────────────
+
+    public static final String INVESTIGATIONS            = BASE + "/investigations";
+    public static final String INVESTIGATIONS_OVERDUE    = INVESTIGATIONS + "/overdue";
+    public static final String INVESTIGATIONS_BY_DOSSIER = INVESTIGATIONS + "/dossier/{dossierId}";
+    public static final String INVESTIGATIONS_OPEN       = INVESTIGATIONS + "/dossier/{dossierId}/open";
 
     // Cycle de vie
-    public static final String INVESTIGATIONS_START        = INVESTIGATIONS_BY_ID + "/start";
-    public static final String INVESTIGATIONS_SUSPEND      = INVESTIGATIONS_BY_ID + "/suspend";
-    public static final String INVESTIGATIONS_RESUME       = INVESTIGATIONS_BY_ID + "/resume";
-    public static final String INVESTIGATIONS_EXTEND       = INVESTIGATIONS_BY_ID + "/extend-deadline";
-    public static final String INVESTIGATIONS_REPORT       = INVESTIGATIONS_BY_ID + "/submit-report";
+    public static final String INVESTIGATIONS_START   = INVESTIGATIONS + "/{id}/start";
+    public static final String INVESTIGATIONS_SUSPEND = INVESTIGATIONS + "/{id}/suspend";
+    public static final String INVESTIGATIONS_RESUME  = INVESTIGATIONS + "/{id}/resume";
+    public static final String INVESTIGATIONS_EXTEND  = INVESTIGATIONS + "/{id}/extend-deadline";
+    public static final String INVESTIGATIONS_REPORT  = INVESTIGATIONS + "/{id}/submit-report";
 
     // Circuit d'approbation
-    public static final String INVESTIGATIONS_APPROVE_DEI  = INVESTIGATIONS_BY_ID + "/approve-dei";
-    public static final String INVESTIGATIONS_APPROVE_LEG  = INVESTIGATIONS_BY_ID + "/approve-legal";
-    public static final String INVESTIGATIONS_APPROVE_CGE  = INVESTIGATIONS_BY_ID + "/approve-cge";
+    public static final String INVESTIGATIONS_APPROVE_DEI = INVESTIGATIONS + "/{id}/approve-dei";
+    public static final String INVESTIGATIONS_APPROVE_LEG = INVESTIGATIONS + "/{id}/approve-legal";
+    public static final String INVESTIGATIONS_APPROVE_CGE = INVESTIGATIONS + "/{id}/approve-cge";
 
     // Gestion équipe
-    public static final String INVESTIGATIONS_MEMBERS      = INVESTIGATIONS_BY_ID + "/members";
-    public static final String INVESTIGATIONS_MEMBER_BY_ID = INVESTIGATIONS_BY_ID + "/members/{agentId}";
+    public static final String INVESTIGATIONS_MEMBERS      = INVESTIGATIONS + "/{id}/members";
+    public static final String INVESTIGATIONS_MEMBER_BY_ID = INVESTIGATIONS + "/{id}/members/{agentId}";
 
-    // Notifications
+    // ── Notifications ─────────────────────────────────────────
 
-    public static final String NOTIFICATIONS             = BASE + "/notifications";
-    public static final String NOTIFICATIONS_BY_ID      = NOTIFICATIONS + "/{id}";
+    public static final String NOTIFICATIONS            = BASE + "/notifications";
     public static final String NOTIFICATIONS_BY_DOSSIER = NOTIFICATIONS + "/dossier/{dossierId}";
     public static final String NOTIFICATIONS_OVERDUE    = NOTIFICATIONS + "/overdue";
     public static final String NOTIFICATIONS_PENDING    = NOTIFICATIONS + "/pending";
-    public static final String NOTIFICATIONS_SEND       = NOTIFICATIONS_BY_ID + "/send";
-    public static final String NOTIFICATIONS_CANCEL     = NOTIFICATIONS_BY_ID + "/cancel";
-    public static final String NOTIFICATIONS_RETRY      = NOTIFICATIONS_BY_ID + "/retry";
+    public static final String NOTIFICATIONS_SEND       = NOTIFICATIONS + "/{id}/send";
+    public static final String NOTIFICATIONS_CANCEL     = NOTIFICATIONS + "/{id}/cancel";
+    public static final String NOTIFICATIONS_RETRY      = NOTIFICATIONS + "/{id}/retry";
+    public static final String NOTIFICATIONS_MY         = NOTIFICATIONS + "/my";
 
-    // Statistiques
+    // ── Statistiques ──────────────────────────────────────────
 
     public static final String STATS           = BASE + "/stats";
+    public static final String STATS_PUBLIC    = STATS + "/public";
     public static final String STATS_DASHBOARD = STATS + "/dashboard";
     public static final String STATS_QUARTERLY = STATS + "/quarterly";
     public static final String STATS_ANNUAL    = STATS + "/annual";
-    public static final String STATS_PUBLIC = STATS + "/public";
 
-    // Agents
+    // ── Agents ────────────────────────────────────────────────
 
-    public static final String AGENTS          = BASE + "/agents";
-    public static final String AGENTS_BY_ID    = AGENTS + "/{id}";
-    public static final String AGENTS_ME       = AGENTS + "/me";
-    public static final String AGENTS_ROLES    = AGENTS_BY_ID + "/roles";
+    public static final String AGENTS              = BASE + "/agents";
+    public static final String AGENTS_ACTIVE       = AGENTS + "/active";
+    public static final String AGENTS_KEYCLOAK_ROLES = AGENTS + "/keycloak-roles";
 
-    // Configuration
+    // ── Configuration — référentiels ──────────────────────────
 
-    public static final String CONFIG                    = BASE + "/config";
-    public static final String CONFIG_DEPARTEMENTS       = CONFIG + "/departements";
-    public static final String CONFIG_ROLES              = CONFIG + "/roles";
-    public static final String CONFIG_TYPES_DECLARANT    = CONFIG + "/types-declarant";
+    public static final String CONFIG                 = BASE + "/config";
+    public static final String CONFIG_TYPES_DECLARANT = CONFIG + "/types-declarant";
+    public static final String CONFIG_DEPARTEMENTS    = CONFIG + "/departements";
+    public static final String CONFIG_ENUMS           = CONFIG + "/enums";
+
+    // ── Pièces jointes ────────────────────────────────────────
+
+    public static final String ATTACHMENTS            = BASE + "/attachments";
+    public static final String ATTACHMENTS_BY_DOSSIER = ATTACHMENTS + "/dossier/{dossierId}";
+    public static final String ATTACHMENTS_DOWNLOAD   = ATTACHMENTS + "/{attachmentId}/download";
+
+    // ── Export PDF ────────────────────────────────────────────
+
+    public static final String PDF_DOSSIER = BASE + "/pdf/dossier/{id}";
+
+    // ── Profil agent ──────────────────────────────────────────
+
+    public static final String PROFILE          = BASE + "/profile";
+    public static final String PROFILE_PASSWORD = BASE + "/profile/password";
 }

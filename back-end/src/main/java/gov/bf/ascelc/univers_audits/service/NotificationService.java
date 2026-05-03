@@ -13,6 +13,7 @@ public interface NotificationService {
     Page<NotificationResponse> findByDossierId(
             UUID dossierId, Pageable pageable);
 
+
     List<NotificationResponse> findOverdue();
 
     List<NotificationResponse> findPending();

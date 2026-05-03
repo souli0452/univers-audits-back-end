@@ -4,7 +4,9 @@ import gov.bf.ascelc.univers_audits.enums.AttachmentSource;
 import gov.bf.ascelc.univers_audits.enums.AttachmentStatus;
 import gov.bf.ascelc.univers_audits.enums.AttachmentType;
 import lombok.*;
+
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -14,7 +16,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class AttachmentResponse {
     private UUID id;
-    private String fileName;
+    private String originalName;
+    private String storedName;
     private AttachmentType type;
     private AttachmentSource source;
     private String mimeType;
@@ -27,5 +30,6 @@ public class AttachmentResponse {
     private Boolean directCapture;
     private Double latitude;
     private Double longitude;
-    private Instant createdAt;
+    private LocalDateTime uploadedAt;
+    private Instant validatedAt;
 }

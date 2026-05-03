@@ -38,7 +38,6 @@ public class AttachmentController {
     private String uploadDir;
 
     // ── Upload — public (portail citoyen) ────────────────────
-    // Pas de @PreAuthorize → géré par SecurityConfig.permitAll()
     @PostMapping("/dossier/{dossierId}")
     public ResponseEntity<?> uploadFiles(
             @PathVariable String dossierId,
@@ -83,18 +82,15 @@ public class AttachmentController {
 
                     Attachment att = Attachment.builder()
                             .dossier(dossier)
-                            .fileName(originalName)
+                            .originalName(originalName)
+                            .storedName(storedName)
+                            .filePath(filePath.toString())
                             .mimeType(mime)
                             .fileSizeBytes(file.getSize())
-                            .filePath(filePath.toString())
                             .hashSha256(hash)
                             .type(attType)
                             .source(AttachmentSource.INITIAL_SUBMISSION)
                             .status(AttachmentStatus.PENDING_VALIDATION)
-                            .originalName(originalName)
-                            .storedName(storedName)
-                            .contentType(mime)
-                            .fileSize(file.getSize())
                             .uploadedAt(LocalDateTime.now())
                             .build();
 
@@ -104,8 +100,8 @@ public class AttachmentController {
                     saved.add(Map.of(
                             "id",           att.getId().toString(),
                             "originalName", originalName,
-                            "contentType",  mime,
-                            "fileSize",     file.getSize(),
+                            "mimeType",     mime,
+                            "fileSizeBytes", file.getSize(),
                             "isAudio",      mime.contains("audio")
                     ));
 
@@ -127,41 +123,29 @@ public class AttachmentController {
         }
     }
 
-    // ── Liste pièces jointes — public (portail + agents) ─────
-    // Pas de @PreAuthorize → accessible sans token depuis le portail
+    // ── Liste pièces jointes ──────────────────────────────────
     @GetMapping("/dossier/{dossierId}")
     public ResponseEntity<?> listFiles(@PathVariable String dossierId) {
 
         List<Map<String, Object>> files = attachmentRepository
                 .findByDossierId(UUID.fromString(dossierId))
                 .stream()
-                .map(att -> {
-                    String mime = att.getMimeType() != null
-                            ? att.getMimeType()
-                            : (att.getContentType() != null ? att.getContentType() : "");
-                    String name = att.getOriginalName() != null
-                            ? att.getOriginalName() : att.getFileName();
-                    long size = att.getFileSize() != null
-                            ? att.getFileSize()
-                            : (att.getFileSizeBytes() != null ? att.getFileSizeBytes() : 0L);
-
-                    return Map.<String, Object>of(
-                            "id",           att.getId().toString(),
-                            "originalName", name,
-                            "contentType",  mime,
-                            "fileSize",     size,
-                            "uploadedAt",   att.getUploadedAt() != null
-                                    ? att.getUploadedAt().toString() : "",
-                            "isAudio",      mime.contains("audio")
-                    );
-                })
+                .map(att -> Map.<String, Object>of(
+                        "id",           att.getId().toString(),
+                        "originalName", att.getOriginalName(),
+                        "mimeType",     att.getMimeType(),
+                        "fileSizeBytes", att.getFileSizeBytes(),
+                        "uploadedAt",   att.getUploadedAt() != null
+                                ? att.getUploadedAt().toString() : "",
+                        "isAudio",      att.getMimeType().contains("audio"),
+                        "status",       att.getStatus().name()
+                ))
                 .toList();
 
         return ResponseEntity.ok(files);
     }
 
-    // ── Download — public (portail + agents) ─────────────────
-    // Pas de @PreAuthorize → accessible sans token
+    // ── Download ──────────────────────────────────────────────
     @GetMapping("/{attachmentId}/download")
     public ResponseEntity<Resource> download(@PathVariable String attachmentId) {
 
@@ -176,15 +160,12 @@ public class AttachmentController {
             Resource resource = new UrlResource(filePath.toUri());
 
             if (!resource.exists()) {
-                log.warn("Fichier introuvable: {}", att.getFilePath());
+                log.warn("Fichier introuvable sur disque: {}", att.getFilePath());
                 return ResponseEntity.notFound().build();
             }
 
-            String contentType = att.getMimeType() != null
-                    ? att.getMimeType() : "application/octet-stream";
-
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
+                    .contentType(MediaType.parseMediaType(att.getMimeType()))
                     .header(HttpHeaders.CONTENT_DISPOSITION,
                             "inline; filename=\"" + att.getOriginalName() + "\"")
                     .body(resource);
@@ -197,7 +178,7 @@ public class AttachmentController {
 
     // ── Suppression — agents authentifiés uniquement ─────────
     @DeleteMapping("/{attachmentId}")
-    @PreAuthorize("isAuthenticated()")   // ← garder ici, suppression = agents seulement
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> delete(@PathVariable String attachmentId) {
 
         Attachment att = attachmentRepository

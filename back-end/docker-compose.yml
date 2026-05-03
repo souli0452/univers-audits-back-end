@@ -29,7 +29,7 @@ services:
 
   # ── Keycloak ──────────────────────────────────────────────────
   keycloak:
-    image: quay.io/keycloak/keycloak:23.0.4
+    image: quay.io/keycloak/keycloak:25.0.2
     container_name: asce_keycloak
     restart: unless-stopped
     command: start-dev --import-realm

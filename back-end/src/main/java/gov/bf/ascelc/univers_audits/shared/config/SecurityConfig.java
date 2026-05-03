@@ -50,6 +50,10 @@ public class SecurityConfig {
                                 "/api/v1/attachments/*/download").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/stats/public").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/config/types-declarant").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/config/enums").permitAll()
 
                         // ── Actuator ──────────────────────────────────
                         .requestMatchers("/actuator/health").permitAll()
