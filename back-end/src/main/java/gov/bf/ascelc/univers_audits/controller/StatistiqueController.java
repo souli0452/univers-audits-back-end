@@ -11,7 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
-
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -21,22 +21,28 @@ public class StatistiqueController {
 
     private final StatistiqueService statistiqueService;
 
+    // ── Endpoint public — sans authentification ───────────────
+
+    @GetMapping("/public")
+    public ResponseEntity<Map<String, Object>> getPublicStats() {
+        return ResponseEntity.ok(statistiqueService.getPublicStats());
+    }
+
+    // ── Endpoints protégés ────────────────────────────────────
+
     @GetMapping("/dashboard")
     @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
     public ResponseEntity<StatistiqueResponse> getDashboard(
             @RequestParam Instant start,
             @RequestParam Instant end) {
-        log.info("Tableau de bord — {} → {}", start, end);
 
-        // Vérification cohérence des dates
+        log.info("Tableau de bord — {} → {}", start, end);
         if (end.isBefore(start)) {
             throw new BusinessException(
-                    "La date de fin doit être postérieure "
-                            + "à la date de début");
+                    "La date de fin doit être postérieure à la date de début"
+            );
         }
-
-        return ResponseEntity.ok(
-                statistiqueService.getDashboard(start, end));
+        return ResponseEntity.ok(statistiqueService.getDashboard(start, end));
     }
 
     @GetMapping("/quarterly")
@@ -45,23 +51,16 @@ public class StatistiqueController {
             @RequestParam int year,
             @RequestParam int quarter) {
 
-        // Validation du trimestre
         if (quarter < 1 || quarter > 4) {
             throw new BusinessException(
-                    "Le trimestre doit être compris entre 1 et 4. "
-                            + "Valeur reçue : " + quarter);
+                    "Le trimestre doit être compris entre 1 et 4. Valeur reçue : " + quarter
+            );
         }
-
-        // Validation de l'année
         if (year < 2020 || year > 2100) {
-            throw new BusinessException(
-                    "Année invalide : " + year);
+            throw new BusinessException("Année invalide : " + year);
         }
-
         log.info("Stats trimestrielles T{} {}", quarter, year);
-        return ResponseEntity.ok(
-                statistiqueService.getQuarterlyStats(
-                        year, quarter));
+        return ResponseEntity.ok(statistiqueService.getQuarterlyStats(year, quarter));
     }
 
     @GetMapping("/annual")
@@ -70,12 +69,9 @@ public class StatistiqueController {
             @RequestParam int year) {
 
         if (year < 2020 || year > 2100) {
-            throw new BusinessException(
-                    "Année invalide : " + year);
+            throw new BusinessException("Année invalide : " + year);
         }
-
         log.info("Stats annuelles {}", year);
-        return ResponseEntity.ok(
-                statistiqueService.getAnnualStats(year));
+        return ResponseEntity.ok(statistiqueService.getAnnualStats(year));
     }
 }

@@ -54,6 +54,12 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>org.keycloak</groupId>
+			<artifactId>keycloak-admin-client</artifactId>
+			<version>23.0.4</version>
+		</dependency>
+
 		<!-- Resource Server OAuth2 — valide les tokens JWT Keycloak -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

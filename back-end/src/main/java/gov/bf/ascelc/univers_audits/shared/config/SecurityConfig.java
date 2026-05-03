@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
@@ -37,27 +36,38 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+
+                        // ── Endpoints publics (sans token) ────────────
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/dossiers/public/track/**")
-                        .permitAll()
+                                "/api/v1/dossiers/public/track/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/v1/dossiers/public/submit")
-                        .permitAll()
+                                "/api/v1/dossiers/public/submit").permitAll()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/v1/attachments/dossier/**")
-                        .permitAll()
+                                "/api/v1/attachments/dossier/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/attachments/dossier/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/attachments/*/download").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/stats/public").permitAll()
+
+                        // ── Actuator ──────────────────────────────────
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/info").permitAll()
+
+                        // ── Swagger ───────────────────────────────────
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/api-docs/**")
-                        .permitAll()
+                                "/api-docs/**").permitAll()
+
+                        // ── PDF ───────────────────────────────────────
                         .requestMatchers("/api/v1/pdf/**").permitAll()
+
+                        // ── Tout le reste nécessite une auth ──────────
                         .anyRequest().authenticated()
                 )
-
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter())));
@@ -68,23 +78,17 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-
             Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
-
             if (realmAccess == null || !realmAccess.containsKey("roles")) {
                 return Collections.emptyList();
             }
-
             @SuppressWarnings("unchecked")
             List<String> roles = (List<String>) realmAccess.get("roles");
-
             return roles.stream()
                     .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                     .collect(Collectors.toList());
         });
-
         return converter;
     }
 
@@ -97,30 +101,20 @@ public class SecurityConfig {
                 "https://portail.asce-lc.bf",
                 "https://app.asce-lc.bf"
         ));
-
         config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "PATCH",
-                "DELETE", "OPTIONS"
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
         ));
         config.setAllowedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "Accept",
-                "X-Requested-With",
-                "Origin",
+                "Authorization", "Content-Type", "Accept",
+                "X-Requested-With", "Origin",
                 "Access-Control-Request-Method",
                 "Access-Control-Request-Headers"
         ));
-
-
         config.setExposedHeaders(List.of(
-                "Authorization",
-                "Content-Disposition"
+                "Authorization", "Content-Disposition"
         ));
-
-
+        config.setAllowCredentials(true);
         config.setMaxAge(3600L);
-
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

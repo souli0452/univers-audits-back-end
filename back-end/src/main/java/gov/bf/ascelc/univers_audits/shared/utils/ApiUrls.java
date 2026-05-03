@@ -74,6 +74,7 @@ public final class ApiUrls {
     public static final String STATS_DASHBOARD = STATS + "/dashboard";
     public static final String STATS_QUARTERLY = STATS + "/quarterly";
     public static final String STATS_ANNUAL    = STATS + "/annual";
+    public static final String STATS_PUBLIC = STATS + "/public";
 
     // Agents
 

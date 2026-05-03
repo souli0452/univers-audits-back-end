@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.shared.exceptions;
 
+import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -75,9 +75,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleOptimisticLock(
             ObjectOptimisticLockingFailureException ex) {
-
         log.warn("Conflit de version détecté : {}", ex.getMessage());
-
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(
@@ -101,9 +99,20 @@ public class GlobalExceptionHandler {
                                 + "pour cette action"));
     }
 
+    // ✅ CORRIGÉ : utilise ErrorResponse.of() + ResponseEntity
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
+        log.warn("Conflit détecté : {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(
+                        HttpStatus.CONFLICT.value(),
+                        "CONFLICT",
+                        ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneral(
-            Exception ex) {
+    public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
         log.error("Erreur interne inattendue : {}", ex.getMessage(), ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -114,6 +123,7 @@ public class GlobalExceptionHandler {
                                 + "Contactez l'administrateur DDIC."));
     }
 
+    // ── ErrorResponse ─────────────────────────────────────────
     @lombok.Data
     @lombok.AllArgsConstructor
     @lombok.NoArgsConstructor
@@ -134,7 +144,8 @@ public class GlobalExceptionHandler {
             return r;
         }
 
-        public static ErrorResponse of(int status, String code, String message, String path) {
+        public static ErrorResponse of(int status, String code,
+                                       String message, String path) {
             ErrorResponse r = of(status, code, message);
             r.setPath(path);
             return r;
