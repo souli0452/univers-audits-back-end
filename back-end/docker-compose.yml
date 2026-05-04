@@ -15,9 +15,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - asce_postgres_data:/var/lib/postgresql/data
+      - ./keycloak/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d bd_univers_audit"]
       interval: 10s
@@ -44,7 +45,7 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
-      KC_LOG_LEVEL: INFOa
+      KC_LOG_LEVEL: INFO
     ports:
       - "8080:8080"
     depends_on:
