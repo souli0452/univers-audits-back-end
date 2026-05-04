@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.ws.rs.core.Response;
+
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -87,24 +89,33 @@ public class KeycloakAdminService {
      */
     public void assignRoles(String keycloakId, List<String> roleNames) {
         if (roleNames == null || roleNames.isEmpty()) return;
+        if (keycloakId == null || keycloakId.isBlank()) return;
 
-        RealmResource realmResource = buildAdminClient().realm(realm);
-        List<RoleRepresentation> roles = roleNames.stream()
-                .map(name -> {
-                    try {
-                        return realmResource.roles().get(name).toRepresentation();
-                    } catch (Exception e) {
-                        log.warn("Rôle Keycloak introuvable: {}", name);
-                        return null;
-                    }
-                })
-                .filter(r -> r != null)
-                .toList();
+        try {
+            RealmResource realmResource = buildAdminClient().realm(realm);
+            List<RoleRepresentation> roles = roleNames.stream()
+                    .map(name -> {
+                        try {
+                            return realmResource.roles().get(name).toRepresentation();
+                        } catch (Exception e) {
+                            log.warn("Rôle Keycloak introuvable: {}", name);
+                            return null;
+                        }
+                    })
+                    .filter(r -> r != null)
+                    .toList();
 
-        if (!roles.isEmpty()) {
-            realmResource.users().get(keycloakId)
-                    .roles().realmLevel().add(roles);
-            log.info("Rôles assignés à {}: {}", keycloakId, roleNames);
+            if (!roles.isEmpty()) {
+                realmResource.users().get(keycloakId)
+                        .roles().realmLevel().add(roles);
+                log.info("Rôles assignés à {}: {}", keycloakId, roleNames);
+            }
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            log.warn("Impossible d'assigner les rôles — utilisateur Keycloak introuvable : {}",
+                    keycloakId);
+        } catch (Exception e) {
+            log.error("Erreur assignation rôles pour {} : {}",
+                    keycloakId, e.getMessage());
         }
     }
 
@@ -113,24 +124,33 @@ public class KeycloakAdminService {
      */
     public void removeRoles(String keycloakId, List<String> roleNames) {
         if (roleNames == null || roleNames.isEmpty()) return;
+        if (keycloakId == null || keycloakId.isBlank()) return;
 
-        RealmResource realmResource = buildAdminClient().realm(realm);
-        List<RoleRepresentation> roles = roleNames.stream()
-                .map(name -> {
-                    try {
-                        return realmResource.roles().get(name).toRepresentation();
-                    } catch (Exception e) {
-                        log.warn("Rôle Keycloak introuvable: {}", name);
-                        return null;
-                    }
-                })
-                .filter(r -> r != null)
-                .toList();
+        try {
+            RealmResource realmResource = buildAdminClient().realm(realm);
+            List<RoleRepresentation> roles = roleNames.stream()
+                    .map(name -> {
+                        try {
+                            return realmResource.roles().get(name).toRepresentation();
+                        } catch (Exception e) {
+                            log.warn("Rôle Keycloak introuvable: {}", name);
+                            return null;
+                        }
+                    })
+                    .filter(r -> r != null)
+                    .toList();
 
-        if (!roles.isEmpty()) {
-            realmResource.users().get(keycloakId)
-                    .roles().realmLevel().remove(roles);
-            log.info("Rôles retirés de {}: {}", keycloakId, roleNames);
+            if (!roles.isEmpty()) {
+                realmResource.users().get(keycloakId)
+                        .roles().realmLevel().remove(roles);
+                log.info("Rôles retirés de {}: {}", keycloakId, roleNames);
+            }
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            log.warn("Impossible de retirer les rôles — utilisateur Keycloak introuvable : {}",
+                    keycloakId);
+        } catch (Exception e) {
+            log.error("Erreur suppression rôles pour {} : {}",
+                    keycloakId, e.getMessage());
         }
     }
 
@@ -181,13 +201,25 @@ public class KeycloakAdminService {
      * Retourne les rôles realm actuels d'un utilisateur.
      */
     public List<String> getUserRoles(String keycloakId) {
-        return buildAdminClient().realm(realm)
-                .users().get(keycloakId)
-                .roles().realmLevel().listEffective()
-                .stream()
-                .map(RoleRepresentation::getName)
-                .filter(name -> !SYSTEM_ROLES.contains(name))
-                .toList();
+        if (keycloakId == null || keycloakId.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return buildAdminClient().realm(realm)
+                    .users().get(keycloakId)
+                    .roles().realmLevel().listEffective()
+                    .stream()
+                    .map(RoleRepresentation::getName)
+                    .filter(name -> !SYSTEM_ROLES.contains(name))
+                    .toList();
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            log.warn("Utilisateur Keycloak introuvable pour id: {}", keycloakId);
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Erreur lecture rôles Keycloak pour {}: {}",
+                    keycloakId, e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
     /**

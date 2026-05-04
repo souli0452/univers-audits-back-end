@@ -28,10 +28,12 @@ public class StatistiqueController {
         return ResponseEntity.ok(statistiqueService.getPublicStats());
     }
 
-    // ── Endpoints protégés ────────────────────────────────────
+    // ── Dashboard — tous les agents authentifiés ──────────────
+    // AGENT_BRPD voit les dossiers récents et les KPIs globaux
+    // CGE/CGEA/ADMIN_DDIC voient en plus les graphiques détaillés
 
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<StatistiqueResponse> getDashboard(
             @RequestParam Instant start,
             @RequestParam Instant end) {
@@ -39,11 +41,12 @@ public class StatistiqueController {
         log.info("Tableau de bord — {} → {}", start, end);
         if (end.isBefore(start)) {
             throw new BusinessException(
-                    "La date de fin doit être postérieure à la date de début"
-            );
+                    "La date de fin doit être postérieure à la date de début");
         }
         return ResponseEntity.ok(statistiqueService.getDashboard(start, end));
     }
+
+    // ── Stats avancées — direction uniquement ─────────────────
 
     @GetMapping("/quarterly")
     @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
@@ -53,8 +56,7 @@ public class StatistiqueController {
 
         if (quarter < 1 || quarter > 4) {
             throw new BusinessException(
-                    "Le trimestre doit être compris entre 1 et 4. Valeur reçue : " + quarter
-            );
+                    "Le trimestre doit être compris entre 1 et 4. Valeur reçue : " + quarter);
         }
         if (year < 2020 || year > 2100) {
             throw new BusinessException("Année invalide : " + year);
