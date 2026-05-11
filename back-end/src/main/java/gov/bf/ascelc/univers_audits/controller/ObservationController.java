@@ -20,11 +20,7 @@ public class ObservationController {
 
     private final ObservationService observationService;
 
-    /**
-     * Toutes les observations du dossier.
-     * Les observations confidentielles ne sont visibles
-     * que par CGE, CGEA et CONSEILLER_JURIDIQUE.
-     */
+
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
             "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
@@ -34,9 +30,7 @@ public class ObservationController {
                 observationService.findByDossierId(dossierId));
     }
 
-    /**
-     * Ajouter une observation (note interne, analyse, avis CTADP...).
-     */
+
     @PostMapping
     @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
             "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")

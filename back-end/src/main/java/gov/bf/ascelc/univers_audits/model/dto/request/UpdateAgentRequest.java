@@ -9,5 +9,5 @@ public record UpdateAgentRequest(
         @Email String email,
         String phoneNumber,
         String grade,
-        List<String> keycloakRoles   // null = pas de changement de rôles
+        List<String> keycloakRoles
 ) {}

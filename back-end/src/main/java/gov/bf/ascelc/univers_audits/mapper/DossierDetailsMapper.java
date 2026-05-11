@@ -28,7 +28,6 @@ public interface DossierDetailsMapper {
             Witness witness,
             @MappingTarget WitnessResponse response) {
         response.setDisplayName(witness.getDisplayName());
-        // Masquage systématique si anonyme
         if (witness.isAnonymous()) {
             response.setFirstName(null);
             response.setLastName(null);

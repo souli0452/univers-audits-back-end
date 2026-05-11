@@ -21,16 +21,13 @@ public class StatistiqueController {
 
     private final StatistiqueService statistiqueService;
 
-    // ── Endpoint public — sans authentification ───────────────
 
     @GetMapping("/public")
     public ResponseEntity<Map<String, Object>> getPublicStats() {
         return ResponseEntity.ok(statistiqueService.getPublicStats());
     }
 
-    // ── Dashboard — tous les agents authentifiés ──────────────
-    // AGENT_BRPD voit les dossiers récents et les KPIs globaux
-    // CGE/CGEA/ADMIN_DDIC voient en plus les graphiques détaillés
+
 
     @GetMapping("/dashboard")
     @PreAuthorize("isAuthenticated()")
@@ -46,7 +43,6 @@ public class StatistiqueController {
         return ResponseEntity.ok(statistiqueService.getDashboard(start, end));
     }
 
-    // ── Stats avancées — direction uniquement ─────────────────
 
     @GetMapping("/quarterly")
     @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")

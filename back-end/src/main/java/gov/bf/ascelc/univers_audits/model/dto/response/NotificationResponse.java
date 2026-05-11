@@ -23,4 +23,5 @@ public class NotificationResponse {
     private Instant sentAt;
     private Boolean overdue;
     private Integer retryCount;
+    private Instant readAt;
 }

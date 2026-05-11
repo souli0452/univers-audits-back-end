@@ -1,5 +1,6 @@
 ﻿-- liquibase formatted sql
 
--- changeset dev:001-fix-auto-referral-source
-ALTER TABLE dossier ALTER COLUMN auto_referral_source TYPE VARCHAR(30);
--- rollback ALTER TABLE dossier ALTER COLUMN auto_referral_source TYPE SMALLINT;
+-- changeset dev:002-add-notification-read-at
+ALTER TABLE notification ADD COLUMN read_at TIMESTAMP NULL;
+CREATE INDEX idx_notification_read_at ON notification (read_at);
+-- rollback DROP INDEX idx_notification_read_at; ALTER TABLE notification DROP COLUMN read_at;

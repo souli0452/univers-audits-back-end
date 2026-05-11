@@ -36,7 +36,6 @@ public class NotificationServiceImpl implements NotificationService {
     private final DossierRepository      dossierRepository;
     private final DossierDetailsMapper   detailsMapper;
 
-    // ── Lecture ───────────────────────────────────────────────
 
     @Override
     public Page<NotificationResponse> findByDossierId(
@@ -65,7 +64,6 @@ public class NotificationServiceImpl implements NotificationService {
                 .collect(Collectors.toList());
     }
 
-    // ── Actions manuelles ─────────────────────────────────────
 
     @Override
     @Transactional
@@ -114,9 +112,7 @@ public class NotificationServiceImpl implements NotificationService {
         return detailsMapper.toResponse(notificationRepository.save(notif));
     }
 
-    // ── Tâches planifiées ─────────────────────────────────────
 
-    /** Traitement des notifications en attente toutes les 15 minutes */
     @Override
     @Scheduled(fixedDelay = 900_000)
     @Transactional
@@ -158,7 +154,6 @@ public class NotificationServiceImpl implements NotificationService {
                 sent, failed);
     }
 
-    /** Alertes de délai dépassé chaque matin en semaine à 8h */
     @Override
     @Scheduled(cron = "0 0 8 * * MON-FRI")
     @Transactional
@@ -226,7 +221,6 @@ public class NotificationServiceImpl implements NotificationService {
                 overdueAcknowledgments.size(), overdueComplements.size());
     }
 
-    // ── Envoi effectif ────────────────────────────────────────
 
     private void doSend(Notification notif) {
         try {
@@ -274,7 +268,6 @@ public class NotificationServiceImpl implements NotificationService {
                 notif.getDossier().getNumber());
     }
 
-    // ── Utilitaire ────────────────────────────────────────────
 
     private Notification getOrThrow(UUID id) {
         return notificationRepository.findById(id)

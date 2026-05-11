@@ -38,7 +38,6 @@ public class Departement extends AuditEntity {
     @Builder.Default
     private Integer ordreAffichage = 0;
 
-    // Liste des agents rattachés à ce département.
     @OneToMany(mappedBy = "departement",
             fetch = FetchType.LAZY)
     @Builder.Default

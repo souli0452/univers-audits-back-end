@@ -99,7 +99,7 @@ public class GlobalExceptionHandler {
                                 + "pour cette action"));
     }
 
-    // ✅ CORRIGÉ : utilise ErrorResponse.of() + ResponseEntity
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
         log.warn("Conflit détecté : {}", ex.getMessage());

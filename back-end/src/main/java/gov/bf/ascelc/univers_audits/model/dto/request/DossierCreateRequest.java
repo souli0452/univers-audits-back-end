@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.model.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
@@ -52,9 +53,19 @@ public class DossierCreateRequest {
 
     private BigDecimal estimatedLoss;
 
+    @JsonProperty("isConfidential")
     private Boolean isConfidential;
 
     private UUID declarantId;
 
     private DeclarantCreateRequest declarantData;
+
+
+    public Boolean getIsConfidential() {
+        return isConfidential != null ? isConfidential : false;
+    }
+
+    public void setIsConfidential(Boolean isConfidential) {
+        this.isConfidential = isConfidential;
+    }
 }

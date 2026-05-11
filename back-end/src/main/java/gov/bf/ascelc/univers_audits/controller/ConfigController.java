@@ -20,10 +20,7 @@ public class ConfigController {
     private final DepartementRepository         departementRepository;
     private final TypeDeclarantConfigRepository typeDeclarantConfigRepository;
 
-    /**
-     * Liste des types de déclarant visibles sur le portail public.
-     * Accessible sans authentification pour alimenter le formulaire citoyen.
-     */
+
     @GetMapping("/types-declarant")
     public ResponseEntity<List<Map<String, Object>>> getTypesDeclarant() {
         List<Map<String, Object>> result =
@@ -43,10 +40,7 @@ public class ConfigController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Liste des départements actifs.
-     * Accessible uniquement aux agents authentifiés.
-     */
+
     @GetMapping("/departements")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Map<String, Object>>> getDepartements() {
@@ -63,11 +57,6 @@ public class ConfigController {
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Enumérations utiles au frontend — évite de dupliquer
-     * les valeurs dans le code Angular.
-     * Accessible sans authentification.
-     */
     @GetMapping("/enums")
     public ResponseEntity<Map<String, Object>> getEnums() {
         return ResponseEntity.ok(Map.of(

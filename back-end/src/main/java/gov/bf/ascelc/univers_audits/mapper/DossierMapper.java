@@ -24,11 +24,11 @@ public interface DossierMapper {
     default void fillCalculatedFields(
             Dossier dossier,
             @MappingTarget DossierResponse response) {
-
         response.setAcknowledgmentOverdue(dossier.isAcknowledgmentOverdue());
         response.setDaysSinceReception(dossier.getDaysSinceReception());
     }
 
+    @Mapping(target = "isConfidential", source = "isConfidential")
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "version", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
@@ -57,6 +57,7 @@ public interface DossierMapper {
     Dossier toEntity(DossierCreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "isConfidential", source = "isConfidential")
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

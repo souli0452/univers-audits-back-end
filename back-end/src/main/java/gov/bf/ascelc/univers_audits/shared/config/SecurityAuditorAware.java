@@ -26,7 +26,7 @@ public class SecurityAuditorAware implements AuditorAware<String> {
 
         if (auth.getPrincipal() instanceof Jwt jwt) {
             return Optional.ofNullable(jwt.getSubject())
-                    .or(() -> Optional.of("system")); // Fallback si sub manquant
+                    .or(() -> Optional.of("system"));
         }
 
         return Optional.ofNullable(auth.getName())

@@ -35,32 +35,27 @@ public class Attachment extends AuditEntity {
     @JoinColumn(name = "investigation_id")
     private Investigation investigation;
 
-    // ── Fichier ───────────────────────────────────────────
 
-    /** Nom original tel que fourni par l'utilisateur */
+
+
     @Column(name = "original_name", nullable = false, length = 255)
     private String originalName;
 
-    /** Nom de stockage sur disque (UUID + extension) */
     @Column(name = "stored_name", nullable = false, length = 255)
     private String storedName;
 
-    /** Chemin absolu sur le serveur */
     @Column(name = "file_path", nullable = false, length = 500)
     private String filePath;
 
-    /** Type MIME détecté (ex: image/jpeg, application/pdf) */
     @Column(name = "mime_type", nullable = false, length = 100)
     private String mimeType;
 
-    /** Taille en octets */
     @Column(name = "file_size_bytes", nullable = false)
     private Long fileSizeBytes;
 
     @Column(name = "uploaded_at", nullable = false)
     private LocalDateTime uploadedAt;
 
-    // ── Classification ────────────────────────────────────
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
@@ -75,7 +70,6 @@ public class Attachment extends AuditEntity {
     @Builder.Default
     private AttachmentStatus status = AttachmentStatus.PENDING_VALIDATION;
 
-    // ── Métadonnées ───────────────────────────────────────
 
     /** Empreinte SHA-256 pour détecter les doublons et les altérations */
     @Column(name = "hash_sha256", length = 64)
@@ -90,18 +84,15 @@ public class Attachment extends AuditEntity {
     @Column(name = "thumbnail_path", length = 500)
     private String thumbnailPath;
 
-    /** true si capturé directement depuis l'appareil (caméra, micro) */
     @Column(name = "direct_capture")
     private Boolean directCapture;
 
-    /** Coordonnées GPS si disponibles (photo terrain) */
     @Column(name = "latitude")
     private Double latitude;
 
     @Column(name = "longitude")
     private Double longitude;
 
-    // ── Validation ────────────────────────────────────────
 
     @Column(name = "validated_at")
     private Instant validatedAt;
@@ -110,7 +101,6 @@ public class Attachment extends AuditEntity {
     @JoinColumn(name = "validated_by_id")
     private Agent validatedBy;
 
-    // ── Méthodes métier ───────────────────────────────────
 
     public void validate(Agent agent) {
         this.status = AttachmentStatus.VALIDATED;

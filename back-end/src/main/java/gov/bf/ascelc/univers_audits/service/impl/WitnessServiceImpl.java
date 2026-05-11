@@ -108,7 +108,6 @@ public class WitnessServiceImpl implements WitnessService {
         log.info("Témoin supprimé — id: {}", witnessId);
     }
 
-    // ── Helpers ───────────────────────────────────────────────
 
     private Dossier getDossierOrThrow(UUID dossierId) {
         return dossierRepository.findById(dossierId)

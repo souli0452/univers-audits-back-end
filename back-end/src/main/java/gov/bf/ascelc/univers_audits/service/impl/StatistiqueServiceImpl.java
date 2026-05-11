@@ -101,7 +101,6 @@ public class StatistiqueServiceImpl implements StatistiqueService {
         return getDashboard(start, end);
     }
 
-    // ── Stats publiques — mêmes définitions que la liste dossiers ──
 
     @Override
     public Map<String, Object> getPublicStats() {

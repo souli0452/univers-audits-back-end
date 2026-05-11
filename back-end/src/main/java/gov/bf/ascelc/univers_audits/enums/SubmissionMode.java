@@ -7,12 +7,11 @@ public enum SubmissionMode {
     PAPER_FORM,
     EMAIL,
     SMS,
-    FAX,
     PHONE,
     GREEN_NUMBER,
     SOCIAL_MEDIA,
     PRESS_MEDIA,
     AUDIT_REPORT,
     POSTAL_MAIL,
-    GMAIL_IMPORT
+
 }

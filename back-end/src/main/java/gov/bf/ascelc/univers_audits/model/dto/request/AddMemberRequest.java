@@ -13,7 +13,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class AddMemberRequest {
 
-    // ID de l'agent contrôleur d'État à affecter
     @NotNull(message = "L'ID de l'agent est obligatoire")
     private UUID agentId;
 

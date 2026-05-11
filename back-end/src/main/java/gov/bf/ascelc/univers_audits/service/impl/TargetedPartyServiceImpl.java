@@ -104,7 +104,6 @@ public class TargetedPartyServiceImpl implements TargetedPartyService {
         log.info("Partie visée supprimée — id: {}", partyId);
     }
 
-    // ── Helpers ───────────────────────────────────────────────
 
     private Dossier getDossierOrThrow(UUID dossierId) {
         return dossierRepository.findById(dossierId)

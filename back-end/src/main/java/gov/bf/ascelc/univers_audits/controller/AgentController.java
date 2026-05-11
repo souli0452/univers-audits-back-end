@@ -123,7 +123,6 @@ public class AgentController {
         ));
     }
 
-    // ── Mapping privé ─────────────────────────────────────────
 
     private Map<String, Object> toMap(Agent a) {
         return Map.of(

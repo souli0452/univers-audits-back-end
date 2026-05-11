@@ -37,7 +37,7 @@ public class AttachmentController {
     @Value("${storage.upload-dir:C:/asce-lc/uploads}")
     private String uploadDir;
 
-    // ── Upload — public (portail citoyen) ────────────────────
+
     @PostMapping("/dossier/{dossierId}")
     public ResponseEntity<?> uploadFiles(
             @PathVariable String dossierId,
@@ -123,7 +123,6 @@ public class AttachmentController {
         }
     }
 
-    // ── Liste pièces jointes ──────────────────────────────────
     @GetMapping("/dossier/{dossierId}")
     public ResponseEntity<?> listFiles(@PathVariable String dossierId) {
 
@@ -145,7 +144,6 @@ public class AttachmentController {
         return ResponseEntity.ok(files);
     }
 
-    // ── Download ──────────────────────────────────────────────
     @GetMapping("/{attachmentId}/download")
     public ResponseEntity<Resource> download(@PathVariable String attachmentId) {
 
@@ -176,7 +174,6 @@ public class AttachmentController {
         }
     }
 
-    // ── Suppression — agents authentifiés uniquement ─────────
     @DeleteMapping("/{attachmentId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> delete(@PathVariable String attachmentId) {
@@ -197,7 +194,6 @@ public class AttachmentController {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────
 
     private String computeHash(byte[] data) {
         try {

@@ -63,13 +63,13 @@ public class KeycloakAdminService {
         user.setFirstName(firstName);
         user.setLastName(lastName);
         user.setEnabled(true);
-        user.setEmailVerified(true); // ✅ CORRIGÉ : true pour permettre le reset password
+        user.setEmailVerified(true);
 
         try (Response response = kc.realm(realm).users().create(user)) {
             int status = response.getStatus();
 
             if (status == 409) {
-                throw new ConflictException( // ✅ CORRIGÉ : exception HTTP 409
+                throw new ConflictException(
                         "L'email ou le nom d'utilisateur est déjà utilisé");
             }
             if (status != 201) {
@@ -154,30 +154,16 @@ public class KeycloakAdminService {
         }
     }
 
-    /**
-     * Envoie un email à l'agent pour qu'il définisse son mot de passe.
-     */
-//    public void sendPasswordResetEmail(String keycloakId) {
-//        try {
-//            buildAdminClient().realm(realm)
-//                    .users().get(keycloakId)
-//                    .executeActionsEmail(List.of("UPDATE_PASSWORD"));
-//            log.info("Email reset mot de passe envoyé à: {}", keycloakId);
-//        } catch (Exception e) {
-//            log.warn("Impossible d'envoyer l'email reset: {}", e.getMessage());
-//            // On ne bloque pas la création si l'email échoue
-//        }
-//    }
+
 
     public void sendPasswordResetEmail(String keycloakId) {
         try {
             buildAdminClient().realm(realm)
                     .users().get(keycloakId)
                     .executeActionsEmail(List.of("UPDATE_PASSWORD"));
-            log.info("✅ Email reset envoyé à: {}", keycloakId);
+            log.info("Email reset envoyé à: {}", keycloakId);
         } catch (Exception e) {
-            // ✅ Log complet pour voir l'erreur exacte
-            log.error("❌ Échec envoi email reset pour {}: {} - {}",
+            log.error("Échec envoi email reset pour {}: {} - {}",
                     keycloakId,
                     e.getClass().getSimpleName(),
                     e.getMessage(), e);
@@ -250,7 +236,7 @@ public class KeycloakAdminService {
         if (lastName  != null) user.setLastName(lastName);
         if (email     != null) {
             user.setEmail(email);
-            user.setEmailVerified(true); // ✅ email reste vérifié après modification
+            user.setEmailVerified(true);
         }
 
         userResource.update(user);
@@ -266,7 +252,7 @@ public class KeycloakAdminService {
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setType(CredentialRepresentation.PASSWORD);
         credential.setValue(newPassword);
-        credential.setTemporary(false); // false = mot de passe permanent
+        credential.setTemporary(false);
 
         kc.realm(realm).users().get(keycloakId).resetPassword(credential);
         log.info("Mot de passe changé pour: {}", keycloakId);

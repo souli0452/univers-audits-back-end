@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.model.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -33,7 +34,17 @@ public class DossierUpdateRequest {
 
     private BigDecimal estimatedLoss;
 
+    @JsonProperty("isConfidential")
     private Boolean isConfidential;
 
     private String transferInstitution;
+
+
+    public Boolean getIsConfidential() {
+        return isConfidential;
+    }
+
+    public void setIsConfidential(Boolean isConfidential) {
+        this.isConfidential = isConfidential;
+    }
 }

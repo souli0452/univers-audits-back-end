@@ -4,21 +4,21 @@ import gov.bf.ascelc.univers_audits.enums.NotificationStatus;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,70 +27,87 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NotificationController {
 
-    private final NotificationService      notificationService;
-    private final NotificationRepository   notificationRepository;
-    private final AgentRepository          agentRepository;
-    private final DossierDetailsMapper     detailsMapper;
+    private final NotificationService    notificationService;
+    private final NotificationRepository notificationRepository;
+    private final AgentRepository        agentRepository;
+    private final DossierDetailsMapper   detailsMapper;
 
-    // ── Mes notifications (topbar + page notifications) ───────
+    private Agent resolveAgent(Jwt jwt) {
+        return agentRepository.findByKeycloakId(jwt.getSubject())
+                .orElseThrow(() -> new ResourceNotFoundException("Agent introuvable"));
+    }
+
     @GetMapping("/my")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<NotificationResponse>> getMyNotifications(
-            @RequestParam(defaultValue = "0")    int page,
-            @RequestParam(defaultValue = "20")   int size,
+            @RequestParam(defaultValue = "0")     int page,
+            @RequestParam(defaultValue = "20")    int size,
             @RequestParam(defaultValue = "false") boolean unreadOnly,
             @AuthenticationPrincipal Jwt jwt) {
 
         Pageable pageable = PageRequest.of(page, size,
                 Sort.by("createdAt").descending());
+        Agent agent = resolveAgent(jwt);
 
-        // Trouver l'agent connecté
-        Agent agent = agentRepository.findByKeycloakId(jwt.getSubject())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Agent introuvable"));
-
-        Page<NotificationResponse> result;
-
-        if (unreadOnly) {
-            result = notificationRepository
-                    .findByDossierAgentInChargeIdAndStatusIn(
-                            agent.getId(),
-                            List.of(NotificationStatus.PENDING,
-                                    NotificationStatus.FAILED),
-                            pageable)
-                    .map(detailsMapper::toResponse);
-        } else {
-            result = notificationRepository
-                    .findByDossierAgentInChargeId(agent.getId(), pageable)
-                    .map(detailsMapper::toResponse);
-        }
+        Page<NotificationResponse> result = unreadOnly
+                ? notificationRepository
+                .findByDossierAgentInChargeIdAndReadAtIsNull(agent.getId(), pageable)
+                .map(detailsMapper::toResponse)
+                : notificationRepository
+                .findByDossierAgentInChargeId(agent.getId(), pageable)
+                .map(detailsMapper::toResponse);
 
         return ResponseEntity.ok(result);
     }
 
-    // ── Marquer une notification comme lue ────────────────────
+
+    @GetMapping("/my/unread-count")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Long> getUnreadCount(
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Agent agent = resolveAgent(jwt);
+        long count = notificationRepository
+                .countByDossierAgentInChargeIdAndReadAtIsNull(agent.getId());
+        return ResponseEntity.ok(count);
+    }
+
     @PatchMapping("/{id}/read")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Void> markAsRead(@PathVariable UUID id) {
-        notificationRepository.findById(id).ifPresent(n -> {
-            // On ne change pas le statut SENT → on laisse tel quel
-            // mais on pourrait ajouter un champ readAt si besoin
-            notificationRepository.save(n);
-        });
+    @Transactional
+    public ResponseEntity<Void> markAsRead(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Agent agent = resolveAgent(jwt);
+
+        Notification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Notification introuvable : " + id));
+
+        UUID ownerAgentId = notification.getDossier()
+                .getAgentInCharge().getId();
+        if (!ownerAgentId.equals(agent.getId())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        notification.markAsRead();
+        notificationRepository.save(notification);
+
         return ResponseEntity.noContent().build();
     }
 
-    // ── Marquer toutes comme lues ─────────────────────────────
     @PatchMapping("/read-all")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Void> markAllAsRead() {
-        // Endpoint présent pour la cohérence frontend/backend
-        // Implémentation complète possible quand le champ "read"
-        // sera ajouté à l'entité Notification
+    @Transactional
+    public ResponseEntity<Void> markAllAsRead(
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Agent agent = resolveAgent(jwt);
+        notificationRepository.markAllReadByAgent(agent.getId(), Instant.now());
         return ResponseEntity.noContent().build();
     }
 
-    // ── Notifications d'un dossier ────────────────────────────
     @GetMapping("/dossier/{dossierId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<NotificationResponse>> getByDossier(
@@ -104,7 +121,6 @@ public class NotificationController {
                 notificationService.findByDossierId(dossierId, pageable));
     }
 
-    // ── En attente ────────────────────────────────────────────
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
     public ResponseEntity<Page<NotificationResponse>> getPending(
@@ -115,13 +131,10 @@ public class NotificationController {
                 Sort.by("scheduledAt").ascending());
         return ResponseEntity.ok(
                 notificationRepository
-                        .findByStatusIn(
-                                List.of(NotificationStatus.PENDING),
-                                pageable)
+                        .findByStatusIn(List.of(NotificationStatus.PENDING), pageable)
                         .map(detailsMapper::toResponse));
     }
 
-    // ── Envoi manuel ──────────────────────────────────────────
     @PatchMapping("/{id}/send")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
     public ResponseEntity<NotificationResponse> sendNow(
@@ -129,7 +142,6 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.sendNow(id));
     }
 
-    // ── Annulation ────────────────────────────────────────────
     @PatchMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
     public ResponseEntity<NotificationResponse> cancel(
@@ -138,7 +150,6 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.cancel(id, reason));
     }
 
-    // ── Relance ───────────────────────────────────────────────
     @PatchMapping("/{id}/retry")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
     public ResponseEntity<NotificationResponse> retry(

@@ -76,6 +76,9 @@ public class Notification extends AuditEntity {
     @JoinColumn(name = "signed_by_id")
     private Agent signedBy;
 
+    @Column(name = "read_at")
+    private Instant readAt;
+
 
     public void markAsSent() {
         this.status = NotificationStatus.SENT;
@@ -101,5 +104,15 @@ public class Notification extends AuditEntity {
     public boolean canRetry() {
         return NotificationStatus.FAILED.equals(status)
                 && retryCount < 3;
+    }
+
+    public void markAsRead() {
+        if (this.readAt == null) {
+            this.readAt = Instant.now();
+        }
+    }
+
+    public boolean isRead() {
+        return this.readAt != null;
     }
 }

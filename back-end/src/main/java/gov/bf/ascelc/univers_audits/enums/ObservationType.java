@@ -21,12 +21,6 @@ public enum ObservationType {
     // Constat effectué sur le terrain par les contrôleurs d'État
     FIELD_FINDING,
 
-    // Alerte automatique : délai légal dépassé ou proche
-    DEADLINE_ALERT,
-
-    // Pièce jointe rejetée avec motif explicite
-    ATTACHMENT_REJECTED,
-
     // Note de transfert vers une institution compétente
     TRANSFER_NOTE
 }

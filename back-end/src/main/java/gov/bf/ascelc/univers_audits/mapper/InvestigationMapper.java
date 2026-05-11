@@ -18,7 +18,6 @@ import java.time.ZoneId;
 )
 public interface InvestigationMapper {
 
-    // ───────── MAIN ─────────
 
     @Mapping(target = "dossierId", source = "dossier.id")
     @Mapping(target = "dossierNumber", source = "dossier.number")
@@ -45,7 +44,6 @@ public interface InvestigationMapper {
         );
     }
 
-    // ───────── SUMMARY ─────────
 
     @Mapping(target = "overdue", ignore = true)
     @Mapping(target = "remainingDays", ignore = true)
@@ -69,7 +67,6 @@ public interface InvestigationMapper {
         );
     }
 
-    // ───────── MEMBER ─────────
 
     @Mapping(target = "dateAttribution",
             source = "createdAt",

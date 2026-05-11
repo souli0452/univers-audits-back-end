@@ -37,7 +37,6 @@ public interface DeclarantMapper {
     @Mapping(target = "createdById", ignore = true)
     @Mapping(target = "updatedById", ignore = true)
     @Mapping(target = "cases", ignore = true)
-    // Valeurs par défaut si le frontend n'envoie pas ces champs
     @Mapping(target = "anonymous",
             source = "anonymous",
             defaultValue = "false")

@@ -6,6 +6,7 @@ import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,15 +19,11 @@ import java.util.UUID;
 public interface NotificationRepository
         extends JpaRepository<Notification, UUID> {
 
-    // ── Par dossier ───────────────────────────────────────────
 
-    /** Notifications d'un dossier — paginées */
     Page<Notification> findByDossierId(UUID dossierId, Pageable pageable);
 
-    /** Notifications d'un dossier — liste complète */
     List<Notification> findByDossierId(UUID dossierId);
 
-    // ── Par agent en charge du dossier (pour /my) ─────────────
 
     Page<Notification> findByDossierAgentInChargeId(
             UUID agentId, Pageable pageable);
@@ -36,14 +33,29 @@ public interface NotificationRepository
             List<NotificationStatus> statuses,
             Pageable pageable);
 
-    // ── Par statut ────────────────────────────────────────────
+
+
+    Page<Notification> findByDossierAgentInChargeIdAndReadAtIsNull(
+            UUID agentId, Pageable pageable);
+
+    long countByDossierAgentInChargeIdAndReadAtIsNull(UUID agentId);
+
+    @Modifying
+    @Query("""
+            UPDATE Notification n
+            SET n.readAt = :now
+            WHERE n.dossier.agentInCharge.id = :agentId
+              AND n.readAt IS NULL
+            """)
+    int markAllReadByAgent(@Param("agentId") UUID agentId,
+                           @Param("now")     Instant now);
+
 
     List<Notification> findByStatus(NotificationStatus status);
 
     Page<Notification> findByStatusIn(
             List<NotificationStatus> statuses, Pageable pageable);
 
-    // ── Scheduler ─────────────────────────────────────────────
 
     @Query("""
             SELECT n FROM Notification n
@@ -61,7 +73,7 @@ public interface NotificationRepository
             """)
     List<Notification> findRetryable();
 
-    // ── Divers ────────────────────────────────────────────────
+
 
     boolean existsByDossierIdAndType(UUID dossierId, NotificationType type);
 }

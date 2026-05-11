@@ -12,5 +12,5 @@ public record CreateAgentRequest(
         @NotBlank @Email String email,
         String phoneNumber,
         String grade,
-        List<String> keycloakRoles   // noms des rôles Keycloak cochés
+        List<String> keycloakRoles
 ) {}

@@ -20,9 +20,5 @@ public class ObservationRequest {
     @Size(max = 10000)
     private String content;
 
-    /**
-     * true = visible uniquement par CGE, CGEA, conseiller juridique.
-     * false = visible par tous les agents ayant accès au dossier.
-     */
     private Boolean confidential;
 }

@@ -38,8 +38,7 @@ public class ObservationServiceImpl implements ObservationService {
     public List<ObservationResponse> findByDossierId(UUID dossierId) {
         getDossierOrThrow(dossierId);
 
-        // CGE, CGEA et CONSEILLER_JURIDIQUE voient tout
-        // Les autres ne voient que les observations non confidentielles
+
         boolean canSeeConfidential =
                 securityUtils.hasRole("CGE")
                         || securityUtils.hasRole("CGEA")
@@ -89,7 +88,6 @@ public class ObservationServiceImpl implements ObservationService {
         return detailsMapper.toResponse(saved);
     }
 
-    // ── Helpers ───────────────────────────────────────────────
 
     private Dossier getDossierOrThrow(UUID dossierId) {
         return dossierRepository.findById(dossierId)

@@ -46,7 +46,7 @@ public class DossierServiceImpl implements DossierService {
     private final DeclarantMapper                declarantMapper;
     private final AccessCodeGenerator            accessCodeGenerator;
     private final SecurityUtils                  securityUtils;
-    private final NotificationDispatcherService notificationDispatcher;
+    private final NotificationDispatcherService  notificationDispatcher;
 
     // ── Lecture ───────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ public class DossierServiceImpl implements DossierService {
                 .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
     }
 
-    // ── Soumission publique ───────────────────────────────────
+    // ── Soumission ────────────────────────────────────────────
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -96,9 +96,14 @@ public class DossierServiceImpl implements DossierService {
         log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
 
         Declarant declarant = resolveDeclarant(request);
-        Dossier dossier     = dossierMapper.toEntity(request);
+        Dossier dossier = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
         dossier.setStatus(DossierStatus.SOUMIS);
+
+
+        if (dossier.getIsConfidential() == null) {
+            dossier.setIsConfidential(false);
+        }
 
         // Génère un code d'accès unique
         String accessCode;
@@ -109,7 +114,7 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // ✅ Envoi email/SMS avec le code d'accès
+        // Envoi email/SMS avec le code d'accès
         notificationDispatcher.dispatchAccessCode(saved);
 
         // Alerte interne BRPD pour les dépôts audio
@@ -158,7 +163,6 @@ public class DossierServiceImpl implements DossierService {
                 "Dossier enregistré. Numéro attribué : " + number,
                 false, agent);
 
-        // Notification interne (base)
         createNotification(dossier,
                 NotificationType.RECEIPT_B4,
                 NotificationChannel.PORTAL,
@@ -177,7 +181,6 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // ✅ Renvoi email/SMS avec le numéro officiel maintenant attribué
         notificationDispatcher.dispatchAccessCode(saved);
 
         recordStatusChange(saved,
@@ -250,7 +253,6 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // ✅ Notification complément
         notificationDispatcher.dispatchStatusUpdate(
                 saved,
                 "Complément requis",
@@ -352,7 +354,6 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // ✅ Notification recevabilité
         notificationDispatcher.dispatchStatusUpdate(
                 saved,
                 "Dossier recevable",
@@ -401,7 +402,6 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // ✅ Notification irrecevabilité
         notificationDispatcher.dispatchStatusUpdate(
                 saved,
                 "Dossier irrecevable",
@@ -455,7 +455,6 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // ✅ Notification transfert
         notificationDispatcher.dispatchStatusUpdate(
                 saved,
                 "Dossier transféré",
@@ -497,7 +496,6 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // ✅ Notification clôture
         notificationDispatcher.dispatchStatusUpdate(
                 saved,
                 newStatus == DossierStatus.CLOS ? "Dossier clôturé" : "Dossier classé",
@@ -523,6 +521,11 @@ public class DossierServiceImpl implements DossierService {
         }
 
         dossierMapper.updateEntity(request, dossier);
+
+        if (dossier.getIsConfidential() == null) {
+            dossier.setIsConfidential(false);
+        }
+
         return dossierMapper.toResponse(dossierRepository.save(dossier));
     }
 
@@ -607,7 +610,7 @@ public class DossierServiceImpl implements DossierService {
     }
 
     private String generateUniqueNumber() {
-        int year  = Year.now().getValue();
+        int year = Year.now().getValue();
         long count = dossierRepository.countByReceptionDateBetween(
                 Instant.parse(year + "-01-01T00:00:00Z"),
                 Instant.now()) + 1;
