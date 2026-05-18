@@ -486,13 +486,7 @@ body{
 
       </form>
 
-      <div class="sec-note">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2l-9 4.5V12c0 5.25 3.84 9.74 9 11 5.16-1.26 9-5.75 9-11V6.5L12 2z"/>
-          <path d="M9 12l2 2 4-4"/>
-        </svg>
-        Connexion chiffrée SSL · Keycloak SSO
-      </div>
+
 
     </div>
   </div>

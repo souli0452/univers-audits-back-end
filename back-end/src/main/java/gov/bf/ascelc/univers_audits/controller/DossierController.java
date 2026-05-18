@@ -227,6 +227,18 @@ public class DossierController {
                 dossierService.update(id, request));
     }
 
+
+    @PatchMapping("/{id}/confidential")
+    @PreAuthorize("hasAnyRole('CGE', 'CGEA', 'ADMIN_DDIC')")
+    public ResponseEntity<DossierResponse> toggleConfidential(
+            @PathVariable UUID id,
+            @RequestParam boolean value,
+            @RequestBody StatusTransitionRequest request) {
+        log.info("Changement confidentialité dossier {} → {}", id, value);
+        return ResponseEntity.ok(
+                dossierService.setConfidential(id, value, request));
+    }
+
     private String getClientIp(HttpServletRequest request) {
         String forwardedFor =
                 request.getHeader("X-Forwarded-For");

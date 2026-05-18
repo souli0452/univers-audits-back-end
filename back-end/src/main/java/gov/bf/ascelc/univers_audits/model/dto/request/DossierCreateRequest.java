@@ -5,6 +5,7 @@ import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -58,8 +59,10 @@ public class DossierCreateRequest {
 
     private UUID declarantId;
 
+    // @Valid déclenche la validation de DeclarantCreateRequest,
+    // y compris isProtectionConsistent()
+    @Valid
     private DeclarantCreateRequest declarantData;
-
 
     public Boolean getIsConfidential() {
         return isConfidential != null ? isConfidential : false;

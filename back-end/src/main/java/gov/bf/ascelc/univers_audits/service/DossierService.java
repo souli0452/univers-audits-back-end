@@ -64,4 +64,13 @@ public interface DossierService {
 
     DossierResponse update(UUID dossierId,
                            DossierUpdateRequest request);
+
+    DossierResponse setConfidential(UUID dossierId,
+                                    boolean value,
+                                    StatusTransitionRequest request);
+
+    DossierResponse revokeWhistleblowerProtection(
+            UUID dossierId,
+            StatusTransitionRequest request);
+
 }

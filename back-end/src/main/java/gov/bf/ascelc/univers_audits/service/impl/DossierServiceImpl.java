@@ -36,24 +36,29 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class DossierServiceImpl implements DossierService {
 
-    private final DossierRepository              dossierRepository;
-    private final DeclarantRepository            declarantRepository;
-    private final AgentRepository                agentRepository;
-    private final StatusHistoryRepository        statusHistoryRepository;
-    private final NotificationRepository         notificationRepository;
-    private final ObservationRepository          observationRepository;
-    private final DossierMapper                  dossierMapper;
-    private final DeclarantMapper                declarantMapper;
-    private final AccessCodeGenerator            accessCodeGenerator;
-    private final SecurityUtils                  securityUtils;
-    private final NotificationDispatcherService  notificationDispatcher;
+    private final DossierRepository             dossierRepository;
+    private final DeclarantRepository           declarantRepository;
+    private final AgentRepository               agentRepository;
+    private final StatusHistoryRepository       statusHistoryRepository;
+    private final NotificationRepository        notificationRepository;
+    private final ObservationRepository         observationRepository;
+    private final DossierMapper                 dossierMapper;
+    private final DeclarantMapper               declarantMapper;
+    private final AccessCodeGenerator           accessCodeGenerator;
+    private final SecurityUtils                 securityUtils;
+    private final NotificationDispatcherService notificationDispatcher;
 
-    // ── Lecture ───────────────────────────────────────────────
+
+    // ══════════════════════════════════════════════════════════════
+    //  LECTURE
+    // ══════════════════════════════════════════════════════════════
 
     @Override
     public DossierResponse findById(UUID id) {
-        return maskSensitiveData(
-                dossierMapper.toResponse(getDossierOrThrow(id)));
+        Dossier dossier = getDossierOrThrow(id);
+        // Trace chaque accès à un dossier lanceur d'alerte protégé
+        logSensitiveAccessIfProtected(dossier, "findById");
+        return maskSensitiveData(dossierMapper.toResponse(dossier));
     }
 
     @Override
@@ -62,6 +67,8 @@ public class DossierServiceImpl implements DossierService {
                 .findByAccessCode(accessCode)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Dossier introuvable avec ce code d'accès"));
+        // CRITIQUE : maskSensitiveData indispensable ici —
+        // cette route est accessible sans authentification (portail citoyen).
         return maskSensitiveData(dossierMapper.toResponse(dossier));
     }
 
@@ -87,7 +94,10 @@ public class DossierServiceImpl implements DossierService {
                 .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
     }
 
-    // ── Soumission ────────────────────────────────────────────
+
+    // ══════════════════════════════════════════════════════════════
+    //  SOUMISSION
+    // ══════════════════════════════════════════════════════════════
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -95,17 +105,44 @@ public class DossierServiceImpl implements DossierService {
                                   String ipAddress) {
         log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
 
+        // ── Garde lanceur d'alerte ───────────────────────────────────────
+        // La validation Jakarta (@AssertTrue sur DeclarantCreateRequest) couvre
+        // déjà ce cas si @Valid est posé sur le contrôleur, mais on double-vérifie
+        // ici pour toute invocation programmatique hors contexte HTTP.
+        if (request.getDeclarantData() != null
+                && Boolean.TRUE.equals(
+                request.getDeclarantData().getProtectionRequested())
+                && !Boolean.TRUE.equals(
+                request.getDeclarantData().getProtectionAcknowledged())) {
+            throw new BusinessException(
+                    "Vous devez confirmer avoir pris connaissance des conditions "
+                            + "de la protection lanceur d'alerte (Loi N°010-2004/AN) "
+                            + "avant de pouvoir la demander.");
+        }
+        // ────────────────────────────────────────────────────────────────
+
         Declarant declarant = resolveDeclarant(request);
-        Dossier dossier = dossierMapper.toEntity(request);
+        Dossier   dossier   = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
         dossier.setStatus(DossierStatus.SOUMIS);
-
 
         if (dossier.getIsConfidential() == null) {
             dossier.setIsConfidential(false);
         }
 
-        // Génère un code d'accès unique
+        // ── Confidentialité automatique si protection demandée ───────────
+        // Dès la soumission, le dossier est confidentiel pour éviter qu'un
+        // AGENT_BRPD voie l'identité avant l'enregistrement officiel (RECU).
+        boolean protectionRequested = declarant != null
+                && Boolean.TRUE.equals(declarant.getProtectionRequested());
+
+        if (protectionRequested) {
+            dossier.setIsConfidential(true);
+            log.warn("[SECURITE] Protection lanceur d'alerte — dossier marqué "
+                    + "confidentiel d'office à la soumission. IP: {}", ipAddress);
+        }
+        // ────────────────────────────────────────────────────────────────
+
         String accessCode;
         do {
             accessCode = accessCodeGenerator.generate();
@@ -114,15 +151,13 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        // Envoi email/SMS avec le code d'accès
         notificationDispatcher.dispatchAccessCode(saved);
 
-        // Alerte interne BRPD pour les dépôts audio
-        if (request.getSubmissionMode() != null &&
-                (request.getSubmissionMode().name().contains("AUDIO") ||
-                        request.getSubmissionMode() ==
-                                gov.bf.ascelc.univers_audits.enums.SubmissionMode.PHONE)) {
-
+        // Alerte audio / téléphone
+        if (request.getSubmissionMode() != null
+                && (request.getSubmissionMode().name().contains("AUDIO")
+                || request.getSubmissionMode()
+                == gov.bf.ascelc.univers_audits.enums.SubmissionMode.PHONE)) {
             createNotification(saved,
                     NotificationType.INTERNAL_ALERT,
                     NotificationChannel.PORTAL,
@@ -130,6 +165,19 @@ public class DossierServiceImpl implements DossierService {
                     "Un citoyen a soumis une dénonciation vocale. "
                             + "Veuillez écouter l'enregistrement et constituer "
                             + "le dossier. Code: " + saved.getAccessCode(),
+                    Instant.now());
+        }
+
+        // Alerte interne immédiate si protection demandée
+        if (protectionRequested) {
+            createNotification(saved,
+                    NotificationType.INTERNAL_ALERT,
+                    NotificationChannel.PORTAL,
+                    "⚠ PROTECTION LANCEUR D'ALERTE — Soumission reçue",
+                    "Un déclarant a invoqué la protection lanceur d'alerte "
+                            + "(Loi N°010-2004/AN) dès la soumission. "
+                            + "Code d'accès : " + saved.getAccessCode()
+                            + ". Le dossier a été automatiquement marqué confidentiel.",
                     Instant.now());
         }
 
@@ -141,7 +189,10 @@ public class DossierServiceImpl implements DossierService {
         return dossierMapper.toResponse(saved);
     }
 
-    // ── Transitions de statut ─────────────────────────────────
+
+    // ══════════════════════════════════════════════════════════════
+    //  ENREGISTREMENT (SOUMIS → RECU)
+    // ══════════════════════════════════════════════════════════════
 
     @Override
     @Transactional
@@ -162,6 +213,37 @@ public class DossierServiceImpl implements DossierService {
                 ObservationType.INTERNAL_NOTE,
                 "Dossier enregistré. Numéro attribué : " + number,
                 false, agent);
+
+        // ── Alerte protection lanceur d'alerte ──────────────────────────
+        if (dossier.getDeclarant() != null
+                && Boolean.TRUE.equals(
+                dossier.getDeclarant().getProtectionRequested())) {
+
+            // Observation confidentielle — visible CGE / CGEA uniquement
+            addObservation(dossier,
+                    ObservationType.INTERNAL_NOTE,
+                    "⚠ PROTECTION LANCEUR D'ALERTE DEMANDÉE — Loi N°010-2004/AN. "
+                            + "Ce déclarant a demandé une protection officielle. "
+                            + "Aucune information permettant son identification "
+                            + "ne doit être divulguée.",
+                    true, agent);
+
+            // Notification portail → CGE / CGEA
+            createNotification(dossier,
+                    NotificationType.INTERNAL_ALERT,
+                    NotificationChannel.PORTAL,
+                    "PROTECTION LANCEUR D'ALERTE — Dossier " + number,
+                    "Le déclarant du dossier " + number
+                            + " a invoqué la protection lanceur d'alerte "
+                            + "(Loi N°010-2004/AN). "
+                            + "Veuillez prendre les mesures de protection appropriées.",
+                    Instant.now());
+
+            log.warn("[SECURITE] PROTECTION LANCEUR D'ALERTE activée — "
+                            + "dossier: {}, agent: {}, IP: {}",
+                    number, agent.getMatricule(), ipAddress);
+        }
+        // ────────────────────────────────────────────────────────────────
 
         createNotification(dossier,
                 NotificationType.RECEIPT_B4,
@@ -187,10 +269,14 @@ public class DossierServiceImpl implements DossierService {
                 DossierStatus.SOUMIS, DossierStatus.RECU,
                 "Enregistrement officiel BRPD", agent, ipAddress);
 
-        log.info("Dossier {} enregistré par {}",
-                number, agent.getMatricule());
+        log.info("Dossier {} enregistré par {}", number, agent.getMatricule());
         return dossierMapper.toResponse(saved);
     }
+
+
+    // ══════════════════════════════════════════════════════════════
+    //  TRANSITIONS WORKFLOW
+    // ══════════════════════════════════════════════════════════════
 
     @Override
     @Transactional
@@ -253,12 +339,10 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved,
+        notificationDispatcher.dispatchStatusUpdate(saved,
                 "Complément requis",
                 "Des informations supplémentaires sont nécessaires. Motif : "
-                        + request.getReason()
-        );
+                        + request.getReason());
 
         recordStatusChange(saved,
                 DossierStatus.EN_ETUDE_OPPORTUNITE,
@@ -354,12 +438,10 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved,
+        notificationDispatcher.dispatchStatusUpdate(saved,
                 "Dossier recevable",
                 "L'ASCE-LC a déclaré votre dossier recevable "
-                        + "et va procéder à une investigation."
-        );
+                        + "et va procéder à une investigation.");
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.RECEVABLE,
@@ -402,12 +484,10 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved,
+        notificationDispatcher.dispatchStatusUpdate(saved,
                 "Dossier irrecevable",
                 "L'ASCE-LC ne peut pas donner suite. Motif : "
-                        + request.getReason()
-        );
+                        + request.getReason());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.IRRECEVABLE,
@@ -455,12 +535,10 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved,
+        notificationDispatcher.dispatchStatusUpdate(saved,
                 "Dossier transféré",
                 "Votre dossier a été transmis à "
-                        + request.getTransferInstitution()
-        );
+                        + request.getTransferInstitution());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.TRANSFERE,
@@ -496,12 +574,11 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved,
-                newStatus == DossierStatus.CLOS ? "Dossier clôturé" : "Dossier classé",
+        notificationDispatcher.dispatchStatusUpdate(saved,
+                newStatus == DossierStatus.CLOS
+                        ? "Dossier clôturé" : "Dossier classé",
                 "Votre dossier a été traité et officiellement clôturé. "
-                        + "Merci pour votre contribution à la lutte contre la corruption."
-        );
+                        + "Merci pour votre contribution à la lutte contre la corruption.");
 
         recordStatusChange(saved, previousStatus, newStatus,
                 request.getReason(), agent, ipAddress);
@@ -520,6 +597,20 @@ public class DossierServiceImpl implements DossierService {
                     "Un dossier clôturé ne peut plus être modifié");
         }
 
+        // Seuls CGE et CGEA peuvent modifier un dossier lanceur d'alerte protégé
+        boolean isProtected = dossier.getDeclarant() != null
+                && Boolean.TRUE.equals(
+                dossier.getDeclarant().getProtectionRequested());
+        boolean isCge  = securityUtils.hasRole("CGE");
+        boolean isCgea = securityUtils.hasRole("CGEA");
+
+        if (isProtected && !isCge && !isCgea) {
+            throw new BusinessException(
+                    "Modification restreinte — ce dossier concerne un lanceur "
+                            + "d'alerte sous protection (Loi N°010-2004/AN). "
+                            + "Seuls le CGE et le CGEA sont habilités à le modifier.");
+        }
+
         dossierMapper.updateEntity(request, dossier);
 
         if (dossier.getIsConfidential() == null) {
@@ -529,7 +620,100 @@ public class DossierServiceImpl implements DossierService {
         return dossierMapper.toResponse(dossierRepository.save(dossier));
     }
 
-    // ── Helpers privés ────────────────────────────────────────
+    @Override
+    @Transactional
+    public DossierResponse setConfidential(UUID dossierId,
+                                           boolean value,
+                                           StatusTransitionRequest request) {
+        Dossier dossier = getDossierOrThrow(dossierId);
+        Agent agent = getCurrentAgent();
+
+        boolean isProtected = dossier.getDeclarant() != null
+                && Boolean.TRUE.equals(
+                dossier.getDeclarant().getProtectionRequested());
+        boolean isCge  = securityUtils.hasRole("CGE");
+        boolean isCgea = securityUtils.hasRole("CGEA");
+
+        // ADMIN_DDIC ne peut pas retirer la confidentialité
+        // d'un dossier lanceur d'alerte protégé
+        if (isProtected && !value && !isCge && !isCgea) {
+            throw new BusinessException(
+                    "Impossible de retirer la confidentialité d'un dossier "
+                            + "lanceur d'alerte protégé (Loi N°010-2004/AN). "
+                            + "Cette action est réservée au CGE et au CGEA.");
+        }
+
+        dossier.setIsConfidential(value);
+
+        addObservation(dossier,
+                ObservationType.INTERNAL_NOTE,
+                "Dossier marqué comme "
+                        + (value ? "CONFIDENTIEL" : "NON CONFIDENTIEL")
+                        + (request.getReason() != null
+                        ? " — Motif : " + request.getReason() : ""),
+                true, agent);
+
+        Dossier saved = dossierRepository.save(dossier);
+
+        log.info("Dossier {} — confidentiel: {}", saved.getNumber(), value);
+        return dossierMapper.toResponse(saved);
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    //  RÉVOCATION PROTECTION LANCEUR D'ALERTE
+    //  Réservé CGE / CGEA — motif obligatoire
+    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    @Transactional
+    public DossierResponse revokeWhistleblowerProtection(
+            UUID dossierId,
+            StatusTransitionRequest request) {
+
+        Dossier dossier = getDossierOrThrow(dossierId);
+        Agent agent = getCurrentAgent();
+
+        if (!securityUtils.hasRole("CGE") && !securityUtils.hasRole("CGEA")) {
+            throw new BusinessException(
+                    "Seuls le CGE et le CGEA peuvent révoquer "
+                            + "une protection lanceur d'alerte.");
+        }
+
+        if (request.getReason() == null || request.getReason().isBlank()) {
+            throw new BusinessException(
+                    "Le motif de révocation est obligatoire.");
+        }
+
+        if (dossier.getDeclarant() == null
+                || !Boolean.TRUE.equals(
+                dossier.getDeclarant().getProtectionRequested())) {
+            throw new BusinessException(
+                    "Ce dossier ne bénéficie d'aucune protection "
+                            + "lanceur d'alerte active.");
+        }
+
+        dossier.getDeclarant().setProtectionRequested(false);
+        declarantRepository.save(dossier.getDeclarant());
+
+        addObservation(dossier,
+                ObservationType.CGE_DECISION,
+                "⚠ Protection lanceur d'alerte RÉVOQUÉE par décision CGE/CGEA. "
+                        + "Motif : " + request.getReason(),
+                true, agent);
+
+        log.warn("[SECURITE] Protection lanceur d'alerte RÉVOQUÉE — "
+                        + "dossier: {}, par: {}, motif: {}",
+                dossier.getNumber(), agent.getMatricule(), request.getReason());
+
+        return maskSensitiveData(
+                dossierMapper.toResponse(dossierRepository.save(dossier)));
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    //  MÉTHODES PRIVÉES — UTILITAIRES
+    // ══════════════════════════════════════════════════════════════
 
     private Dossier getDossierOrThrow(UUID id) {
         return dossierRepository.findById(id)
@@ -539,15 +723,13 @@ public class DossierServiceImpl implements DossierService {
 
     private Agent getCurrentAgent() {
         String keycloakId = securityUtils.getCurrentKeycloakId()
-                .orElseThrow(() ->
-                        new BusinessException("Agent non authentifié"));
+                .orElseThrow(() -> new BusinessException("Agent non authentifié"));
         return agentRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> new BusinessException(
                         "Agent introuvable. Contactez l'administrateur DDIC."));
     }
 
-    private void validateTransition(Dossier dossier,
-                                    DossierStatus target) {
+    private void validateTransition(Dossier dossier, DossierStatus target) {
         if (dossier.isClosed()) {
             throw new BusinessException(
                     "Ce dossier est clôturé — aucune action possible");
@@ -597,12 +779,10 @@ public class DossierServiceImpl implements DossierService {
             String email = request.getDeclarantData().getEmail();
             String phone = request.getDeclarantData().getPhoneNumber();
             if (email != null || phone != null) {
-                var existing =
-                        declarantRepository.findByEmailOrPhone(email, phone);
+                var existing = declarantRepository.findByEmailOrPhone(email, phone);
                 if (!existing.isEmpty()) return existing.get(0);
             }
-            Declarant declarant =
-                    declarantMapper.toEntity(request.getDeclarantData());
+            Declarant declarant = declarantMapper.toEntity(request.getDeclarantData());
             return declarantRepository.save(declarant);
         }
 
@@ -610,23 +790,20 @@ public class DossierServiceImpl implements DossierService {
     }
 
     private String generateUniqueNumber() {
-        int year = Year.now().getValue();
+        int year   = Year.now().getValue();
         long count = dossierRepository.countByReceptionDateBetween(
                 Instant.parse(year + "-01-01T00:00:00Z"),
                 Instant.now()) + 1;
         String number;
         do {
-            number = accessCodeGenerator.generateDossierNumber(
-                    (int) count, year);
+            number = accessCodeGenerator.generateDossierNumber((int) count, year);
             count++;
         } while (dossierRepository.existsByNumber(number));
         return number;
     }
 
-    private void addObservation(Dossier dossier,
-                                ObservationType type,
-                                String content,
-                                boolean confidential,
+    private void addObservation(Dossier dossier, ObservationType type,
+                                String content, boolean confidential,
                                 Agent agent) {
         Observation obs = Observation.builder()
                 .dossier(dossier)
@@ -640,12 +817,9 @@ public class DossierServiceImpl implements DossierService {
         observationRepository.save(obs);
     }
 
-    private void createNotification(Dossier dossier,
-                                    NotificationType type,
-                                    NotificationChannel channel,
-                                    String subject,
-                                    String content,
-                                    Instant scheduledAt) {
+    private void createNotification(Dossier dossier, NotificationType type,
+                                    NotificationChannel channel, String subject,
+                                    String content, Instant scheduledAt) {
         Notification notif = Notification.builder()
                 .dossier(dossier)
                 .type(type)
@@ -657,12 +831,9 @@ public class DossierServiceImpl implements DossierService {
         notificationRepository.save(notif);
     }
 
-    private void recordStatusChange(Dossier dossier,
-                                    DossierStatus previous,
-                                    DossierStatus next,
-                                    String reason,
-                                    Agent agent,
-                                    String ipAddress) {
+    private void recordStatusChange(Dossier dossier, DossierStatus previous,
+                                    DossierStatus next, String reason,
+                                    Agent agent, String ipAddress) {
         StatusHistory history = StatusHistory.builder()
                 .dossier(dossier)
                 .previousStatus(previous)
@@ -685,32 +856,101 @@ public class DossierServiceImpl implements DossierService {
         return NotificationChannel.PORTAL;
     }
 
+    /**
+     * Trace dans les logs chaque accès à un dossier lanceur d'alerte protégé.
+     * Répond à l'exigence de traçabilité de la Loi N°010-2004/AN.
+     */
+    private void logSensitiveAccessIfProtected(Dossier dossier, String method) {
+        if (dossier.getDeclarant() == null
+                || !Boolean.TRUE.equals(
+                dossier.getDeclarant().getProtectionRequested())) {
+            return;
+        }
+        String callerInfo = securityUtils.getCurrentKeycloakId()
+                .orElse("ANONYMOUS");
+        log.warn("[AUDIT-PROTECTION] Accès dossier lanceur d'alerte — "
+                        + "dossier: {}, méthode: {}, appelant: {}, horodatage: {}",
+                dossier.getNumber() != null ? dossier.getNumber() : dossier.getId(),
+                method, callerInfo, Instant.now());
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    //  MASQUAGE DES DONNÉES SENSIBLES
+    //
+    //  Ordre d'application (du plus restrictif au moins restrictif) :
+    //    1. Dossier confidentiel        → nullifie le déclarant entier
+    //    2. Protection lanceur d'alerte → remplace l'identité par un libellé générique
+    //    3. Déclarant anonyme           → nullifie les champs d'identité
+    //    4. Témoins anonymes            → idem pour chaque témoin
+    // ══════════════════════════════════════════════════════════════
+
     private DossierResponse maskSensitiveData(DossierResponse response) {
-        boolean isCge = securityUtils.hasRole("CGE");
 
-        if (!isCge) {
-            if (response.getDeclarant() != null
-                    && Boolean.TRUE.equals(
-                    response.getDeclarant().getAnonymous())) {
-                response.getDeclarant().setFirstName(null);
-                response.getDeclarant().setLastName(null);
-                response.getDeclarant().setEmail(null);
-                response.getDeclarant().setPhoneNumber(null);
-                response.getDeclarant().setAddress(null);
-                response.getDeclarant().setCommune(null);
-                response.getDeclarant().setProvince(null);
-            }
+        boolean isCge   = securityUtils.hasRole("CGE");
+        boolean isCgea  = securityUtils.hasRole("CGEA");
+        boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
 
-            if (response.getWitnesses() != null) {
-                for (WitnessResponse witness : response.getWitnesses()) {
-                    if (Boolean.TRUE.equals(witness.getAnonymous())) {
-                        witness.setFirstName(null);
-                        witness.setLastName(null);
-                        witness.setEmail(null);
-                        witness.setPhoneNumber(null);
-                        witness.setAddress(null);
-                        witness.setProfession(null);
-                    }
+        boolean canSeeConfidential = isCge || isCgea || isAdmin;
+
+        // ── 1. Dossier confidentiel ──────────────────────────────────────
+        if (Boolean.TRUE.equals(response.getIsConfidential())
+                && !canSeeConfidential) {
+            response.setDeclarant(null);
+            response.setDescription("** Contenu confidentiel — accès restreint **");
+            response.setMotifs(null);
+            response.setIncidentLocation(null);
+            response.setEstimatedLoss(null);
+            response.setObservations(null);
+            response.setWitnesses(null);
+            response.setTargetedParties(null);
+            log.debug("Dossier {} — accès restreint (confidentiel)",
+                    response.getNumber());
+        }
+
+        // ── 2. Protection lanceur d'alerte ──────────────────────────────
+        // ADMIN_DDIC peut voir le contenu du dossier confidentiel
+        // mais PAS l'identité d'un lanceur d'alerte protégé.
+        if (response.getDeclarant() != null
+                && Boolean.TRUE.equals(
+                response.getDeclarant().getProtectionRequested())
+                && !isCge && !isCgea) {
+            response.getDeclarant().setFirstName(null);
+            response.getDeclarant().setLastName(null);
+            response.getDeclarant().setEmail(null);
+            response.getDeclarant().setPhoneNumber(null);
+            response.getDeclarant().setAddress(null);
+            response.getDeclarant().setCommune(null);
+            response.getDeclarant().setProvince(null);
+            response.getDeclarant().setProfession(null);
+            response.getDeclarant().setDisplayName(
+                    "Lanceur d'alerte protégé (Loi N°010-2004/AN)");
+            log.debug("Dossier {} — identité lanceur d'alerte masquée",
+                    response.getNumber());
+        }
+
+        // ── 3. Déclarant anonyme ─────────────────────────────────────────
+        if (response.getDeclarant() != null
+                && Boolean.TRUE.equals(response.getDeclarant().getAnonymous())) {
+            response.getDeclarant().setFirstName(null);
+            response.getDeclarant().setLastName(null);
+            response.getDeclarant().setEmail(null);
+            response.getDeclarant().setPhoneNumber(null);
+            response.getDeclarant().setAddress(null);
+            response.getDeclarant().setCommune(null);
+            response.getDeclarant().setProvince(null);
+        }
+
+        // ── 4. Témoins anonymes ──────────────────────────────────────────
+        if (response.getWitnesses() != null) {
+            for (WitnessResponse witness : response.getWitnesses()) {
+                if (Boolean.TRUE.equals(witness.getAnonymous())) {
+                    witness.setFirstName(null);
+                    witness.setLastName(null);
+                    witness.setEmail(null);
+                    witness.setPhoneNumber(null);
+                    witness.setAddress(null);
+                    witness.setProfession(null);
                 }
             }
         }
