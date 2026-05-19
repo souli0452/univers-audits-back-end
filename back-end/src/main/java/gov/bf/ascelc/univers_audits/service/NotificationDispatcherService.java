@@ -15,10 +15,7 @@ public class NotificationDispatcherService {
     private final EmailService emailService;
     private final SmsService   smsService;
 
-    /**
-     * Envoie le code d'accès B4 par email et/ou SMS
-     * selon les coordonnées du déclarant.
-     */
+
     public void dispatchAccessCode(Dossier dossier) {
         Declarant declarant = dossier.getDeclarant();
         if (declarant == null) {
@@ -51,10 +48,7 @@ public class NotificationDispatcherService {
         }
     }
 
-    /**
-     * Envoie une notification de changement de statut
-     * par email et/ou SMS selon les coordonnées du déclarant.
-     */
+
     public void dispatchStatusUpdate(Dossier dossier,
                                      String statusLabel,
                                      String message) {

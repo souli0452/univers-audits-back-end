@@ -67,8 +67,7 @@ public class DossierServiceImpl implements DossierService {
                 .findByAccessCode(accessCode)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Dossier introuvable avec ce code d'accès"));
-        // CRITIQUE : maskSensitiveData indispensable ici —
-        // cette route est accessible sans authentification (portail citoyen).
+
         return maskSensitiveData(dossierMapper.toResponse(dossier));
     }
 
@@ -105,10 +104,7 @@ public class DossierServiceImpl implements DossierService {
                                   String ipAddress) {
         log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
 
-        // ── Garde lanceur d'alerte ───────────────────────────────────────
-        // La validation Jakarta (@AssertTrue sur DeclarantCreateRequest) couvre
-        // déjà ce cas si @Valid est posé sur le contrôleur, mais on double-vérifie
-        // ici pour toute invocation programmatique hors contexte HTTP.
+
         if (request.getDeclarantData() != null
                 && Boolean.TRUE.equals(
                 request.getDeclarantData().getProtectionRequested())
@@ -119,7 +115,6 @@ public class DossierServiceImpl implements DossierService {
                             + "de la protection lanceur d'alerte (Loi N°010-2004/AN) "
                             + "avant de pouvoir la demander.");
         }
-        // ────────────────────────────────────────────────────────────────
 
         Declarant declarant = resolveDeclarant(request);
         Dossier   dossier   = dossierMapper.toEntity(request);
@@ -130,9 +125,7 @@ public class DossierServiceImpl implements DossierService {
             dossier.setIsConfidential(false);
         }
 
-        // ── Confidentialité automatique si protection demandée ───────────
-        // Dès la soumission, le dossier est confidentiel pour éviter qu'un
-        // AGENT_BRPD voie l'identité avant l'enregistrement officiel (RECU).
+
         boolean protectionRequested = declarant != null
                 && Boolean.TRUE.equals(declarant.getProtectionRequested());
 
@@ -141,7 +134,7 @@ public class DossierServiceImpl implements DossierService {
             log.warn("[SECURITE] Protection lanceur d'alerte — dossier marqué "
                     + "confidentiel d'office à la soumission. IP: {}", ipAddress);
         }
-        // ────────────────────────────────────────────────────────────────
+
 
         String accessCode;
         do {
@@ -153,7 +146,7 @@ public class DossierServiceImpl implements DossierService {
 
         notificationDispatcher.dispatchAccessCode(saved);
 
-        // Alerte audio / téléphone
+
         if (request.getSubmissionMode() != null
                 && (request.getSubmissionMode().name().contains("AUDIO")
                 || request.getSubmissionMode()
@@ -168,7 +161,7 @@ public class DossierServiceImpl implements DossierService {
                     Instant.now());
         }
 
-        // Alerte interne immédiate si protection demandée
+
         if (protectionRequested) {
             createNotification(saved,
                     NotificationType.INTERNAL_ALERT,
@@ -243,7 +236,7 @@ public class DossierServiceImpl implements DossierService {
                             + "dossier: {}, agent: {}, IP: {}",
                     number, agent.getMatricule(), ipAddress);
         }
-        // ────────────────────────────────────────────────────────────────
+
 
         createNotification(dossier,
                 NotificationType.RECEIPT_B4,
@@ -660,10 +653,6 @@ public class DossierServiceImpl implements DossierService {
     }
 
 
-    // ══════════════════════════════════════════════════════════════
-    //  RÉVOCATION PROTECTION LANCEUR D'ALERTE
-    //  Réservé CGE / CGEA — motif obligatoire
-    // ══════════════════════════════════════════════════════════════
 
     @Override
     @Transactional
@@ -856,10 +845,7 @@ public class DossierServiceImpl implements DossierService {
         return NotificationChannel.PORTAL;
     }
 
-    /**
-     * Trace dans les logs chaque accès à un dossier lanceur d'alerte protégé.
-     * Répond à l'exigence de traçabilité de la Loi N°010-2004/AN.
-     */
+
     private void logSensitiveAccessIfProtected(Dossier dossier, String method) {
         if (dossier.getDeclarant() == null
                 || !Boolean.TRUE.equals(
@@ -875,15 +861,7 @@ public class DossierServiceImpl implements DossierService {
     }
 
 
-    // ══════════════════════════════════════════════════════════════
-    //  MASQUAGE DES DONNÉES SENSIBLES
-    //
-    //  Ordre d'application (du plus restrictif au moins restrictif) :
-    //    1. Dossier confidentiel        → nullifie le déclarant entier
-    //    2. Protection lanceur d'alerte → remplace l'identité par un libellé générique
-    //    3. Déclarant anonyme           → nullifie les champs d'identité
-    //    4. Témoins anonymes            → idem pour chaque témoin
-    // ══════════════════════════════════════════════════════════════
+
 
     private DossierResponse maskSensitiveData(DossierResponse response) {
 
@@ -893,7 +871,7 @@ public class DossierServiceImpl implements DossierService {
 
         boolean canSeeConfidential = isCge || isCgea || isAdmin;
 
-        // ── 1. Dossier confidentiel ──────────────────────────────────────
+
         if (Boolean.TRUE.equals(response.getIsConfidential())
                 && !canSeeConfidential) {
             response.setDeclarant(null);
@@ -908,9 +886,7 @@ public class DossierServiceImpl implements DossierService {
                     response.getNumber());
         }
 
-        // ── 2. Protection lanceur d'alerte ──────────────────────────────
-        // ADMIN_DDIC peut voir le contenu du dossier confidentiel
-        // mais PAS l'identité d'un lanceur d'alerte protégé.
+
         if (response.getDeclarant() != null
                 && Boolean.TRUE.equals(
                 response.getDeclarant().getProtectionRequested())
@@ -929,7 +905,6 @@ public class DossierServiceImpl implements DossierService {
                     response.getNumber());
         }
 
-        // ── 3. Déclarant anonyme ─────────────────────────────────────────
         if (response.getDeclarant() != null
                 && Boolean.TRUE.equals(response.getDeclarant().getAnonymous())) {
             response.getDeclarant().setFirstName(null);
@@ -941,7 +916,6 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setProvince(null);
         }
 
-        // ── 4. Témoins anonymes ──────────────────────────────────────────
         if (response.getWitnesses() != null) {
             for (WitnessResponse witness : response.getWitnesses()) {
                 if (Boolean.TRUE.equals(witness.getAnonymous())) {

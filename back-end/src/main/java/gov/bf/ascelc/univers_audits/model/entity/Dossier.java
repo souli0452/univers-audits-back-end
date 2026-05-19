@@ -22,7 +22,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "dossier", indexes = {
-        // Recherche par numéro officiel (affiché au déclarant)
         @Index(name = "idx_dossier_number",
                 columnList = "number", unique = true),
         // Suivi citoyen via le portail public (sans compte)

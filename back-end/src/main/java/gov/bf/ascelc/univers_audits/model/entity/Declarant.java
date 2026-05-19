@@ -16,12 +16,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "declarant", indexes = {
-        // Index pour accélérer les recherches par email et téléphone
         @Index(name = "idx_declarant_email",
                 columnList = "email"),
         @Index(name = "idx_declarant_phone",
                 columnList = "phone_number"),
-        // Index pour filtrer par type dans les tableaux de bord
         @Index(name = "idx_declarant_type",
                 columnList = "type_declarant")
 })

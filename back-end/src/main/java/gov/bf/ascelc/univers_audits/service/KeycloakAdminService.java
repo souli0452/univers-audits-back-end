@@ -49,10 +49,7 @@ public class KeycloakAdminService {
                 .build();
     }
 
-    /**
-     * Crée un utilisateur dans Keycloak.
-     * @return l'UUID Keycloak (sub) du nouvel utilisateur
-     */
+
     public String createUser(String email, String firstName,
                              String lastName, String username) {
         Keycloak kc = buildAdminClient();
@@ -84,9 +81,7 @@ public class KeycloakAdminService {
         }
     }
 
-    /**
-     * Assigne des rôles realm à un utilisateur Keycloak.
-     */
+
     public void assignRoles(String keycloakId, List<String> roleNames) {
         if (roleNames == null || roleNames.isEmpty()) return;
         if (keycloakId == null || keycloakId.isBlank()) return;
@@ -119,9 +114,7 @@ public class KeycloakAdminService {
         }
     }
 
-    /**
-     * Retire des rôles realm d'un utilisateur Keycloak.
-     */
+
     public void removeRoles(String keycloakId, List<String> roleNames) {
         if (roleNames == null || roleNames.isEmpty()) return;
         if (keycloakId == null || keycloakId.isBlank()) return;
@@ -170,9 +163,7 @@ public class KeycloakAdminService {
         }
     }
 
-    /**
-     * Retourne tous les rôles métier du realm (filtre les rôles système).
-     */
+
     public List<String> getAvailableRoles() {
         return buildAdminClient().realm(realm)
                 .roles().list()
@@ -183,9 +174,7 @@ public class KeycloakAdminService {
                 .toList();
     }
 
-    /**
-     * Retourne les rôles realm actuels d'un utilisateur.
-     */
+
     public List<String> getUserRoles(String keycloakId) {
         if (keycloakId == null || keycloakId.isBlank()) {
             return Collections.emptyList();
@@ -208,9 +197,7 @@ public class KeycloakAdminService {
         }
     }
 
-    /**
-     * Active ou désactive un utilisateur dans Keycloak.
-     */
+
     public void setUserEnabled(String keycloakId, boolean enabled) {
         Keycloak kc = buildAdminClient();
         UserResource userResource = kc.realm(realm).users().get(keycloakId);
@@ -221,9 +208,7 @@ public class KeycloakAdminService {
                 keycloakId, enabled ? "activé" : "désactivé");
     }
 
-    /**
-     * Modifie le profil d'un utilisateur Keycloak.
-     */
+
     public void updateUserProfile(String keycloakId,
                                   String firstName,
                                   String lastName,
@@ -243,9 +228,7 @@ public class KeycloakAdminService {
         log.info("Profil mis à jour pour: {}", keycloakId);
     }
 
-    /**
-     * Change le mot de passe d'un utilisateur.
-     */
+
     public void changePassword(String keycloakId, String newPassword) {
         Keycloak kc = buildAdminClient();
 

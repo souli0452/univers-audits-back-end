@@ -100,10 +100,7 @@ public interface DossierRepository
             @Param("start") Instant start,
             @Param("end") Instant end);
 
-    /**
-     * Délai moyen de traitement (réception → décision de recevabilité)
-     * en secondes — native PostgreSQL.
-     */
+
     @Query(value = """
             SELECT AVG(
                 EXTRACT(EPOCH FROM (eligibility_decision_date - reception_date))

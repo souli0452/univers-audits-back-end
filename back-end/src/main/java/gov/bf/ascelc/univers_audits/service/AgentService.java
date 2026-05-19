@@ -59,20 +59,20 @@ public class AgentService {
             throw new IllegalStateException("Matricule déjà utilisé: " + req.matricule());
         }
 
-        // 1. Créer le user dans Keycloak (username = matricule en minuscule)
+        // Créer le user dans Keycloak (username = matricule en minuscule)
         String keycloakId = keycloakAdminService.createUser(
                 req.email(), req.firstName(), req.lastName(), req.matricule()
         );
 
-        // 2. Assigner les rôles cochés
+        // Assigner les rôles cochés
         if (req.keycloakRoles() != null && !req.keycloakRoles().isEmpty()) {
             keycloakAdminService.assignRoles(keycloakId, req.keycloakRoles());
         }
 
-        // 3. Envoyer l'email de définition du mot de passe
+        // Envoyer l'email de définition du mot de passe
         keycloakAdminService.sendPasswordResetEmail(keycloakId);
 
-        // 4. Persister en base
+        // Persister en base
         Agent agent = Agent.builder()
                 .matricule(req.matricule())
                 .firstName(req.firstName())
@@ -87,7 +87,7 @@ public class AgentService {
         return agentRepository.save(agent);
     }
 
-    // ── Mise à jour ───────────────────────────────────────────
+
 
     @Transactional
     public Agent updateAgent(UUID id, UpdateAgentRequest req) {
@@ -116,7 +116,7 @@ public class AgentService {
         updateKeycloakRoles(agent.getKeycloakId(), newRoles);
     }
 
-    // ── Activation / Désactivation ────────────────────────────
+
 
     @Transactional
     public Agent activate(UUID id) {
@@ -138,7 +138,7 @@ public class AgentService {
         return agentRepository.save(agent);
     }
 
-    // ── Privé ─────────────────────────────────────────────────
+
 
     private void updateKeycloakRoles(String keycloakId, List<String> newRoles) {
         List<String> current = keycloakAdminService.getUserRoles(keycloakId);

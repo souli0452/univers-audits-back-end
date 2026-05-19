@@ -40,7 +40,6 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public Page<NotificationResponse> findByDossierId(
             UUID dossierId, Pageable pageable) {
-        // Correction du bug : filtrage réel par dossierId
         return notificationRepository
                 .findByDossierId(dossierId, pageable)
                 .map(detailsMapper::toResponse);
@@ -245,7 +244,6 @@ public class NotificationServiceImpl implements NotificationService {
             throw new BusinessException(
                     "Adresse email du destinataire manquante");
         }
-        // TODO : intégrer JavaMailSender ou un service SMTP externe
         log.info("EMAIL simulé → {} : {}", notif.getRecipient(), notif.getSubject());
     }
 
@@ -254,7 +252,6 @@ public class NotificationServiceImpl implements NotificationService {
             throw new BusinessException(
                     "Numéro de téléphone du destinataire manquant");
         }
-        // TODO : intégrer un provider SMS (ex: Orange BF, Twilio)
         log.info("SMS simulé → {} : {}", notif.getRecipient(), notif.getContent());
     }
 

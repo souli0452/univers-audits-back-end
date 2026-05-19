@@ -18,7 +18,6 @@ public interface NotificationService {
 
     List<NotificationResponse> findPending();
 
-    // Envoie immédiatement une notification spécifique
     NotificationResponse sendNow(UUID notificationId);
 
     NotificationResponse cancel(UUID notificationId,

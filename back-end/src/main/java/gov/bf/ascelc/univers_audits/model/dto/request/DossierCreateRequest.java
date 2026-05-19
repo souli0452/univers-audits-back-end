@@ -59,8 +59,7 @@ public class DossierCreateRequest {
 
     private UUID declarantId;
 
-    // @Valid déclenche la validation de DeclarantCreateRequest,
-    // y compris isProtectionConsistent()
+
     @Valid
     private DeclarantCreateRequest declarantData;
 
