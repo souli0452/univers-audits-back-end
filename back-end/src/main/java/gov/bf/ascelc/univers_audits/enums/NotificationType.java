@@ -19,5 +19,7 @@ public enum NotificationType {
     // Alerte interne : délai légal dépassé
     DEADLINE_ALERT,
 
-    INTERNAL_ALERT
+    INTERNAL_ALERT,
+    STATUS_UPDATE,
+    INVESTIGATION_ALERT
 }

@@ -35,7 +35,6 @@ public class PdfExportService {
     private final DossierRepository dossierRepository;
     private final StatusHistoryRepository statusHistoryRepository;
 
-    // ── Couleurs ASCE-LC ──────────────────────────────────
     private static final DeviceRgb VERT_ASCE  = new DeviceRgb(26,  107, 60);
     private static final DeviceRgb VERT_CLAIR = new DeviceRgb(240, 249, 244);
     private static final DeviceRgb OR_ASCE    = new DeviceRgb(201, 162, 39);
@@ -51,9 +50,7 @@ public class PdfExportService {
             .ofPattern("dd/MM/yyyy")
             .withZone(ZoneId.of("Africa/Ouagadougou"));
 
-    // ─────────────────────────────────────────────────────
-    //  Point d'entrée principal
-    // ─────────────────────────────────────────────────────
+
 
     public byte[] exportDossier(UUID dossierId) {
 
@@ -98,14 +95,11 @@ public class PdfExportService {
         }
     }
 
-    // ─────────────────────────────────────────────────────
-    //  En-tête
-    // ─────────────────────────────────────────────────────
+
 
     private void addHeader(Document doc, Dossier dossier,
                            PdfFont fontBold, PdfFont fontNormal) {
 
-        // Barre dorée en haut
         Table topBar = new Table(UnitValue.createPercentArray(new float[]{1}))
                 .setWidth(UnitValue.createPercentValue(100))
                 .setHeight(6)
@@ -115,14 +109,13 @@ public class PdfExportService {
         topBar.addCell(new Cell().setBorder(Border.NO_BORDER).add(new Paragraph("")));
         doc.add(topBar);
 
-        // En-tête principal : 2 colonnes
+
         Table header = new Table(UnitValue.createPercentArray(new float[]{2, 1}))
                 .setWidth(UnitValue.createPercentValue(100))
                 .setBackgroundColor(VERT_ASCE)
                 .setBorder(Border.NO_BORDER)
                 .setMarginBottom(20);
 
-        // Colonne gauche — titre
         Cell leftCell = new Cell()
                 .setBorder(Border.NO_BORDER)
                 .setPadding(20);
@@ -152,7 +145,6 @@ public class PdfExportService {
 
         header.addCell(leftCell);
 
-        // Colonne droite — numéro et statut
         Cell rightCell = new Cell()
                 .setBorder(Border.NO_BORDER)
                 .setPadding(20)
@@ -186,9 +178,7 @@ public class PdfExportService {
         doc.add(header);
     }
 
-    // ─────────────────────────────────────────────────────
-    //  Informations du dossier
-    // ─────────────────────────────────────────────────────
+
 
     private void addDossierInfo(Document doc, Dossier dossier,
                                 PdfFont fontBold, PdfFont fontNormal) {
@@ -241,9 +231,7 @@ public class PdfExportService {
         doc.add(table);
     }
 
-    // ─────────────────────────────────────────────────────
-    //  Déclarant
-    // ─────────────────────────────────────────────────────
+
 
     private void addDeclarantInfo(Document doc, Dossier dossier,
                                   PdfFont fontBold, PdfFont fontNormal) {
@@ -311,9 +299,6 @@ public class PdfExportService {
         doc.add(table);
     }
 
-    // ─────────────────────────────────────────────────────
-    //  Description
-    // ─────────────────────────────────────────────────────
 
     private void addDescription(Document doc, Dossier dossier,
                                 PdfFont fontBold, PdfFont fontNormal) {
@@ -342,9 +327,6 @@ public class PdfExportService {
         }
     }
 
-    // ─────────────────────────────────────────────────────
-    //  Historique workflow
-    // ─────────────────────────────────────────────────────
 
     private void addWorkflowHistory(Document doc,
                                     List<StatusHistory> history,
@@ -356,7 +338,7 @@ public class PdfExportService {
                 .setWidth(UnitValue.createPercentValue(100))
                 .setMarginBottom(16);
 
-        // En-tête
+
         String[] headers = {"Date", "Statut précédent", "Nouveau statut", "Agent / Motif"};
         for (String h : headers) {
             table.addHeaderCell(new Cell()
@@ -394,9 +376,7 @@ public class PdfExportService {
         doc.add(table);
     }
 
-    // ─────────────────────────────────────────────────────
-    //  Pied de page
-    // ─────────────────────────────────────────────────────
+
 
     private void addFooter(Document doc, Dossier dossier,
                            PdfFont fontBold, PdfFont fontNormal) {
@@ -429,9 +409,7 @@ public class PdfExportService {
                 .setTextAlignment(TextAlignment.CENTER));
     }
 
-    // ─────────────────────────────────────────────────────
-    //  Méthodes utilitaires
-    // ─────────────────────────────────────────────────────
+
 
     private Paragraph sectionTitle(String title, PdfFont fontBold) {
         return new Paragraph(title)
@@ -480,9 +458,7 @@ public class PdfExportService {
         }
     }
 
-    // ─────────────────────────────────────────────────────
-    //  Labels
-    // ─────────────────────────────────────────────────────
+
 
     private String getStatusLabel(String status) {
         return switch (status) {

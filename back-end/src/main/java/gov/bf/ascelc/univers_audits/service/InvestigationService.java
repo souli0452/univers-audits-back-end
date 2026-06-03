@@ -8,56 +8,55 @@ import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public interface InvestigationService {
 
     InvestigationResponse findById(UUID id);
+
     InvestigationResponse findByDossierId(UUID dossierId);
+
     Page<InvestigationResponse> findAll(Pageable pageable);
+
     Page<InvestigationResponse> findOverdue(Pageable pageable);
+
+    /** Filtre par période de démarrage — utilisé par le rapport investigations */
+    Page<InvestigationResponse> findByPeriod(
+            Instant start, Instant end, Pageable pageable);
 
     InvestigationResponse open(UUID dossierId,
                                InvestigationCreateRequest request,
                                String ipAddress);
 
-
     InvestigationResponse start(UUID investigationId,
                                 String ipAddress);
-
 
     InvestigationResponse suspend(UUID investigationId,
                                   String reason,
                                   String ipAddress);
 
-
     InvestigationResponse resume(UUID investigationId,
                                  String reason,
                                  String ipAddress);
-
 
     InvestigationResponse extendDeadline(UUID investigationId,
                                          ExtendDeadlineRequest request,
                                          String ipAddress);
 
-
     InvestigationResponse submitReport(UUID investigationId,
                                        InvestigationUpdateRequest request,
                                        String ipAddress);
 
-
     InvestigationResponse approveDei(UUID investigationId,
                                      String ipAddress);
-
 
     InvestigationResponse approveLegalAdvisor(UUID investigationId,
                                               String ipAddress);
 
-
     InvestigationResponse approveCge(UUID investigationId,
                                      String reason,
                                      String ipAddress);
-
 
     InvestigationResponse addMember(UUID investigationId,
                                     AddMemberRequest request,

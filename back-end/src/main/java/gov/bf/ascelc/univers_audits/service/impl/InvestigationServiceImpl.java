@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.InvestigationOutcome;
 import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
 import gov.bf.ascelc.univers_audits.enums.ObservationType;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
@@ -28,8 +29,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class InvestigationServiceImpl
-        implements InvestigationService {
+public class InvestigationServiceImpl implements InvestigationService {
 
     private final InvestigationRepository       investigationRepository;
     private final InvestigationMemberRepository memberRepository;
@@ -40,15 +40,15 @@ public class InvestigationServiceImpl
     private final InvestigationMapper           investigationMapper;
     private final SecurityUtils                 securityUtils;
 
+    // ── Lecture ───────────────────────────────────────────────
+
     @Override
     public InvestigationResponse findById(UUID id) {
-        return investigationMapper.toResponse(
-                getInvestigationOrThrow(id));
+        return investigationMapper.toResponse(getInvestigationOrThrow(id));
     }
 
     @Override
     public InvestigationResponse findByDossierId(UUID dossierId) {
-
         Investigation inv = investigationRepository
                 .findByDossierId(dossierId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -58,7 +58,6 @@ public class InvestigationServiceImpl
 
     @Override
     public Page<InvestigationResponse> findAll(Pageable pageable) {
-
         return investigationRepository
                 .findAllWithMembers(pageable)
                 .map(investigationMapper::toResponse);
@@ -66,13 +65,11 @@ public class InvestigationServiceImpl
 
     @Override
     public Page<InvestigationResponse> findOverdue(Pageable pageable) {
-
         List<Investigation> overdueList =
                 investigationRepository.findOverdue(Instant.now());
 
         int start = (int) pageable.getOffset();
-        int end   = Math.min(start + pageable.getPageSize(),
-                overdueList.size());
+        int end   = Math.min(start + pageable.getPageSize(), overdueList.size());
 
         List<InvestigationResponse> pageContent =
                 (start >= overdueList.size()
@@ -85,7 +82,20 @@ public class InvestigationServiceImpl
         return new PageImpl<>(pageContent, pageable, overdueList.size());
     }
 
+    /**
+     * Filtre les investigations dont la date de démarrage est dans la période.
+     * Utilisé par le rapport d'état des investigations.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<InvestigationResponse> findByPeriod(
+            Instant start, Instant end, Pageable pageable) {
+        return investigationRepository
+                .findByStartDateBetween(start, end, pageable)
+                .map(investigationMapper::toResponse);
+    }
 
+    // ── Workflow ──────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -145,8 +155,7 @@ public class InvestigationServiceImpl
 
     @Override
     @Transactional
-    public InvestigationResponse start(UUID investigationId,
-                                       String ipAddress) {
+    public InvestigationResponse start(UUID investigationId, String ipAddress) {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
 
@@ -185,10 +194,8 @@ public class InvestigationServiceImpl
             throw new BusinessException(
                     "Seule une investigation en cours peut être suspendue");
         }
-
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException(
-                    "Le motif de suspension est obligatoire");
+            throw new BusinessException("Le motif de suspension est obligatoire");
         }
 
         inv.suspend(reason);
@@ -237,21 +244,45 @@ public class InvestigationServiceImpl
         Investigation inv = getInvestigationOrThrow(investigationId);
         Agent cgea = getCurrentAgent();
 
-        inv.extendDeadline(
-                request.getNewDeadline(),
-                request.getReason(),
-                cgea);
+        if (inv.getStatus() != InvestigationStatus.IN_PROGRESS
+                && inv.getStatus() != InvestigationStatus.SUSPENDED) {
+            throw new BusinessException(
+                    "La prolongation n'est possible que pour une investigation "
+                            + "en cours ou suspendue.");
+        }
 
+        if (request.getReason() == null || request.getReason().isBlank()) {
+            throw new BusinessException(
+                    "Le motif de prolongation est obligatoire (§C.2.4.3).");
+        }
+
+        if (request.getNewDeadline() == null) {
+            throw new BusinessException("La nouvelle échéance est obligatoire.");
+        }
+
+        Instant currentDeadline = inv.getExtendedDeadline() != null
+                ? inv.getExtendedDeadline()
+                : inv.getPlannedEndDate();
+
+        if (currentDeadline != null
+                && !request.getNewDeadline().isAfter(currentDeadline)) {
+            throw new BusinessException(
+                    "La nouvelle échéance doit être postérieure à l'échéance actuelle ("
+                            + currentDeadline + ").");
+        }
+
+        inv.extendDeadline(request.getNewDeadline(), request.getReason(), cgea);
         Investigation saved = investigationRepository.save(inv);
 
         addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
-                "Délai d'investigation étendu jusqu'au "
+                "Délai d'investigation prolongé jusqu'au "
                         + request.getNewDeadline()
-                        + ". Motif : " + request.getReason(),
+                        + " — Accord hiérarchique (DEI, CGEA, CGE) obtenu. "
+                        + "Motif : " + request.getReason(),
                 true, cgea);
 
-        log.info("Délai investigation {} étendu au {}",
+        log.info("Investigation {} prolongée jusqu'au {}",
                 investigationId, request.getNewDeadline());
         return investigationMapper.toResponse(saved);
     }
@@ -291,32 +322,35 @@ public class InvestigationServiceImpl
 
         addObservation(dossier,
                 ObservationType.FIELD_FINDING,
-                "Rapport final soumis. Conclusions : "
-                        + request.getConclusions(),
+                "Rapport final soumis. Conclusions : " + request.getConclusions(),
                 true, getCurrentAgent());
 
         log.info("Rapport soumis — investigation: {}", investigationId);
         return investigationMapper.toResponse(saved);
     }
 
-
-
     @Override
     @Transactional
     public InvestigationResponse approveDei(UUID investigationId,
                                             String ipAddress) {
         Investigation inv = getInvestigationOrThrow(investigationId);
-        Agent agent = getCurrentAgent();
 
+        if (inv.getStatus() != InvestigationStatus.COMPLETED) {
+            throw new BusinessException(
+                    "L'approbation DEI n'est possible qu'après soumission du rapport.");
+        }
+
+        Agent agent = getCurrentAgent();
         inv.setDeiApprovedAt(Instant.now());
         inv.setDeiApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
 
         addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
-                "Rapport approuvé par le DEI.",
+                "Rapport approuvé par le DEI (délai légal : 15 jours ouvrables).",
                 true, agent);
 
+        log.info("DEI approuvé — investigation: {}", investigationId);
         return investigationMapper.toResponse(saved);
     }
 
@@ -324,18 +358,26 @@ public class InvestigationServiceImpl
     @Transactional
     public InvestigationResponse approveLegalAdvisor(
             UUID investigationId, String ipAddress) {
-        Investigation inv = getInvestigationOrThrow(investigationId);
-        Agent agent = getCurrentAgent();
 
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (inv.getDeiApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit d'abord être approuvé par le DEI.");
+        }
+
+        Agent agent = getCurrentAgent();
         inv.setLegalAdvisorApprovedAt(Instant.now());
         inv.setLegalAdvisorApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
 
         addObservation(inv.getDossier(),
                 ObservationType.ADMISSIBILITY_ANALYSIS,
-                "Rapport approuvé par le conseiller juridique.",
+                "Rapport approuvé par le Conseiller Juridique "
+                        + "(délai légal : 10 jours ouvrables).",
                 true, agent);
 
+        log.info("Conseiller juridique approuvé — investigation: {}", investigationId);
         return investigationMapper.toResponse(saved);
     }
 
@@ -344,35 +386,64 @@ public class InvestigationServiceImpl
     public InvestigationResponse approveCge(UUID investigationId,
                                             String reason,
                                             String ipAddress) {
+
         Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (inv.getDeiApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit être approuvé par le DEI avant la décision CGE.");
+        }
+        if (inv.getLegalAdvisorApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit être approuvé par le Conseiller Juridique "
+                            + "avant la décision CGE.");
+        }
+
         Agent cge = getCurrentAgent();
 
         inv.setCgeApprovedAt(Instant.now());
         inv.setCgeApprovedBy(cge);
         inv.setStatus(InvestigationStatus.ARCHIVED);
 
-        Dossier dossier = inv.getDossier();
-        dossier.setStatus(DossierStatus.DECISION_RENDUE);
+        Dossier       dossier        = inv.getDossier();
+        DossierStatus previousStatus = dossier.getStatus();
+        DossierStatus newDossierStatus;
+        String        transitionReason;
+        String        observationContent;
+
+        if (inv.getOutcome() == InvestigationOutcome.ARCHIVED) {
+            newDossierStatus   = DossierStatus.CLASSE;
+            dossier.setClosingDate(Instant.now());
+            transitionReason   = "Investigation classée sans suite par le CGE. " + reason;
+            observationContent = "Décision finale CGE — Classé sans suite "
+                    + "(présomptions non confirmées). " + reason;
+            log.info("[approveCge] Dossier {} → CLASSE (outcome: ARCHIVED)",
+                    dossier.getNumber());
+        } else {
+            newDossierStatus   = DossierStatus.DECISION_RENDUE;
+            transitionReason   = "Décision finale CGE rendue. Outcome : "
+                    + inv.getOutcome() + ". " + reason;
+            observationContent = "Décision finale rendue par le CGE. Outcome : "
+                    + inv.getOutcome().name() + ". " + reason;
+            log.info("[approveCge] Dossier {} → DECISION_RENDUE (outcome: {})",
+                    dossier.getNumber(), inv.getOutcome());
+        }
+
+        dossier.setStatus(newDossierStatus);
         dossierRepository.save(dossier);
 
-        recordDossierStatusChange(dossier,
-                DossierStatus.RAPPORT_PRODUIT,
-                DossierStatus.DECISION_RENDUE,
-                "Décision finale CGE : " + reason,
-                cge, ipAddress);
+        recordDossierStatusChange(dossier, previousStatus, newDossierStatus,
+                transitionReason, cge, ipAddress);
 
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(dossier,
-                ObservationType.CGE_DECISION,
-                "Décision finale rendue par le CGE. " + reason,
-                true, cge);
+        addObservation(dossier, ObservationType.CGE_DECISION,
+                observationContent, true, cge);
 
-        log.info("Décision CGE rendue — dossier: {}", dossier.getNumber());
+        log.info("Décision CGE finalisée — dossier: {} → {}",
+                dossier.getNumber(), newDossierStatus);
         return investigationMapper.toResponse(saved);
     }
-
-
 
     @Override
     @Transactional
@@ -418,7 +489,6 @@ public class InvestigationServiceImpl
                         + " (" + request.getTeamRole() + ")",
                 true, currentAgent);
 
-
         return investigationMapper.toResponse(
                 getInvestigationOrThrow(investigationId));
     }
@@ -447,19 +517,16 @@ public class InvestigationServiceImpl
 
         addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
-                "Membre retiré de l'équipe : "
-                        + member.getAgent().getNomComplet(),
+                "Membre retiré de l'équipe : " + member.getAgent().getNomComplet(),
                 true, currentAgent);
-
 
         return investigationMapper.toResponse(
                 getInvestigationOrThrow(investigationId));
     }
 
-
+    // ── Helpers privés ────────────────────────────────────────
 
     private Investigation getInvestigationOrThrow(UUID id) {
-
         return investigationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Investigation introuvable : " + id));
@@ -467,17 +534,14 @@ public class InvestigationServiceImpl
 
     private Agent getCurrentAgent() {
         String keycloakId = securityUtils.getCurrentKeycloakId()
-                .orElseThrow(() -> new BusinessException(
-                        "Agent non authentifié"));
+                .orElseThrow(() -> new BusinessException("Agent non authentifié"));
         return agentRepository.findByKeycloakId(keycloakId)
                 .orElseThrow(() -> new BusinessException(
                         "Agent introuvable. Contactez l'administrateur DDIC."));
     }
 
-    private void addObservation(Dossier dossier,
-                                ObservationType type,
-                                String content,
-                                boolean confidential,
+    private void addObservation(Dossier dossier, ObservationType type,
+                                String content, boolean confidential,
                                 Agent agent) {
         Observation obs = Observation.builder()
                 .dossier(dossier)

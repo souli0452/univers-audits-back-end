@@ -42,6 +42,12 @@ public interface DossierRepository
 
     List<Dossier> findByDeclarantId(UUID declarantId);
 
+
+    Page<Dossier> findByReceptionDateBetween(
+            Instant start, Instant end, Pageable pageable);
+
+
+
     @Query("""
             SELECT d FROM Dossier d
             WHERE d.acknowledgmentDeadline < :now
@@ -64,6 +70,20 @@ public interface DossierRepository
     List<Dossier> findOverdueComplementRequests(@Param("now") Instant now);
 
     @Query("""
+            SELECT d FROM Dossier d
+            JOIN Investigation i ON i.dossier.id = d.id
+            WHERE d.status = gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_INVESTIGATION
+            AND i.status IN (
+                gov.bf.ascelc.univers_audits.enums.InvestigationStatus.INITIATED,
+                gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS
+            )
+            AND COALESCE(i.extendedDeadline, i.plannedEndDate) < :now
+            ORDER BY i.plannedEndDate ASC
+            """)
+    List<Dossier> findOverdueInvestigations(@Param("now") Instant now);
+
+
+    @Query("""
             SELECT d.status, COUNT(d)
             FROM Dossier d
             GROUP BY d.status
@@ -78,7 +98,7 @@ public interface DossierRepository
             """)
     List<Object[]> countBySubmissionModeBetween(
             @Param("start") Instant start,
-            @Param("end") Instant end);
+            @Param("end")   Instant end);
 
     @Query("""
             SELECT d.type, COUNT(d)
@@ -88,7 +108,7 @@ public interface DossierRepository
             """)
     List<Object[]> countByTypeBetween(
             @Param("start") Instant start,
-            @Param("end") Instant end);
+            @Param("end")   Instant end);
 
     @Query("""
             SELECT SUM(d.estimatedLoss)
@@ -98,8 +118,48 @@ public interface DossierRepository
             """)
     BigDecimal sumEstimatedLossBetween(
             @Param("start") Instant start,
-            @Param("end") Instant end);
+            @Param("end")   Instant end);
 
+    long countByReceptionDateBetween(Instant start, Instant end);
+
+    long countByStatusAndReceptionDateBetween(
+            DossierStatus status, Instant start, Instant end);
+
+    @Query("""
+            SELECT d.status, COUNT(d)
+            FROM Dossier d
+            WHERE d.receptionDate BETWEEN :start AND :end
+            GROUP BY d.status
+            """)
+    List<Object[]> countByStatusAndReceptionDateBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query("""
+            SELECT COUNT(d)
+            FROM Dossier d
+            WHERE d.status IN :statuses
+            AND d.receptionDate BETWEEN :start AND :end
+            """)
+    long countByStatusInAndReceptionDateBetween(
+            @Param("statuses") List<DossierStatus> statuses,
+            @Param("start")    Instant start,
+            @Param("end")      Instant end);
+
+    @Query(value = """
+            SELECT AVG(
+                EXTRACT(EPOCH FROM (d.reception_date - d.created_at))
+                / 86400.0
+            )
+            FROM dossier d
+            WHERE d.reception_date IS NOT NULL
+              AND d.created_at     IS NOT NULL
+              AND d.reception_date >= :start
+              AND d.reception_date <  :end
+            """, nativeQuery = true)
+    Double avgRegistrationDelayInDays(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
 
     @Query(value = """
             SELECT AVG(
@@ -112,10 +172,5 @@ public interface DossierRepository
             """, nativeQuery = true)
     Double avgProcessingTimeInSeconds(
             @Param("start") Instant start,
-            @Param("end") Instant end);
-
-    long countByReceptionDateBetween(Instant start, Instant end);
-
-    long countByStatusAndReceptionDateBetween(
-            DossierStatus status, Instant start, Instant end);
+            @Param("end")   Instant end);
 }

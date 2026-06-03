@@ -123,7 +123,6 @@ public class GlobalExceptionHandler {
                                 + "Contactez l'administrateur DDIC."));
     }
 
-    // ── ErrorResponse ─────────────────────────────────────────
     @lombok.Data
     @lombok.AllArgsConstructor
     @lombok.NoArgsConstructor

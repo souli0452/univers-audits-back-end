@@ -4,11 +4,15 @@ import gov.bf.ascelc.univers_audits.model.dto.request.CreateAgentRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.UpdateAgentRequest;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.service.AgentService;
+import gov.bf.ascelc.univers_audits.service.AuditService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,19 +24,46 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AgentController {
 
-    private final AgentService agentService;
+    private final AgentService  agentService;
+    private final AuditService  auditService;
+
+
+    private String getClientIp(HttpServletRequest req) {
+        String xff = req.getHeader("X-Forwarded-For");
+        return (xff != null && !xff.isBlank()) ? xff.split(",")[0].trim() : req.getRemoteAddr();
+    }
+
+    private String id(Jwt jwt)   { return jwt != null ? jwt.getSubject()                  : "SYSTEM"; }
+    private String name(Jwt jwt) { return jwt != null ? jwt.getClaimAsString("name")      : null; }
+    private String role(Jwt jwt) {
+        if (jwt == null) return null;
+        var r = jwt.getClaimAsStringList("roles");
+        return (r != null && !r.isEmpty()) ? r.get(0) : null;
+    }
+
+    private Map<String, Object> toMap(Agent a) {
+        return Map.of(
+                "id",         a.getId().toString(),
+                "matricule",  a.getMatricule(),
+                "firstName",  a.getFirstName(),
+                "lastName",   a.getLastName(),
+                "email",      a.getEmail(),
+                "actif",      Boolean.TRUE.equals(a.getActif()),
+                "grade",      a.getGrade()      != null ? a.getGrade()      : "",
+                "keycloakId", a.getKeycloakId() != null ? a.getKeycloakId() : "",
+                "createdAt",  a.getCreatedAt()  != null ? a.getCreatedAt().toString() : ""
+        );
+    }
+
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
     public ResponseEntity<?> findAll(
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
-
         Page<Agent> result = agentService.findAll(page, size);
-
         return ResponseEntity.ok(Map.of(
-                "content",       result.getContent().stream()
-                        .map(this::toMap).toList(),
+                "content",       result.getContent().stream().map(this::toMap).toList(),
                 "totalElements", result.getTotalElements(),
                 "totalPages",    result.getTotalPages(),
                 "size",          result.getSize(),
@@ -66,26 +97,10 @@ public class AgentController {
         return ResponseEntity.ok(agentService.getAvailableKeycloakRoles());
     }
 
-    @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
-    public ResponseEntity<?> create(@Valid @RequestBody CreateAgentRequest req) {
-        Agent agent = agentService.createAgent(req);
-        return ResponseEntity.status(201).body(toMap(agent));
-    }
-
-
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
     public ResponseEntity<?> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(toMap(agentService.findById(id)));
-    }
-
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
-    public ResponseEntity<?> update(
-            @PathVariable UUID id,
-            @Valid @RequestBody UpdateAgentRequest req) {
-        return ResponseEntity.ok(toMap(agentService.updateAgent(id, req)));
     }
 
     @GetMapping("/{id}/keycloak-roles")
@@ -94,47 +109,97 @@ public class AgentController {
         return ResponseEntity.ok(agentService.getAgentKeycloakRoles(id));
     }
 
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    public ResponseEntity<?> create(
+            @Valid @RequestBody CreateAgentRequest req,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Agent agent = agentService.createAgent(req);
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "CREER_AGENT", "AGENT", agent.getId().toString(),
+                "Création agent : " + agent.getFirstName() + " " + agent.getLastName()
+                        + " (" + agent.getMatricule() + ")",
+                httpRequest);
+
+        return ResponseEntity.status(201).body(toMap(agent));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    public ResponseEntity<?> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateAgentRequest req,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        Agent agent = agentService.updateAgent(id, req);
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "MODIFIER_AGENT", "AGENT", id.toString(),
+                "Modification agent : " + agent.getFirstName() + " " + agent.getLastName(),
+                httpRequest);
+
+        return ResponseEntity.ok(toMap(agent));
+    }
+
     @PutMapping("/{id}/keycloak-roles")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
     public ResponseEntity<Void> updateAgentRoles(
             @PathVariable UUID id,
-            @RequestBody List<String> roles) {
+            @RequestBody List<String> roles,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
         agentService.updateAgentRoles(id, roles);
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "MODIFIER_ROLES_AGENT", "AGENT", id.toString(),
+                "Modification rôles Keycloak → " + String.join(", ", roles),
+                httpRequest);
+
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/{id}/activate")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
-    public ResponseEntity<?> activate(@PathVariable UUID id) {
+    public ResponseEntity<?> activate(
+            @PathVariable UUID id,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
         Agent a = agentService.activate(id);
-        return ResponseEntity.ok(Map.of(
-                "id",   a.getId().toString(),
-                "actif", true
-        ));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "ACTIVER_AGENT", "AGENT", id.toString(),
+                "Activation agent : " + a.getFirstName() + " " + a.getLastName(),
+                httpRequest);
+
+        return ResponseEntity.ok(Map.of("id", a.getId().toString(), "actif", true));
     }
 
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
-    public ResponseEntity<?> deactivate(@PathVariable UUID id) {
+    public ResponseEntity<?> deactivate(
+            @PathVariable UUID id,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
         Agent a = agentService.deactivate(id);
-        return ResponseEntity.ok(Map.of(
-                "id",   a.getId().toString(),
-                "actif", false
-        ));
-    }
 
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "DESACTIVER_AGENT", "AGENT", id.toString(),
+                "Désactivation agent : " + a.getFirstName() + " " + a.getLastName(),
+                httpRequest);
 
-    private Map<String, Object> toMap(Agent a) {
-        return Map.of(
-                "id",         a.getId().toString(),
-                "matricule",  a.getMatricule(),
-                "firstName",  a.getFirstName(),
-                "lastName",   a.getLastName(),
-                "email",      a.getEmail(),
-                "actif",      Boolean.TRUE.equals(a.getActif()),
-                "grade",      a.getGrade()      != null ? a.getGrade()      : "",
-                "keycloakId", a.getKeycloakId() != null ? a.getKeycloakId() : "",
-                "createdAt",  a.getCreatedAt()  != null ? a.getCreatedAt().toString() : ""
-        );
+        return ResponseEntity.ok(Map.of("id", a.getId().toString(), "actif", false));
     }
 }

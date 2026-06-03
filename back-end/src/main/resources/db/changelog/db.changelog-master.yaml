@@ -2,3 +2,15 @@
   - includeAll:
       path: db/changelog/migrations/
       relativeToChangelogFile: false
+  - include:
+      file: db/changelog/004-create-role-permission-tables.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/005-create-audit-tables.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/006-create-portal-config.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/001-add-priority-to-dossier.sql
+      relativeToChangelogFile: false

@@ -1,0 +1,86 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: asce_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bd_univers_audit
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - asce_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bd_univers_audit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - asce-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.2
+    container_name: asce_keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/bd_univers_audit
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+      KC_DB_SCHEMA: keycloak
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - asce_keycloak_data:/opt/keycloak/data
+      - ./keycloak/import:/opt/keycloak/data/import
+      - ./keycloak/themes/asce-lc:/opt/keycloak/themes/asce-lc
+    networks:
+      - asce-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: asce_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    volumes:
+      - asce_redis_data:/data
+    networks:
+      - asce-network
+
+  backend:
+    image: asce-lc-backend:latest
+    container_name: asce_backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_PASSWORD: ${DB_PASSWORD}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      ASCE_ADMIN_SUB: ${ASCE_ADMIN_SUB}
+      AT_API_KEY: ${AT_API_KEY}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - asce-network
+
+volumes:
+  asce_postgres_data:
+  asce_keycloak_data:
+  asce_redis_data:
+
+networks:
+  asce-network:
+    driver: bridge
+    name: asce-network

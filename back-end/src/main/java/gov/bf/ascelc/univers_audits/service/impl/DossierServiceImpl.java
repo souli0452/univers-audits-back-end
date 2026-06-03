@@ -1,13 +1,11 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
-import gov.bf.ascelc.univers_audits.enums.DossierStatus;
-import gov.bf.ascelc.univers_audits.enums.NotificationChannel;
-import gov.bf.ascelc.univers_audits.enums.NotificationType;
-import gov.bf.ascelc.univers_audits.enums.ObservationType;
+import gov.bf.ascelc.univers_audits.enums.*;
 import gov.bf.ascelc.univers_audits.mapper.DeclarantMapper;
 import gov.bf.ascelc.univers_audits.mapper.DossierMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.SetPriorityRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
@@ -16,6 +14,7 @@ import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -28,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.Year;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -49,16 +49,12 @@ public class DossierServiceImpl implements DossierService {
     private final NotificationDispatcherService notificationDispatcher;
 
 
-    // ══════════════════════════════════════════════════════════════
-    //  LECTURE
-    // ══════════════════════════════════════════════════════════════
 
     @Override
     public DossierResponse findById(UUID id) {
         Dossier dossier = getDossierOrThrow(id);
-        // Trace chaque accès à un dossier lanceur d'alerte protégé
         logSensitiveAccessIfProtected(dossier, "findById");
-        return maskSensitiveData(dossierMapper.toResponse(dossier));
+        return enrichAndMask(dossier);
     }
 
     @Override
@@ -67,8 +63,7 @@ public class DossierServiceImpl implements DossierService {
                 .findByAccessCode(accessCode)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Dossier introuvable avec ce code d'accès"));
-
-        return maskSensitiveData(dossierMapper.toResponse(dossier));
+        return enrichAndMask(dossier);
     }
 
     @Override
@@ -76,7 +71,7 @@ public class DossierServiceImpl implements DossierService {
             DossierStatus status, Pageable pageable) {
         return dossierRepository
                 .findByStatus(status, pageable)
-                .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
+                .map(this::enrichAndMask);
     }
 
     @Override
@@ -84,26 +79,27 @@ public class DossierServiceImpl implements DossierService {
         Agent agent = getCurrentAgent();
         return dossierRepository
                 .findByAgentInChargeId(agent.getId(), pageable)
-                .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
+                .map(this::enrichAndMask);
     }
 
     @Override
     public Page<DossierResponse> findAll(Pageable pageable) {
         return dossierRepository.findAll(pageable)
-                .map(d -> maskSensitiveData(dossierMapper.toResponse(d)));
+                .map(this::enrichAndMask);
     }
-
-
-    // ══════════════════════════════════════════════════════════════
-    //  SOUMISSION
-    // ══════════════════════════════════════════════════════════════
+    @Override
+    public Page<DossierResponse> findByReceptionDateBetween(
+            Instant start, Instant end, Pageable pageable) {
+        return dossierRepository
+                .findByReceptionDateBetween(start, end, pageable)
+                .map(this::enrichAndMask);
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DossierResponse submit(DossierCreateRequest request,
                                   String ipAddress) {
         log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
-
 
         if (request.getDeclarantData() != null
                 && Boolean.TRUE.equals(
@@ -125,7 +121,6 @@ public class DossierServiceImpl implements DossierService {
             dossier.setIsConfidential(false);
         }
 
-
         boolean protectionRequested = declarant != null
                 && Boolean.TRUE.equals(declarant.getProtectionRequested());
 
@@ -134,7 +129,6 @@ public class DossierServiceImpl implements DossierService {
             log.warn("[SECURITE] Protection lanceur d'alerte — dossier marqué "
                     + "confidentiel d'office à la soumission. IP: {}", ipAddress);
         }
-
 
         String accessCode;
         do {
@@ -145,7 +139,6 @@ public class DossierServiceImpl implements DossierService {
         Dossier saved = dossierRepository.save(dossier);
 
         notificationDispatcher.dispatchAccessCode(saved);
-
 
         if (request.getSubmissionMode() != null
                 && (request.getSubmissionMode().name().contains("AUDIO")
@@ -160,7 +153,6 @@ public class DossierServiceImpl implements DossierService {
                             + "le dossier. Code: " + saved.getAccessCode(),
                     Instant.now());
         }
-
 
         if (protectionRequested) {
             createNotification(saved,
@@ -183,9 +175,7 @@ public class DossierServiceImpl implements DossierService {
     }
 
 
-    // ══════════════════════════════════════════════════════════════
-    //  ENREGISTREMENT (SOUMIS → RECU)
-    // ══════════════════════════════════════════════════════════════
+
 
     @Override
     @Transactional
@@ -207,12 +197,10 @@ public class DossierServiceImpl implements DossierService {
                 "Dossier enregistré. Numéro attribué : " + number,
                 false, agent);
 
-        // ── Alerte protection lanceur d'alerte ──────────────────────────
         if (dossier.getDeclarant() != null
                 && Boolean.TRUE.equals(
                 dossier.getDeclarant().getProtectionRequested())) {
 
-            // Observation confidentielle — visible CGE / CGEA uniquement
             addObservation(dossier,
                     ObservationType.INTERNAL_NOTE,
                     "⚠ PROTECTION LANCEUR D'ALERTE DEMANDÉE — Loi N°010-2004/AN. "
@@ -221,7 +209,6 @@ public class DossierServiceImpl implements DossierService {
                             + "ne doit être divulguée.",
                     true, agent);
 
-            // Notification portail → CGE / CGEA
             createNotification(dossier,
                     NotificationType.INTERNAL_ALERT,
                     NotificationChannel.PORTAL,
@@ -237,21 +224,20 @@ public class DossierServiceImpl implements DossierService {
                     number, agent.getMatricule(), ipAddress);
         }
 
-
         createNotification(dossier,
                 NotificationType.RECEIPT_B4,
                 NotificationChannel.PORTAL,
                 "Récépissé de dépôt — " + number,
-                "Votre dossier a été enregistré sous le numéro " + number
-                        + ". Code de suivi : " + dossier.getAccessCode(),
+                "Votre dossier a été enregistré. Code de suivi : "
+                        + dossier.getAccessCode(),
                 Instant.now());
 
         createNotification(dossier,
                 NotificationType.ACKNOWLEDGMENT_B5,
                 resolveNotificationChannel(dossier),
-                "Accusé de réception — Dossier " + number,
-                "L'ASCE-LC accuse réception de votre dossier " + number
-                        + " et vous informera des suites dans les meilleurs délais.",
+                "Accusé de réception — votre dossier",
+                "L'ASCE-LC accuse réception de votre dossier "
+                        + "et vous informera des suites dans les meilleurs délais.",
                 dossier.getAcknowledgmentDeadline());
 
         Dossier saved = dossierRepository.save(dossier);
@@ -263,13 +249,11 @@ public class DossierServiceImpl implements DossierService {
                 "Enregistrement officiel BRPD", agent, ipAddress);
 
         log.info("Dossier {} enregistré par {}", number, agent.getMatricule());
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
 
-    // ══════════════════════════════════════════════════════════════
-    //  TRANSITIONS WORKFLOW
-    // ══════════════════════════════════════════════════════════════
+
 
     @Override
     @Transactional
@@ -296,7 +280,7 @@ public class DossierServiceImpl implements DossierService {
                 DossierStatus.RECU, DossierStatus.EN_ETUDE_OPPORTUNITE,
                 request.getReason(), agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -319,30 +303,27 @@ public class DossierServiceImpl implements DossierService {
 
         addObservation(dossier,
                 ObservationType.COMPLEMENT_REQUEST,
-                "Complément d'information demandé : " + request.getReason(),
+                request.getReason(),
                 false, agent);
 
         createNotification(dossier,
                 NotificationType.COMPLEMENT_REQUEST,
                 resolveNotificationChannel(dossier),
-                "Complément requis — Dossier " + dossier.getNumber(),
+                "Information complémentaire requise — votre dossier",
                 "L'ASCE-LC a besoin d'informations supplémentaires. Motif : "
                         + request.getReason(),
                 dossier.getAdditionalInfoDeadline());
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(saved,
-                "Complément requis",
-                "Des informations supplémentaires sont nécessaires. Motif : "
-                        + request.getReason());
+        notificationDispatcher.dispatchComplementRequest(saved, request.getReason());
 
         recordStatusChange(saved,
                 DossierStatus.EN_ETUDE_OPPORTUNITE,
                 DossierStatus.EN_ATTENTE_COMPLEMENT,
                 request.getReason(), agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -360,17 +341,23 @@ public class DossierServiceImpl implements DossierService {
 
         addObservation(dossier,
                 ObservationType.INTERNAL_NOTE,
-                "Complément reçu — reprise de l'analyse.",
+                "Complément reçu — reprise de l'analyse. "
+                        + (request.getReason() != null ? request.getReason() : ""),
                 false, agent);
 
         Dossier saved = dossierRepository.save(dossier);
+
+        notificationDispatcher.dispatchStatusUpdate(
+                saved,
+                "EN_ETUDE_OPPORTUNITE",
+                null);
 
         recordStatusChange(saved,
                 DossierStatus.EN_ATTENTE_COMPLEMENT,
                 DossierStatus.EN_ETUDE_OPPORTUNITE,
                 "Complément reçu", agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -398,7 +385,7 @@ public class DossierServiceImpl implements DossierService {
                 DossierStatus.EN_REVUE_CTADP,
                 request.getReason(), agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -421,26 +408,16 @@ public class DossierServiceImpl implements DossierService {
                         + (request.getReason() != null ? request.getReason() : ""),
                 true, agent);
 
-        createNotification(dossier,
-                NotificationType.ACKNOWLEDGMENT_B5,
-                resolveNotificationChannel(dossier),
-                "Votre dossier est recevable — " + dossier.getNumber(),
-                "L'ASCE-LC a déclaré votre dossier recevable "
-                        + "et va procéder à une investigation.",
-                Instant.now().plusSeconds(3L * 24 * 3600));
-
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(saved,
-                "Dossier recevable",
-                "L'ASCE-LC a déclaré votre dossier recevable "
-                        + "et va procéder à une investigation.");
+        notificationDispatcher.dispatchStatusUpdate(
+                saved, "RECEVABLE", request.getReason());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.RECEVABLE,
                 request.getReason(), agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -467,26 +444,16 @@ public class DossierServiceImpl implements DossierService {
                 "Dossier déclaré IRRECEVABLE. Motif : " + request.getReason(),
                 true, agent);
 
-        createNotification(dossier,
-                NotificationType.INADMISSIBILITY_DECISION,
-                resolveNotificationChannel(dossier),
-                "Décision sur votre dossier " + dossier.getNumber(),
-                "L'ASCE-LC ne peut pas donner suite à votre dossier. Motif : "
-                        + request.getReason(),
-                Instant.now().plusSeconds(3L * 24 * 3600));
-
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(saved,
-                "Dossier irrecevable",
-                "L'ASCE-LC ne peut pas donner suite. Motif : "
-                        + request.getReason());
+        notificationDispatcher.dispatchStatusUpdate(
+                saved, "IRRECEVABLE", request.getReason());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.IRRECEVABLE,
                 request.getReason(), agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -517,27 +484,16 @@ public class DossierServiceImpl implements DossierService {
                         + ". Motif : " + request.getReason(),
                 false, agent);
 
-        createNotification(dossier,
-                NotificationType.TRANSFER_DECISION,
-                resolveNotificationChannel(dossier),
-                "Transfert de votre dossier " + dossier.getNumber(),
-                "Votre dossier a été transmis à "
-                        + request.getTransferInstitution()
-                        + " qui est compétente pour le traiter.",
-                Instant.now().plusSeconds(7L * 24 * 3600));
-
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(saved,
-                "Dossier transféré",
-                "Votre dossier a été transmis à "
-                        + request.getTransferInstitution());
+        notificationDispatcher.dispatchTransferExternal(
+                saved, request.getTransferInstitution());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.TRANSFERE,
                 request.getReason(), agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -567,16 +523,15 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(saved,
-                newStatus == DossierStatus.CLOS
-                        ? "Dossier clôturé" : "Dossier classé",
-                "Votre dossier a été traité et officiellement clôturé. "
-                        + "Merci pour votre contribution à la lutte contre la corruption.");
+        notificationDispatcher.dispatchStatusUpdate(
+                saved,
+                newStatus.name(),
+                null);
 
         recordStatusChange(saved, previousStatus, newStatus,
                 request.getReason(), agent, ipAddress);
 
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
 
     @Override
@@ -590,7 +545,6 @@ public class DossierServiceImpl implements DossierService {
                     "Un dossier clôturé ne peut plus être modifié");
         }
 
-        // Seuls CGE et CGEA peuvent modifier un dossier lanceur d'alerte protégé
         boolean isProtected = dossier.getDeclarant() != null
                 && Boolean.TRUE.equals(
                 dossier.getDeclarant().getProtectionRequested());
@@ -610,7 +564,7 @@ public class DossierServiceImpl implements DossierService {
             dossier.setIsConfidential(false);
         }
 
-        return dossierMapper.toResponse(dossierRepository.save(dossier));
+        return enrichAndMask(dossierRepository.save(dossier));
     }
 
     @Override
@@ -627,8 +581,6 @@ public class DossierServiceImpl implements DossierService {
         boolean isCge  = securityUtils.hasRole("CGE");
         boolean isCgea = securityUtils.hasRole("CGEA");
 
-        // ADMIN_DDIC ne peut pas retirer la confidentialité
-        // d'un dossier lanceur d'alerte protégé
         if (isProtected && !value && !isCge && !isCgea) {
             throw new BusinessException(
                     "Impossible de retirer la confidentialité d'un dossier "
@@ -647,12 +599,9 @@ public class DossierServiceImpl implements DossierService {
                 true, agent);
 
         Dossier saved = dossierRepository.save(dossier);
-
         log.info("Dossier {} — confidentiel: {}", saved.getNumber(), value);
-        return dossierMapper.toResponse(saved);
+        return enrichAndMask(saved);
     }
-
-
 
     @Override
     @Transactional
@@ -695,14 +644,96 @@ public class DossierServiceImpl implements DossierService {
                         + "dossier: {}, par: {}, motif: {}",
                 dossier.getNumber(), agent.getMatricule(), request.getReason());
 
-        return maskSensitiveData(
-                dossierMapper.toResponse(dossierRepository.save(dossier)));
+        return enrichAndMask(dossierRepository.save(dossier));
     }
 
 
-    // ══════════════════════════════════════════════════════════════
-    //  MÉTHODES PRIVÉES — UTILITAIRES
-    // ══════════════════════════════════════════════════════════════
+
+    @Override
+    @Transactional
+    public DossierResponse setPriority(UUID dossierId,
+                                       SetPriorityRequest request,
+                                       String ipAddress) {
+
+        Dossier dossier = dossierRepository.findById(dossierId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Dossier introuvable : " + dossierId));
+
+        if (!dossier.getVersion().equals(request.getVersion())) {
+            throw new ConflictException(
+                    "Ce dossier a été modifié par un autre agent. "
+                            + "Rechargez la page avant de continuer.");
+        }
+
+        final List<DossierStatus> TERMINAUX = List.of(
+                DossierStatus.CLOS, DossierStatus.CLASSE, DossierStatus.TRANSFERE);
+        if (TERMINAUX.contains(dossier.getStatus())) {
+            throw new BusinessException(
+                    "Impossible de définir la priorité d'un dossier "
+                            + dossier.getStatus().name() + " (terminal).");
+        }
+
+        if (request.getPriority() != DossierPriority.NORMAL) {
+            if (request.getReason() == null || request.getReason().isBlank()) {
+                throw new BusinessException(
+                        "Le motif est obligatoire pour le niveau "
+                                + request.getPriority().name() + ".");
+            }
+        }
+
+        if (request.getDeadline() != null
+                && request.getDeadline().isBefore(Instant.now())) {
+            throw new BusinessException(
+                    "La date d'échéance souhaitée doit être dans le futur.");
+        }
+
+        Agent agent = getCurrentAgent();
+        DossierPriority oldPriority = dossier.getPriority() != null
+                ? dossier.getPriority() : DossierPriority.NORMAL;
+
+        dossier.setPriority(request.getPriority());
+        dossier.setPriorityReason(request.getReason());
+        dossier.setPriorityDeadline(request.getDeadline());
+        dossier.setPrioritySetAt(Instant.now());
+        dossier.setPrioritySetBy(agent);
+
+        dossierRepository.save(dossier);
+
+        String obs = String.format(
+                "Priorité définie : %s → %s. Motif : %s%s",
+                oldPriority.name(),
+                request.getPriority().name(),
+                request.getReason() != null ? request.getReason() : "Standard",
+                request.getDeadline() != null
+                        ? ". Échéance souhaitée : " + request.getDeadline() : ""
+        );
+
+        addObservation(dossier, ObservationType.INTERNAL_NOTE, obs, true, agent);
+
+        log.info("[Priorité] Dossier {} → {} par {}",
+                dossier.getNumber(), request.getPriority(), agent.getNomComplet());
+
+        return enrichAndMask(dossier);
+    }
+
+
+
+    private DossierResponse enrichAndMask(Dossier dossier) {
+        DossierResponse response = dossierMapper.toResponse(dossier);
+
+        if (dossier.getStatus() == DossierStatus.EN_ATTENTE_COMPLEMENT) {
+            observationRepository
+                    .findTopByDossierIdAndTypeOrderByCreatedAtDesc(
+                            dossier.getId(),
+                            ObservationType.COMPLEMENT_REQUEST)
+                    .ifPresent(obs -> response.setComplementMotif(obs.getContent()));
+        }
+
+        return maskSensitiveData(response);
+    }
+
+
+
 
     private Dossier getDossierOrThrow(UUID id) {
         return dossierRepository.findById(id)
@@ -845,7 +876,6 @@ public class DossierServiceImpl implements DossierService {
         return NotificationChannel.PORTAL;
     }
 
-
     private void logSensitiveAccessIfProtected(Dossier dossier, String method) {
         if (dossier.getDeclarant() == null
                 || !Boolean.TRUE.equals(
@@ -860,17 +890,12 @@ public class DossierServiceImpl implements DossierService {
                 method, callerInfo, Instant.now());
     }
 
-
-
-
     private DossierResponse maskSensitiveData(DossierResponse response) {
 
         boolean isCge   = securityUtils.hasRole("CGE");
         boolean isCgea  = securityUtils.hasRole("CGEA");
         boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
-
         boolean canSeeConfidential = isCge || isCgea || isAdmin;
-
 
         if (Boolean.TRUE.equals(response.getIsConfidential())
                 && !canSeeConfidential) {
@@ -882,10 +907,10 @@ public class DossierServiceImpl implements DossierService {
             response.setObservations(null);
             response.setWitnesses(null);
             response.setTargetedParties(null);
+            response.setComplementMotif(null);
             log.debug("Dossier {} — accès restreint (confidentiel)",
                     response.getNumber());
         }
-
 
         if (response.getDeclarant() != null
                 && Boolean.TRUE.equals(
@@ -931,4 +956,6 @@ public class DossierServiceImpl implements DossierService {
 
         return response;
     }
+
+
 }

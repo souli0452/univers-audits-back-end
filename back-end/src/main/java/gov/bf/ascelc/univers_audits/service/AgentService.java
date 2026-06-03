@@ -22,9 +22,6 @@ public class AgentService {
 
     private final AgentRepository agentRepository;
     private final KeycloakAdminService keycloakAdminService;
-
-    // ── Lecture ───────────────────────────────────────────────
-
     public Page<Agent> findAll(int page, int size) {
         return agentRepository.findAll(
                 PageRequest.of(page, size, Sort.by("lastName").ascending())
@@ -46,12 +43,9 @@ public class AgentService {
         return keycloakAdminService.getUserRoles(agent.getKeycloakId());
     }
 
-    // ── Création ──────────────────────────────────────────────
-
     @Transactional
     public Agent createAgent(CreateAgentRequest req) {
 
-        // Vérifications unicité
         if (agentRepository.existsByEmail(req.email())) {
             throw new IllegalStateException("Email déjà utilisé: " + req.email());
         }
@@ -59,20 +53,16 @@ public class AgentService {
             throw new IllegalStateException("Matricule déjà utilisé: " + req.matricule());
         }
 
-        // Créer le user dans Keycloak (username = matricule en minuscule)
         String keycloakId = keycloakAdminService.createUser(
                 req.email(), req.firstName(), req.lastName(), req.matricule()
         );
 
-        // Assigner les rôles cochés
         if (req.keycloakRoles() != null && !req.keycloakRoles().isEmpty()) {
             keycloakAdminService.assignRoles(keycloakId, req.keycloakRoles());
         }
 
-        // Envoyer l'email de définition du mot de passe
         keycloakAdminService.sendPasswordResetEmail(keycloakId);
 
-        // Persister en base
         Agent agent = Agent.builder()
                 .matricule(req.matricule())
                 .firstName(req.firstName())
@@ -99,7 +89,6 @@ public class AgentService {
         agent.setPhoneNumber(req.phoneNumber());
         agent.setGrade(req.grade());
 
-        // Mise à jour des rôles Keycloak si fournis
         if (req.keycloakRoles() != null && agent.getKeycloakId() != null) {
             updateKeycloakRoles(agent.getKeycloakId(), req.keycloakRoles());
         }

@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false"
+                   name="UniversAuditsApplication"
+                   type="SpringBootApplicationConfigurationType">
+        <option name="ACTIVE_PROFILES" value="dev,local" />
+        <option name="MAIN_CLASS_NAME"
+                value="gov.bf.ascelc.univers_audits.UniversAuditsApplication" />
+        <module name="univers-audits" />
+        <method v="2">
+            <option name="Make" enabled="true" />
+        </method>
+    </configuration>
+</component>

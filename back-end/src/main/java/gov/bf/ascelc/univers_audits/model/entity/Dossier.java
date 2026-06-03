@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.model.entity;
 
 import gov.bf.ascelc.univers_audits.abstracts.AuditEntity;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
+import gov.bf.ascelc.univers_audits.enums.DossierPriority;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
@@ -24,31 +25,24 @@ import java.util.List;
 @Table(name = "dossier", indexes = {
         @Index(name = "idx_dossier_number",
                 columnList = "number", unique = true),
-        // Suivi citoyen via le portail public (sans compte)
         @Index(name = "idx_dossier_access_code",
                 columnList = "access_code", unique = true),
-        // Filtrage par statut dans les tableaux de bord agents
         @Index(name = "idx_dossier_status",
                 columnList = "status"),
-        // Recherche de tous les dossiers d'un déclarant
         @Index(name = "idx_dossier_declarant",
                 columnList = "declarant_id"),
-        // Recherche de tous les dossiers d'un agent chargé
         @Index(name = "idx_dossier_agent",
                 columnList = "agent_in_charge_id"),
-        // Tri et filtrage par date de réception
         @Index(name = "idx_dossier_reception",
                 columnList = "reception_date")
 })
 public class Dossier extends AuditEntity {
-
     @Column(name = "number", unique = true, length = 20)
     private String number;
 
     @Column(name = "access_code", unique = true,
             nullable = false, length = 10)
     private String accessCode;
-
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 35)
@@ -110,18 +104,14 @@ public class Dossier extends AuditEntity {
     @Column(name = "reception_date")
     private Instant receptionDate;
 
-
     @Column(name = "acknowledgment_deadline")
     private Instant acknowledgmentDeadline;
-
 
     @Column(name = "additional_info_deadline")
     private Instant additionalInfoDeadline;
 
-
     @Column(name = "eligibility_decision_date")
     private Instant eligibilityDecisionDate;
-
 
     @Column(name = "transfer_date")
     private Instant transferDate;
@@ -129,10 +119,30 @@ public class Dossier extends AuditEntity {
     @Column(name = "transfer_institution", length = 300)
     private String transferInstitution;
 
-
     @Column(name = "closing_date")
     private Instant closingDate;
 
+    // ── Priorité ──────────────────────────────────────────────────
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority", length = 20)
+    @Builder.Default
+    private DossierPriority priority = DossierPriority.NORMAL;
+
+    @Column(name = "priority_reason", length = 500)
+    private String priorityReason;
+
+    @Column(name = "priority_deadline")
+    private Instant priorityDeadline;
+
+    @Column(name = "priority_set_at")
+    private Instant prioritySetAt;
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "priority_set_by_id")
+    private Agent prioritySetBy;
+
+    // ── Relations ─────────────────────────────────────────────────
 
     @OneToMany(mappedBy = "dossier",
             cascade = CascadeType.ALL,
@@ -140,13 +150,11 @@ public class Dossier extends AuditEntity {
     @Builder.Default
     private List<TargetedParty> targetedParties = new ArrayList<>();
 
-
     @OneToMany(mappedBy = "dossier",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
     @Builder.Default
     private List<Witness> witnesses = new ArrayList<>();
-
 
     @OneToMany(mappedBy = "dossier",
             cascade = CascadeType.ALL,
@@ -161,13 +169,11 @@ public class Dossier extends AuditEntity {
     @Builder.Default
     private List<Attachment> attachments = new ArrayList<>();
 
-
     @OneToMany(mappedBy = "dossier",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
     @Builder.Default
     private List<Notification> notifications = new ArrayList<>();
-
 
     @OneToMany(mappedBy = "dossier",
             cascade = CascadeType.ALL,
@@ -176,23 +182,20 @@ public class Dossier extends AuditEntity {
     @Builder.Default
     private List<StatusHistory> statusHistory = new ArrayList<>();
 
-
     @OneToOne(mappedBy = "dossier", fetch = FetchType.LAZY)
     private Investigation investigation;
 
+    // ── Méthodes métier ───────────────────────────────────────────
 
     public void registerReception(Agent agent) {
-        this.receptionDate    = Instant.now();
-        this.agentInCharge    = agent;
-
+        this.receptionDate        = Instant.now();
+        this.agentInCharge        = agent;
         this.acknowledgmentDeadline =
                 receptionDate.plusSeconds(7L * 24 * 3600);
-
         this.additionalInfoDeadline =
                 receptionDate.plusSeconds(14L * 24 * 3600);
         this.status = DossierStatus.RECU;
     }
-
 
     public boolean isAcknowledgmentOverdue() {
         return acknowledgmentDeadline != null
@@ -201,19 +204,16 @@ public class Dossier extends AuditEntity {
                 && !DossierStatus.CLASSE.equals(status);
     }
 
-
     public boolean isComplementOverdue() {
         return additionalInfoDeadline != null
                 && Instant.now().isAfter(additionalInfoDeadline)
                 && DossierStatus.EN_ATTENTE_COMPLEMENT.equals(status);
     }
 
-
     public boolean isClosed() {
         return DossierStatus.CLOS.equals(status)
                 || DossierStatus.CLASSE.equals(status);
     }
-
 
     public boolean isAdmissible() {
         return DossierStatus.RECEVABLE.equals(status)
@@ -222,7 +222,6 @@ public class Dossier extends AuditEntity {
                 || DossierStatus.DECISION_RENDUE.equals(status)
                 || DossierStatus.CLOS.equals(status);
     }
-
 
     public long getDaysSinceReception() {
         if (receptionDate == null) return 0;

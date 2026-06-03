@@ -3,11 +3,13 @@ package gov.bf.ascelc.univers_audits.service;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.SetPriorityRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public interface DossierService {
@@ -16,15 +18,16 @@ public interface DossierService {
 
     DossierResponse findByAccessCode(String accessCode);
 
-    Page<DossierResponse> findByStatus(
-            DossierStatus status, Pageable pageable);
+    Page<DossierResponse> findByStatus(DossierStatus status, Pageable pageable);
 
     Page<DossierResponse> findMyDossiers(Pageable pageable);
 
     Page<DossierResponse> findAll(Pageable pageable);
 
-    DossierResponse submit(DossierCreateRequest request,
-                           String ipAddress);
+    Page<DossierResponse> findByReceptionDateBetween(
+            Instant start, Instant end, Pageable pageable);
+
+    DossierResponse submit(DossierCreateRequest request, String ipAddress);
 
     DossierResponse registerReception(UUID dossierId,
                                       StatusTransitionRequest request,
@@ -62,15 +65,16 @@ public interface DossierService {
                           StatusTransitionRequest request,
                           String ipAddress);
 
-    DossierResponse update(UUID dossierId,
-                           DossierUpdateRequest request);
+    DossierResponse update(UUID dossierId, DossierUpdateRequest request);
 
     DossierResponse setConfidential(UUID dossierId,
                                     boolean value,
                                     StatusTransitionRequest request);
 
-    DossierResponse revokeWhistleblowerProtection(
-            UUID dossierId,
-            StatusTransitionRequest request);
+    DossierResponse revokeWhistleblowerProtection(UUID dossierId,
+                                                  StatusTransitionRequest request);
 
+    DossierResponse setPriority(UUID dossierId,
+                                SetPriorityRequest request,
+                                String ipAddress);
 }

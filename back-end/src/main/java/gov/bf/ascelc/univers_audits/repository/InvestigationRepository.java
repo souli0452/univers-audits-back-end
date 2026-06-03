@@ -37,8 +37,6 @@ public interface InvestigationRepository
 
     boolean existsByDossierId(UUID dossierId);
 
-
-
     @Query(
             value = """
                 SELECT DISTINCT i FROM Investigation i
@@ -51,7 +49,9 @@ public interface InvestigationRepository
     )
     Page<Investigation> findAllWithMembers(Pageable pageable);
 
-
+    // ── Rapport — filtre par période de démarrage ─────────────
+    Page<Investigation> findByStartDateBetween(
+            Instant start, Instant end, Pageable pageable);
 
     @Query("""
             SELECT DISTINCT i FROM Investigation i
@@ -79,7 +79,6 @@ public interface InvestigationRepository
             """)
     List<Investigation> findOverdue(@Param("now") Instant now);
 
-
     @Query("""
             SELECT i.status, COUNT(i)
             FROM Investigation i
@@ -101,7 +100,6 @@ public interface InvestigationRepository
             """)
     long countOverdue(@Param("now") Instant now);
 
-
     @Query(
             value = """
                 SELECT AVG(
@@ -119,4 +117,70 @@ public interface InvestigationRepository
     Double avgDurationInDays(
             @Param("start") Instant start,
             @Param("end")   Instant end);
+
+    @Query(
+            value = """
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (i.dei_approved_at - i.report_submitted_at))
+                    / 86400.0
+                )
+                FROM investigation i
+                WHERE i.dei_approved_at     IS NOT NULL
+                  AND i.report_submitted_at IS NOT NULL
+                  AND i.report_submitted_at >= :start
+                  AND i.report_submitted_at <  :end
+                """,
+            nativeQuery = true
+    )
+    Double avgDeiApprovalDays(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query(
+            value = """
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (i.cge_approved_at - i.dei_approved_at))
+                    / 86400.0
+                )
+                FROM investigation i
+                WHERE i.cge_approved_at IS NOT NULL
+                  AND i.dei_approved_at IS NOT NULL
+                  AND i.dei_approved_at >= :start
+                  AND i.dei_approved_at <  :end
+                """,
+            nativeQuery = true
+    )
+    Double avgCgeApprovalDays(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query(
+            value = """
+                SELECT COUNT(*)
+                FROM investigation i
+                JOIN dossier d ON d.id = i.case_id
+                WHERE d.reception_date >= :start
+                  AND d.reception_date <  :end
+                """,
+            nativeQuery = true
+    )
+    long countByDossierReceptionDateBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query(
+            value = """
+                SELECT COUNT(*)
+                FROM investigation i
+                JOIN dossier d ON d.id = i.case_id
+                WHERE i.outcome = :outcome
+                  AND d.reception_date >= :start
+                  AND d.reception_date <  :end
+                """,
+            nativeQuery = true
+    )
+    long countByOutcomeBetween(
+            @Param("outcome") String outcome,
+            @Param("start")   Instant start,
+            @Param("end")     Instant end);
 }

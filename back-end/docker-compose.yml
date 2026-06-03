@@ -1,11 +1,5 @@
-# ════════════════════════════════════════════════════════════════
-#  Docker Compose
-#  Commande : docker-compose up -d
-# ════════════════════════════════════════════════════════════════
-
 services:
 
-  # ── PostgreSQL ────────────────────────────────────────────────
   postgres:
     image: postgres:16
     container_name: asce_postgres
@@ -27,7 +21,6 @@ services:
     networks:
       - asce-network
 
-  # ── Keycloak ──────────────────────────────────────────────────
   keycloak:
     image: quay.io/keycloak/keycloak:25.0.2
     container_name: asce_keycloak
@@ -57,7 +50,7 @@ services:
     networks:
       - asce-network
 
-  # ── Redis ─────────────────────────────────────────────────────
+
   redis:
     image: redis:7-alpine
     container_name: asce_redis

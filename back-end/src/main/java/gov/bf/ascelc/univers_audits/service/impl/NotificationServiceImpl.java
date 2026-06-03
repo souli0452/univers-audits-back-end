@@ -10,7 +10,9 @@ import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
+import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
+import gov.bf.ascelc.univers_audits.service.SmsService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,8 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final DossierRepository      dossierRepository;
     private final DossierDetailsMapper   detailsMapper;
+    private final EmailService           emailService;
+    private final SmsService             smsService;
 
 
     @Override
@@ -63,19 +67,16 @@ public class NotificationServiceImpl implements NotificationService {
                 .collect(Collectors.toList());
     }
 
-
     @Override
     @Transactional
     public NotificationResponse sendNow(UUID notificationId) {
         Notification notif = getOrThrow(notificationId);
 
         if (notif.getStatus() == NotificationStatus.SENT) {
-            throw new BusinessException(
-                    "Cette notification a déjà été envoyée");
+            throw new BusinessException("Cette notification a déjà été envoyée");
         }
         if (notif.getStatus() == NotificationStatus.CANCELLED) {
-            throw new BusinessException(
-                    "Cette notification a été annulée");
+            throw new BusinessException("Cette notification a été annulée");
         }
 
         doSend(notif);
@@ -112,17 +113,137 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
 
+    @Transactional
+    public void notifyDeclarantStatusChange(Dossier dossier,
+                                            String status,
+                                            String note) {
+        if (dossier.getDeclarant() == null) return;
+
+        String[] emailContent = EmailService.getStatusEmailContent(status);
+        String statusLabel       = emailContent[0];
+        String statusDescription = emailContent[1];
+
+        String accessCode    = dossier.getAccessCode();
+        String declarantName = isAnonymous(dossier)
+                ? null
+                : dossier.getDeclarant().getDisplayName();
+
+        // ── Email ─────────────────────────────────────────────
+        String email = dossier.getDeclarant().getEmail();
+        if (email != null && !email.isBlank()) {
+            emailService.sendStatusUpdate(
+                    email,
+                    accessCode,
+                    declarantName,
+                    statusLabel,
+                    statusDescription,
+                    note
+            );
+
+            saveNotification(dossier, NotificationType.STATUS_UPDATE,
+                    NotificationChannel.EMAIL, email,
+                    "Mise à jour de votre dossier — " + statusLabel,
+                    statusDescription + (note != null ? "\n\nNote : " + note : "")
+            );
+        }
+
+        String phone = dossier.getDeclarant().getPhoneNumber();
+        if (phone != null && !phone.isBlank()) {
+            smsService.sendStatusUpdate(phone, accessCode, statusLabel);
+
+            saveNotification(dossier, NotificationType.STATUS_UPDATE,
+                    NotificationChannel.SMS, phone,
+                    "Mise à jour de votre dossier",
+                    statusLabel
+            );
+        }
+
+        log.info("[Notification] Déclarant notifié — statut: {} — dossier: {}",
+                status, dossier.getId());
+    }
+
+    @Transactional
+    public void notifyComplementRequest(Dossier dossier, String motif) {
+        if (dossier.getDeclarant() == null) return;
+
+        String accessCode    = dossier.getAccessCode();
+        String declarantName = isAnonymous(dossier)
+                ? null : dossier.getDeclarant().getDisplayName();
+
+        String email = dossier.getDeclarant().getEmail();
+        if (email != null && !email.isBlank()) {
+            emailService.sendComplementRequest(
+                    email, accessCode, declarantName, motif);
+
+            saveNotification(dossier, NotificationType.COMPLEMENT_REQUEST,
+                    NotificationChannel.EMAIL, email,
+                    "Information complémentaire requise — votre dossier",
+                    motif
+            );
+        }
+
+
+        String phone = dossier.getDeclarant().getPhoneNumber();
+        if (phone != null && !phone.isBlank()) {
+            smsService.sendComplementRequest(phone, accessCode);
+
+            saveNotification(dossier, NotificationType.COMPLEMENT_REQUEST,
+                    NotificationChannel.SMS, phone,
+                    "Complément requis",
+                    "Action requise sur votre dossier"
+            );
+        }
+
+        log.info("[Notification] Demande complément envoyée — dossier: {}",
+                dossier.getId());
+    }
+
+    @Transactional
+    public void notifyTransferExternal(Dossier dossier,
+                                       String institutionLabel) {
+        if (dossier.getDeclarant() == null) return;
+
+        String accessCode    = dossier.getAccessCode();
+        String declarantName = isAnonymous(dossier)
+                ? null : dossier.getDeclarant().getDisplayName();
+
+        String email = dossier.getDeclarant().getEmail();
+        if (email != null && !email.isBlank()) {
+            emailService.sendTransferExternal(
+                    email, accessCode, declarantName, institutionLabel);
+
+            saveNotification(dossier, NotificationType.STATUS_UPDATE,
+                    NotificationChannel.EMAIL, email,
+                    "Votre dossier a été transmis à une institution compétente",
+                    "Transmis à : " + institutionLabel
+            );
+        }
+
+        String phone = dossier.getDeclarant().getPhoneNumber();
+        if (phone != null && !phone.isBlank()) {
+            smsService.sendTransferExternal(phone, accessCode);
+
+            saveNotification(dossier, NotificationType.STATUS_UPDATE,
+                    NotificationChannel.SMS, phone,
+                    "Dossier transmis",
+                    "Votre dossier a été transmis"
+            );
+        }
+
+        log.info("[Notification] Transfert notifié — dossier: {} → {}",
+                dossier.getId(), institutionLabel);
+    }
+
     @Override
     @Scheduled(fixedDelay = 900_000)
     @Transactional
     public void processPendingNotifications() {
-        log.info("Traitement des notifications en attente...");
+        log.info("[Notification] Traitement des notifications en attente...");
 
         List<Notification> overdueNotifs =
                 notificationRepository.findOverdue(Instant.now());
 
-        int sent = 0;
-        int failed = 0;
+        int sent = 0, failed = 0;
 
         for (Notification notif : overdueNotifs) {
             try {
@@ -130,7 +251,7 @@ public class NotificationServiceImpl implements NotificationService {
                 notificationRepository.save(notif);
                 sent++;
             } catch (Exception e) {
-                log.error("Échec envoi notification {} : {}",
+                log.error("[Notification] Échec envoi {} : {}",
                         notif.getId(), e.getMessage());
                 failed++;
             }
@@ -143,21 +264,24 @@ public class NotificationServiceImpl implements NotificationService {
                 notificationRepository.save(notif);
                 sent++;
             } catch (Exception e) {
-                log.error("Échec relance notification {} : {}",
+                log.error("[Notification] Échec relance {} : {}",
                         notif.getId(), e.getMessage());
                 failed++;
             }
         }
 
-        log.info("Notifications traitées — envoyées: {}, échouées: {}",
-                sent, failed);
+        if (sent > 0 || failed > 0) {
+            log.info("[Notification] Traitement terminé — envoyées: {}, échouées: {}",
+                    sent, failed);
+        }
     }
+
 
     @Override
     @Scheduled(cron = "0 0 8 * * MON-FRI")
     @Transactional
     public void sendDeadlineAlerts() {
-        log.info("Envoi des alertes de délai dépassé...");
+        log.info("[Notification] Envoi des alertes de délai dépassé...");
 
         List<Dossier> overdueAcknowledgments =
                 dossierRepository.findOverdueAcknowledgments(Instant.now());
@@ -169,21 +293,25 @@ public class NotificationServiceImpl implements NotificationService {
                             NotificationType.DEADLINE_ALERT);
 
             if (!alreadyAlerted) {
+                String alertTitle = "ALERTE : Délai AR dépassé";
+                String alertBody  = String.format(
+                        "Le délai légal de 7 jours pour l'envoi de l'accusé de " +
+                                "réception B5 est dépassé pour le dossier %s. " +
+                                "Action requise immédiatement.",
+                        dossier.getNumber()
+                );
+
                 Notification alert = Notification.builder()
                         .dossier(dossier)
                         .type(NotificationType.DEADLINE_ALERT)
                         .channel(NotificationChannel.PORTAL)
-                        .subject("ALERTE : Délai dépassé — "
-                                + dossier.getNumber())
-                        .content("Le délai légal de 7 jours pour l'envoi "
-                                + "de l'accusé de réception B5 est dépassé "
-                                + "pour le dossier " + dossier.getNumber()
-                                + ". Action requise immédiatement.")
+                        .subject("ALERTE : Délai dépassé — " + dossier.getNumber())
+                        .content(alertBody)
                         .scheduledAt(Instant.now())
                         .build();
 
                 notificationRepository.save(alert);
-                log.warn("Alerte délai créée — dossier: {}",
+                log.warn("[Notification] Alerte AR créée — dossier: {}",
                         dossier.getNumber());
             }
         }
@@ -202,69 +330,127 @@ public class NotificationServiceImpl implements NotificationService {
                         .dossier(dossier)
                         .type(NotificationType.INTERNAL_ALERT)
                         .channel(NotificationChannel.PORTAL)
-                        .subject("ALERTE : Complément non reçu — "
-                                + dossier.getNumber())
-                        .content("Le délai de 14 jours pour recevoir "
-                                + "le complément d'information est dépassé "
-                                + "pour le dossier " + dossier.getNumber() + ".")
+                        .subject("ALERTE : Complément non reçu — " + dossier.getNumber())
+                        .content(String.format(
+                                "Le délai de 14 jours pour recevoir le complément " +
+                                        "d'information est dépassé pour le dossier %s.",
+                                dossier.getNumber()
+                        ))
                         .scheduledAt(Instant.now())
                         .build();
 
                 notificationRepository.save(alert);
-                log.warn("Alerte complément créée — dossier: {}",
+                log.warn("[Notification] Alerte complément créée — dossier: {}",
                         dossier.getNumber());
             }
         }
 
-        log.info("Alertes délai traitées — {} AR en retard, {} compléments en retard",
-                overdueAcknowledgments.size(), overdueComplements.size());
+        List<Dossier> overdueInvestigations =
+                dossierRepository.findOverdueInvestigations(Instant.now());
+
+        for (Dossier dossier : overdueInvestigations) {
+            boolean alreadyAlerted = notificationRepository
+                    .existsByDossierIdAndType(
+                            dossier.getId(),
+                            NotificationType.INVESTIGATION_ALERT);
+
+            if (!alreadyAlerted) {
+                Notification alert = Notification.builder()
+                        .dossier(dossier)
+                        .type(NotificationType.INVESTIGATION_ALERT)
+                        .channel(NotificationChannel.PORTAL)
+                        .subject("ALERTE : Investigation dépassée — " + dossier.getNumber())
+                        .content(String.format(
+                                "L'investigation du dossier %s dépasse le délai " +
+                                        "réglementaire de 90 jours. Une prolongation doit " +
+                                        "être validée par le CGEA et le CGE.",
+                                dossier.getNumber()
+                        ))
+                        .scheduledAt(Instant.now())
+                        .build();
+
+                notificationRepository.save(alert);
+                log.warn("[Notification] Alerte investigation créée — dossier: {}",
+                        dossier.getNumber());
+            }
+        }
+
+        log.info("[Notification] Alertes traitées — {} AR, {} compléments, {} investigations",
+                overdueAcknowledgments.size(),
+                overdueComplements.size(),
+                overdueInvestigations.size());
     }
+
 
 
     private void doSend(Notification notif) {
         try {
             switch (notif.getChannel()) {
-                case EMAIL       -> sendEmail(notif);
-                case SMS         -> sendSms(notif);
+                case EMAIL       -> sendViaEmail(notif);
+                case SMS         -> sendViaSms(notif);
                 case POSTAL_MAIL -> logPostalMail(notif);
                 case PORTAL      -> markAsPortalVisible(notif);
             }
             notif.markAsSent();
-            log.info("Notification envoyée — id: {}, canal: {}",
+            log.info("[Notification] Envoyée — id: {}, canal: {}",
                     notif.getId(), notif.getChannel());
         } catch (Exception e) {
             notif.markAsFailed(e.getMessage());
-            log.error("Échec envoi — id: {}, erreur: {}",
+            log.error("[Notification] Échec — id: {}, erreur: {}",
                     notif.getId(), e.getMessage());
         }
     }
 
-    private void sendEmail(Notification notif) {
+    private void sendViaEmail(Notification notif) {
         if (notif.getRecipient() == null || notif.getRecipient().isBlank()) {
-            throw new BusinessException(
-                    "Adresse email du destinataire manquante");
+            throw new BusinessException("Adresse email manquante");
         }
-        log.info("EMAIL simulé → {} : {}", notif.getRecipient(), notif.getSubject());
+
+        log.info("[Email] Envoi → {} : {}", notif.getRecipient(), notif.getSubject());
     }
 
-    private void sendSms(Notification notif) {
+    private void sendViaSms(Notification notif) {
         if (notif.getRecipient() == null || notif.getRecipient().isBlank()) {
-            throw new BusinessException(
-                    "Numéro de téléphone du destinataire manquant");
+            throw new BusinessException("Numéro de téléphone manquant");
         }
-        log.info("SMS simulé → {} : {}", notif.getRecipient(), notif.getContent());
+        log.info("[SMS] Envoi → {} : {}", notif.getRecipient(), notif.getContent());
     }
 
     private void logPostalMail(Notification notif) {
-        log.info("Courrier postal à préparer — dossier: {}, destinataire: {}",
-                notif.getDossier().getNumber(), notif.getRecipient());
+        log.info("[Courrier] À préparer — destinataire: {}, sujet: {}",
+                notif.getRecipient(), notif.getSubject());
     }
 
     private void markAsPortalVisible(Notification notif) {
-        log.info("Notification portail disponible — dossier: {}",
-                notif.getDossier().getNumber());
+        log.info("[Portail] Notification disponible — sujet: {}", notif.getSubject());
     }
 
+
+    @Transactional
+    private void saveNotification(Dossier dossier,
+                                  NotificationType type,
+                                  NotificationChannel channel,
+                                  String recipient,
+                                  String subject,
+                                  String content) {
+        Notification notif = Notification.builder()
+                .dossier(dossier)
+                .type(type)
+                .channel(channel)
+                .recipient(recipient)
+                .subject(subject)
+                .content(content)
+                .scheduledAt(Instant.now())
+                .build();
+
+        notificationRepository.save(notif);
+    }
+
+    private boolean isAnonymous(Dossier dossier) {
+        return dossier.getDeclarant() == null
+                || Boolean.TRUE.equals(dossier.getDeclarant().isAnonymous())
+                || Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
+    }
 
     private Notification getOrThrow(UUID id) {
         return notificationRepository.findById(id)

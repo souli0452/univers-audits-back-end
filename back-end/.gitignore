@@ -4,7 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-
+# ── Eclipse ───────────────────────────────────────────────────
 .apt_generated
 .classpath
 .factorypath
@@ -13,13 +13,14 @@ target/
 .springBeans
 .sts4-cache
 
-
-.idea
+# ── IntelliJ — ignore tout sauf runConfigurations ─────────────
+.idea/*
+!.idea/runConfigurations/
 *.iws
 *.iml
 *.ipr
 
-
+# ── NetBeans ──────────────────────────────────────────────────
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -29,37 +30,34 @@ target/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-
+# ── VSCode ────────────────────────────────────────────────────
 .vscode/
 
-
+# ── Profils Spring — secrets locaux uniquement ────────────────
 application-local.properties
-application-prod.properties
-application-*.properties
-!application.properties
-!application.yml
+application-local.yml
 
-
+# ── Secrets ───────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
 
-
+# ── Logs ──────────────────────────────────────────────────────
 *.log
 logs/
 tmp/
 temp/
 
-
+# ── Uploads ───────────────────────────────────────────────────
 /uploads/*
 !/uploads/.gitkeep
 
-
+# ── OS ────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
 
-
+# ── Certificats ───────────────────────────────────────────────
 *.key
 *.pem
 *.crt

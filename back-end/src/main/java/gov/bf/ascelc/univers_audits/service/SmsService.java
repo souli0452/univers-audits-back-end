@@ -13,7 +13,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class SmsService {
 
-    @Value("${sms.enabled:true}")
+    @Value("${sms.enabled:false}")
     private boolean smsEnabled;
 
     @Value("${africastalking.username:sandbox}")
@@ -28,19 +28,19 @@ public class SmsService {
     @Value("${africastalking.apiUrl:https://api.sandbox.africastalking.com/version1/messaging}")
     private String apiUrl;
 
+    @Value("${app.portal-url:integrite.bf}")
+    private String portalUrl;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Async
-    public void sendAccessCode(String phoneNumber,
-                               String accessCode,
-                               String dossierNumber) {
+    public void sendAccessCode(String phoneNumber, String accessCode) {
+
         String message = String.format(
-                "ASCE-LC INTEGRITE+%n" +
-                        "Dossier enregistre.%n" +
-                        "N: %s%n" +
-                        "Code suivi: %s%n" +
+                "ASCE-LC INTEGRITE+\n" +
+                        "Dossier enregistre.\n" +
+                        "Code suivi: %s\n" +
                         "Suivi: integrite.bf/portail/suivi",
-                dossierNumber != null ? dossierNumber : "En attente",
                 accessCode
         );
         send(phoneNumber, message);
@@ -48,30 +48,79 @@ public class SmsService {
 
     @Async
     public void sendStatusUpdate(String phoneNumber,
-                                 String dossierNumber,
+                                 String accessCode,
                                  String statusLabel) {
+
         String message = String.format(
-                "ASCE-LC INTEGRITE+%n" +
-                        "Dossier %s mis a jour.%n" +
-                        "Statut: %s%n" +
+                "ASCE-LC INTEGRITE+\n" +
+                        "Votre dossier: %s\n" +
+                        "Code: %s\n" +
                         "Suivi: integrite.bf/portail/suivi",
-                dossierNumber,
-                statusLabel
+                statusLabel,
+                accessCode
+        );
+        send(phoneNumber, message);
+    }
+
+    @Async
+    public void sendComplementRequest(String phoneNumber, String accessCode) {
+        String message = String.format(
+                "ASCE-LC INTEGRITE+\n" +
+                        "Action requise: des informations complementaires\n" +
+                        "sont necessaires pour votre dossier.\n" +
+                        "Code: %s - integrite.bf/portail/suivi",
+                accessCode
+        );
+        send(phoneNumber, message);
+    }
+
+    @Async
+    public void sendTransferExternal(String phoneNumber, String accessCode) {
+        String message = String.format(
+                "ASCE-LC INTEGRITE+\n" +
+                        "Votre dossier a ete transmis a l'institution\n" +
+                        "competente pour traitement.\n" +
+                        "Code: %s",
+                accessCode
+        );
+        send(phoneNumber, message);
+    }
+
+
+    @Async
+    public void sendInternalAlert(String phoneNumber,
+                                  String alertTitle,
+                                  String dossierNumber) {
+
+        String message = String.format(
+                "ASCE-LC [ALERTE INTERNE]\n" +
+                        "%s\n" +
+                        "Dossier: %s\n" +
+                        "Connectez-vous sur INTEGRITE+",
+                alertTitle,
+                dossierNumber != null ? dossierNumber : "N/A"
         );
         send(phoneNumber, message);
     }
 
     private void send(String phoneNumber, String message) {
         if (!smsEnabled) {
-            log.info("SMS désactivé — destinataire ignoré: {}", phoneNumber);
+            log.info("[SMS] Désactivé — message simulé pour {} : {}",
+                    phoneNumber, message.replace("\n", " | "));
             return;
         }
 
         try {
             String normalized = normalizePhone(phoneNumber);
             if (normalized == null || normalized.isBlank()) {
-                log.warn("Numéro invalide — SMS non envoyé");
+                log.warn("[SMS] Numéro invalide '{}' — SMS non envoyé", phoneNumber);
                 return;
+            }
+
+            if (message.length() > 160) {
+                log.warn("[SMS] Message trop long ({} chars) — sera découpé en {} segments",
+                        message.length(),
+                        (int) Math.ceil(message.length() / 153.0));
             }
 
             HttpHeaders headers = new HttpHeaders();
@@ -94,28 +143,29 @@ public class SmsService {
                     restTemplate.postForEntity(apiUrl, request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("SMS envoyé à {} — réponse: {}",
+                log.info("[SMS] Envoyé à {} — réponse: {}",
                         normalized, response.getBody());
             } else {
-                log.warn("SMS échoué pour {} — statut: {} — réponse: {}",
-                        normalized, response.getStatusCode(),
-                        response.getBody());
+                log.warn("[SMS] Échec pour {} — statut: {} — réponse: {}",
+                        normalized, response.getStatusCode(), response.getBody());
             }
 
         } catch (Exception e) {
-            log.error("Erreur envoi SMS à {} : {}", phoneNumber, e.getMessage());
+            log.error("[SMS] Erreur envoi à {} : {}", phoneNumber, e.getMessage());
         }
     }
 
     private String normalizePhone(String phone) {
         if (phone == null) return null;
-        phone = phone.replaceAll("\\s+", "").replaceAll("-", "");
 
-        if (phone.startsWith("+"))                           return phone;
-        if (phone.startsWith("00226"))                       return "+" + phone.substring(2);
+        phone = phone.replaceAll("[\\s\\-\\.]", "");
+
+        if (phone.startsWith("+"))                            return phone;
+        if (phone.startsWith("00226"))                        return "+" + phone.substring(2);
         if (phone.startsWith("226") && phone.length() == 11) return "+" + phone;
-        if (phone.matches("^[0-9]{8}$"))                     return "+226" + phone;
+        if (phone.matches("^[0-9]{8}$"))                      return "+226" + phone;
 
+        log.warn("[SMS] Format de numéro non reconnu : {}", phone);
         return phone;
     }
 }
