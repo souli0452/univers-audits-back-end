@@ -29,6 +29,9 @@ public interface InvestigationMemberRepository
 
     long countByInvestigationIdAndActiveTrue(UUID investigationId);
 
+    Optional<InvestigationMember> findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(
+            UUID investigationId, UUID agentId);
+
     @Query("""
             SELECT im FROM InvestigationMember im
             JOIN im.investigation i

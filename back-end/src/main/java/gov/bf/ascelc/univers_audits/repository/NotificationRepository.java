@@ -16,24 +16,16 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface NotificationRepository
-        extends JpaRepository<Notification, UUID> {
-
+public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
     Page<Notification> findByDossierId(UUID dossierId, Pageable pageable);
-
     List<Notification> findByDossierId(UUID dossierId);
-
 
     Page<Notification> findByDossierAgentInChargeId(
             UUID agentId, Pageable pageable);
 
     Page<Notification> findByDossierAgentInChargeIdAndStatusIn(
-            UUID agentId,
-            List<NotificationStatus> statuses,
-            Pageable pageable);
-
-
+            UUID agentId, List<NotificationStatus> statuses, Pageable pageable);
 
     Page<Notification> findByDossierAgentInChargeIdAndReadAtIsNull(
             UUID agentId, Pageable pageable);
@@ -50,17 +42,62 @@ public interface NotificationRepository
     int markAllReadByAgent(@Param("agentId") UUID agentId,
                            @Param("now")     Instant now);
 
+    @Query("""
+            SELECT n FROM Notification n
+            WHERE n.dossier.agentInCharge.id = :agentId
+               OR n.recipient = :keycloakId
+            ORDER BY n.createdAt DESC
+            """)
+    Page<Notification> findByAgentOrRecipient(
+            @Param("agentId")    UUID   agentId,
+            @Param("keycloakId") String keycloakId,
+            Pageable pageable);
+
+
+    @Query("""
+            SELECT n FROM Notification n
+            WHERE (n.dossier.agentInCharge.id = :agentId
+                OR n.recipient = :keycloakId)
+              AND n.readAt IS NULL
+            ORDER BY n.createdAt DESC
+            """)
+    Page<Notification> findUnreadByAgentOrRecipient(
+            @Param("agentId")    UUID   agentId,
+            @Param("keycloakId") String keycloakId,
+            Pageable pageable);
+
+    @Query("""
+            SELECT COUNT(n) FROM Notification n
+            WHERE (n.dossier.agentInCharge.id = :agentId
+                OR n.recipient = :keycloakId)
+              AND n.readAt IS NULL
+            """)
+    long countUnreadByAgentOrRecipient(
+            @Param("agentId")    UUID   agentId,
+            @Param("keycloakId") String keycloakId);
+
+    @Modifying
+    @Query("""
+            UPDATE Notification n
+            SET n.readAt = :now
+            WHERE (n.dossier.agentInCharge.id = :agentId
+                OR n.recipient = :keycloakId)
+              AND n.readAt IS NULL
+            """)
+    int markAllReadByAgentOrRecipient(
+            @Param("agentId")    UUID    agentId,
+            @Param("keycloakId") String  keycloakId,
+            @Param("now")        Instant now);
 
     List<Notification> findByStatus(NotificationStatus status);
 
     Page<Notification> findByStatusIn(
             List<NotificationStatus> statuses, Pageable pageable);
 
-
     @Query("""
             SELECT n FROM Notification n
             WHERE n.status = 'PENDING'
-            AND n.scheduledAt < :now
+              AND n.scheduledAt < :now
             ORDER BY n.scheduledAt ASC
             """)
     List<Notification> findOverdue(@Param("now") Instant now);
@@ -68,12 +105,10 @@ public interface NotificationRepository
     @Query("""
             SELECT n FROM Notification n
             WHERE n.status = 'FAILED'
-            AND n.retryCount < 3
+              AND n.retryCount < 3
             ORDER BY n.createdAt ASC
             """)
     List<Notification> findRetryable();
-
-
 
     boolean existsByDossierIdAndType(UUID dossierId, NotificationType type);
 }

@@ -1,20 +1,20 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
-import gov.bf.ascelc.univers_audits.enums.DossierStatus;
-import gov.bf.ascelc.univers_audits.enums.InvestigationOutcome;
-import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
-import gov.bf.ascelc.univers_audits.enums.ObservationType;
+import gov.bf.ascelc.univers_audits.enums.*;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.mapper.InvestigationMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.*;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationMemberResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -37,14 +38,30 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final AgentRepository               agentRepository;
     private final ObservationRepository         observationRepository;
     private final StatusHistoryRepository       statusHistoryRepository;
+    private final NotificationRepository        notificationRepository;
+    private final EmailService                  emailService;
     private final InvestigationMapper           investigationMapper;
     private final SecurityUtils                 securityUtils;
 
-    // ── Lecture ───────────────────────────────────────────────
+    @Value("${app.frontend.url:http://localhost:4200}")
+    private String frontendUrl;
+
+
+    // ════════════════════════════════════════════════════════════
+    //  LECTURE
+    // ════════════════════════════════════════════════════════════
 
     @Override
     public InvestigationResponse findById(UUID id) {
-        return investigationMapper.toResponse(getInvestigationOrThrow(id));
+        Investigation inv = getInvestigationOrThrow(id);
+        log.info("[findById] id={} members_in_collection={}  actifs={}",
+                id,
+                inv.getMembers() != null ? inv.getMembers().size() : "NULL",
+                inv.getMembers() != null
+                        ? inv.getMembers().stream().filter(m -> Boolean.TRUE.equals(m.getActive())).count()
+                        : 0
+        );
+        return buildResponseWithFreshMembers(inv, id);
     }
 
     @Override
@@ -53,14 +70,14 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .findByDossierId(dossierId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Aucune investigation pour ce dossier"));
-        return investigationMapper.toResponse(inv);
+        return buildResponseWithFreshMembers(inv, inv.getId());
     }
 
     @Override
     public Page<InvestigationResponse> findAll(Pageable pageable) {
         return investigationRepository
                 .findAllWithMembers(pageable)
-                .map(investigationMapper::toResponse);
+                .map(inv -> buildResponseWithFreshMembers(inv, inv.getId()));
     }
 
     @Override
@@ -82,10 +99,6 @@ public class InvestigationServiceImpl implements InvestigationService {
         return new PageImpl<>(pageContent, pageable, overdueList.size());
     }
 
-    /**
-     * Filtre les investigations dont la date de démarrage est dans la période.
-     * Utilisé par le rapport d'état des investigations.
-     */
     @Override
     @Transactional(readOnly = true)
     public Page<InvestigationResponse> findByPeriod(
@@ -95,7 +108,10 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .map(investigationMapper::toResponse);
     }
 
-    // ── Workflow ──────────────────────────────────────────────
+
+    // ════════════════════════════════════════════════════════════
+    //  CYCLE DE VIE INVESTIGATION
+    // ════════════════════════════════════════════════════════════
 
     @Override
     @Transactional
@@ -331,8 +347,7 @@ public class InvestigationServiceImpl implements InvestigationService {
 
     @Override
     @Transactional
-    public InvestigationResponse approveDei(UUID investigationId,
-                                            String ipAddress) {
+    public InvestigationResponse approveDei(UUID investigationId, String ipAddress) {
         Investigation inv = getInvestigationOrThrow(investigationId);
 
         if (inv.getStatus() != InvestigationStatus.COMPLETED) {
@@ -400,7 +415,6 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
 
         Agent cge = getCurrentAgent();
-
         inv.setCgeApprovedAt(Instant.now());
         inv.setCgeApprovedBy(cge);
         inv.setStatus(InvestigationStatus.ARCHIVED);
@@ -417,26 +431,20 @@ public class InvestigationServiceImpl implements InvestigationService {
             transitionReason   = "Investigation classée sans suite par le CGE. " + reason;
             observationContent = "Décision finale CGE — Classé sans suite "
                     + "(présomptions non confirmées). " + reason;
-            log.info("[approveCge] Dossier {} → CLASSE (outcome: ARCHIVED)",
-                    dossier.getNumber());
         } else {
             newDossierStatus   = DossierStatus.DECISION_RENDUE;
             transitionReason   = "Décision finale CGE rendue. Outcome : "
                     + inv.getOutcome() + ". " + reason;
             observationContent = "Décision finale rendue par le CGE. Outcome : "
                     + inv.getOutcome().name() + ". " + reason;
-            log.info("[approveCge] Dossier {} → DECISION_RENDUE (outcome: {})",
-                    dossier.getNumber(), inv.getOutcome());
         }
 
         dossier.setStatus(newDossierStatus);
         dossierRepository.save(dossier);
-
         recordDossierStatusChange(dossier, previousStatus, newDossierStatus,
                 transitionReason, cge, ipAddress);
 
         Investigation saved = investigationRepository.save(inv);
-
         addObservation(dossier, ObservationType.CGE_DECISION,
                 observationContent, true, cge);
 
@@ -463,7 +471,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         if (memberRepository.existsByInvestigationIdAndAgentIdAndActiveTrue(
                 investigationId, request.getAgentId())) {
             throw new BusinessException(
-                    "Cet agent est déjà membre de cette investigation");
+                    "Cet agent est déjà membre actif de cette investigation");
         }
 
         Agent agent = agentRepository.findById(request.getAgentId())
@@ -472,15 +480,33 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         Agent currentAgent = getCurrentAgent();
 
-        InvestigationMember member = InvestigationMember.builder()
-                .investigation(inv)
-                .agent(agent)
-                .teamRole(request.getTeamRole())
-                .assignedBy(currentAgent.getKeycloakId())
-                .active(true)
-                .build();
+        Optional<InvestigationMember> existing =
+                memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(
+                        investigationId, request.getAgentId());
 
-        memberRepository.save(member);
+        if (existing.isPresent()) {
+            InvestigationMember member = existing.get();
+            member.setActive(true);
+            member.setTeamRole(request.getTeamRole());
+            member.setAssignedBy(currentAgent.getKeycloakId());
+            memberRepository.save(member);
+            log.info("[addMember] Membre réactivé — agent: {}", agent.getMatricule());
+
+        } else {
+            InvestigationMember member = InvestigationMember.builder()
+                    .investigation(inv)
+                    .agent(agent)
+                    .teamRole(request.getTeamRole())
+                    .assignedBy(currentAgent.getKeycloakId())
+                    .active(true)
+                    .build();
+
+            InvestigationMember saved = memberRepository.save(member);
+
+            inv.getMembers().add(saved);
+
+            log.info("[addMember] Nouveau membre ajouté — agent: {}", agent.getMatricule());
+        }
 
         addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
@@ -489,8 +515,9 @@ public class InvestigationServiceImpl implements InvestigationService {
                         + " (" + request.getTeamRole() + ")",
                 true, currentAgent);
 
-        return investigationMapper.toResponse(
-                getInvestigationOrThrow(investigationId));
+        sendMemberAddedNotifications(inv, agent, request.getTeamRole());
+
+        return buildResponseWithFreshMembers(inv, investigationId);
     }
 
     @Override
@@ -503,15 +530,12 @@ public class InvestigationServiceImpl implements InvestigationService {
         Investigation inv = getInvestigationOrThrow(investigationId);
         Agent currentAgent = getCurrentAgent();
 
-        var members = memberRepository
-                .findByInvestigationIdAndActiveTrue(investigationId);
-
-        InvestigationMember member = members.stream()
-                .filter(m -> m.getAgent().getId().equals(agentId))
+        InvestigationMember member = inv.getMembers().stream()
+                .filter(m -> Boolean.TRUE.equals(m.getActive())
+                        && m.getAgent().getId().equals(agentId))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Membre introuvable dans cette équipe"));
-
         member.setActive(false);
         memberRepository.save(member);
 
@@ -520,11 +544,94 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Membre retiré de l'équipe : " + member.getAgent().getNomComplet(),
                 true, currentAgent);
 
-        return investigationMapper.toResponse(
-                getInvestigationOrThrow(investigationId));
+        log.info("[removeMember] Membre retiré — agent: {}, investigation: {}",
+                member.getAgent().getMatricule(), investigationId);
+
+        return buildResponseWithFreshMembers(inv, investigationId);
     }
 
-    // ── Helpers privés ────────────────────────────────────────
+
+    private InvestigationResponse buildResponseWithFreshMembers(
+            Investigation inv, UUID investigationId) {
+
+        InvestigationResponse response = investigationMapper.toResponse(inv);
+
+        List<InvestigationMember> freshMembers =
+                memberRepository.findByInvestigationIdAndActiveTrue(investigationId);
+
+        List<InvestigationMemberResponse> memberResponses = freshMembers.stream()
+                .map(investigationMapper::toMemberResponse)
+                .toList();
+
+        response.setMembers(memberResponses);
+        response.setMemberCount(memberResponses.size());
+
+        return response;
+    }
+
+
+    private void sendMemberAddedNotifications(Investigation inv,
+                                              Agent agent,
+                                              TeamRole teamRole) {
+        Dossier dossier       = inv.getDossier();
+        String  dossierNumber = dossier.getNumber() != null
+                ? dossier.getNumber() : "(en attente de numéro)";
+        String  roleLabel     = TeamRole.TEAM_LEADER.equals(teamRole)
+                ? "Chef de mission" : "Investigateur";
+
+        String linkDossier       = frontendUrl + "/#/app/dossiers/"
+                + dossier.getId().toString();
+        String linkInvestigation = frontendUrl + "/#/app/investigations/"
+                + inv.getId().toString();
+
+        if (agent.getEmail() != null && !agent.getEmail().isBlank()) {
+            try {
+                emailService.sendInvestigationAssignment(
+                        agent.getEmail(),
+                        agent.getNomComplet(),
+                        dossierNumber,
+                        dossier.getObject(),
+                        roleLabel,
+                        linkDossier,
+                        linkInvestigation
+                );
+                log.info("[addMember] Email affectation envoyé → {} ({})",
+                        agent.getEmail(), dossierNumber);
+            } catch (Exception e) {
+                log.error("[addMember] Échec email affectation agent={} : {}",
+                        agent.getMatricule(), e.getMessage());
+            }
+        } else {
+            log.warn("[addMember] Agent {} sans email — notification email ignorée",
+                    agent.getMatricule());
+        }
+
+        try {
+            Notification notif = Notification.builder()
+                    .dossier(dossier)
+                    .type(NotificationType.INVESTIGATION_ASSIGNMENT)
+                    .channel(NotificationChannel.PORTAL)
+                    .recipient(agent.getKeycloakId())
+                    .subject("Vous avez été affecté(e) à l'investigation — "
+                            + dossierNumber)
+                    .content("Rôle : " + roleLabel
+                            + " · Dossier : " + dossier.getObject())
+                    .scheduledAt(Instant.now())
+                    .build();
+
+            notificationRepository.save(notif);
+            log.info("[addMember] Notification portail créée pour agent={}",
+                    agent.getMatricule());
+        } catch (Exception e) {
+            log.error("[addMember] Échec notification portail agent={} : {}",
+                    agent.getMatricule(), e.getMessage());
+        }
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    //  MÉTHODES PRIVÉES
+    // ════════════════════════════════════════════════════════════
 
     private Investigation getInvestigationOrThrow(UUID id) {
         return investigationRepository.findById(id)

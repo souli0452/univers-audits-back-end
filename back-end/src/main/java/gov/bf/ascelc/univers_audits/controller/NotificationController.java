@@ -1,7 +1,6 @@
 package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.enums.NotificationStatus;
-import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Notification;
@@ -30,11 +29,35 @@ public class NotificationController {
     private final NotificationService    notificationService;
     private final NotificationRepository notificationRepository;
     private final AgentRepository        agentRepository;
-    private final DossierDetailsMapper   detailsMapper;
 
     private Agent resolveAgent(Jwt jwt) {
         return agentRepository.findByKeycloakId(jwt.getSubject())
                 .orElseThrow(() -> new ResourceNotFoundException("Agent introuvable"));
+    }
+
+    private NotificationResponse toResponse(Notification n) {
+        return NotificationResponse.builder()
+                .id(n.getId())
+                .type(n.getType())
+                .channel(n.getChannel())
+                .subject(n.getSubject())
+                .content(n.getContent())
+                .status(n.getStatus())
+                .formReference(n.getFormReference())
+                .scheduledAt(n.getScheduledAt())
+                .sentAt(n.getSentAt())
+                .retryCount(n.getRetryCount())
+                .readAt(n.getReadAt())
+                .overdue(n.isOverdue())
+                .dossierId(
+                        n.getDossier() != null
+                                ? n.getDossier().getId().toString()
+                                : null)
+                .dossierNumber(
+                        n.getDossier() != null
+                                ? n.getDossier().getNumber()
+                                : null)
+                .build();
     }
 
     @GetMapping("/my")
@@ -47,28 +70,32 @@ public class NotificationController {
 
         Pageable pageable = PageRequest.of(page, size,
                 Sort.by("createdAt").descending());
-        Agent agent = resolveAgent(jwt);
+
+        Agent  agent      = resolveAgent(jwt);
+        String keycloakId = jwt.getSubject();
 
         Page<NotificationResponse> result = unreadOnly
                 ? notificationRepository
-                .findByDossierAgentInChargeIdAndReadAtIsNull(agent.getId(), pageable)
-                .map(detailsMapper::toResponse)
+                .findUnreadByAgentOrRecipient(agent.getId(), keycloakId, pageable)
+                .map(this::toResponse)
                 : notificationRepository
-                .findByDossierAgentInChargeId(agent.getId(), pageable)
-                .map(detailsMapper::toResponse);
+                .findByAgentOrRecipient(agent.getId(), keycloakId, pageable)
+                .map(this::toResponse);
 
         return ResponseEntity.ok(result);
     }
-
 
     @GetMapping("/my/unread-count")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Long> getUnreadCount(
             @AuthenticationPrincipal Jwt jwt) {
 
-        Agent agent = resolveAgent(jwt);
+        Agent  agent      = resolveAgent(jwt);
+        String keycloakId = jwt.getSubject();
+
         long count = notificationRepository
-                .countByDossierAgentInChargeIdAndReadAtIsNull(agent.getId());
+                .countUnreadByAgentOrRecipient(agent.getId(), keycloakId);
+
         return ResponseEntity.ok(count);
     }
 
@@ -79,15 +106,25 @@ public class NotificationController {
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
 
-        Agent agent = resolveAgent(jwt);
+        Agent  agent      = resolveAgent(jwt);
+        String keycloakId = jwt.getSubject();
 
         Notification notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Notification introuvable : " + id));
 
-        UUID ownerAgentId = notification.getDossier()
-                .getAgentInCharge().getId();
-        if (!ownerAgentId.equals(agent.getId())) {
+        boolean isOwner = false;
+
+        if (notification.getDossier() != null
+                && notification.getDossier().getAgentInCharge() != null) {
+            isOwner = notification.getDossier()
+                    .getAgentInCharge().getId().equals(agent.getId());
+        }
+        if (!isOwner && keycloakId.equals(notification.getRecipient())) {
+            isOwner = true;
+        }
+
+        if (!isOwner) {
             return ResponseEntity.status(403).build();
         }
 
@@ -97,16 +134,22 @@ public class NotificationController {
         return ResponseEntity.noContent().build();
     }
 
+
     @PatchMapping("/read-all")
     @PreAuthorize("isAuthenticated()")
     @Transactional
     public ResponseEntity<Void> markAllAsRead(
             @AuthenticationPrincipal Jwt jwt) {
 
-        Agent agent = resolveAgent(jwt);
-        notificationRepository.markAllReadByAgent(agent.getId(), Instant.now());
+        Agent  agent      = resolveAgent(jwt);
+        String keycloakId = jwt.getSubject();
+
+        notificationRepository.markAllReadByAgentOrRecipient(
+                agent.getId(), keycloakId, Instant.now());
+
         return ResponseEntity.noContent().build();
     }
+
 
     @GetMapping("/dossier/{dossierId}")
     @PreAuthorize("isAuthenticated()")
@@ -132,13 +175,12 @@ public class NotificationController {
         return ResponseEntity.ok(
                 notificationRepository
                         .findByStatusIn(List.of(NotificationStatus.PENDING), pageable)
-                        .map(detailsMapper::toResponse));
+                        .map(this::toResponse));
     }
 
     @PatchMapping("/{id}/send")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
-    public ResponseEntity<NotificationResponse> sendNow(
-            @PathVariable UUID id) {
+    public ResponseEntity<NotificationResponse> sendNow(@PathVariable UUID id) {
         return ResponseEntity.ok(notificationService.sendNow(id));
     }
 
@@ -152,8 +194,7 @@ public class NotificationController {
 
     @PatchMapping("/{id}/retry")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
-    public ResponseEntity<NotificationResponse> retry(
-            @PathVariable UUID id) {
+    public ResponseEntity<NotificationResponse> retry(@PathVariable UUID id) {
         return ResponseEntity.ok(notificationService.retry(id));
     }
 }

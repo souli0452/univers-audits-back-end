@@ -10,6 +10,8 @@ import org.mapstruct.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 
 @Mapper(
         componentModel = "spring",
@@ -18,36 +20,18 @@ import java.time.ZoneId;
 )
 public interface InvestigationMapper {
 
-
-    @Mapping(target = "dossierId", source = "dossier.id")
+    @Mapping(target = "dossierId",     source = "dossier.id")
     @Mapping(target = "dossierNumber", source = "dossier.number")
     @Mapping(target = "dossierObject", source = "dossier.object")
-    @Mapping(target = "overdue", ignore = true)
+    @Mapping(target = "overdue",       ignore = true)
     @Mapping(target = "remainingDays", ignore = true)
-    @Mapping(target = "memberCount", ignore = true)
+    @Mapping(target = "memberCount",   ignore = true)
+    @Mapping(target = "members",       ignore = true)
     InvestigationResponse toResponse(Investigation investigation);
 
-    @AfterMapping
-    default void fillCalculated(
-            Investigation inv,
-            @MappingTarget InvestigationResponse response) {
-
-        response.setOverdue(inv.isOverdue());
-        response.setRemainingDays(inv.getRemainingDays());
-
-        response.setMemberCount(
-                inv.getMembers() != null
-                        ? (int) inv.getMembers().stream()
-                        .filter(m -> Boolean.TRUE.equals(m.getActive()))
-                        .count()
-                        : 0
-        );
-    }
-
-
-    @Mapping(target = "overdue", ignore = true)
+    @Mapping(target = "overdue",       ignore = true)
     @Mapping(target = "remainingDays", ignore = true)
-    @Mapping(target = "memberCount", ignore = true)
+    @Mapping(target = "memberCount",   ignore = true)
     InvestigationSummaryResponse toSummaryResponse(Investigation investigation);
 
     @AfterMapping
@@ -66,11 +50,36 @@ public interface InvestigationMapper {
                         : 0
         );
     }
+    @AfterMapping
+    default void fillCalculated(
+            Investigation inv,
+            @MappingTarget InvestigationResponse response) {
 
+        response.setOverdue(inv.isOverdue());
+        response.setRemainingDays(inv.getRemainingDays());
 
-    @Mapping(target = "dateAttribution",
-            source = "createdAt",
-            qualifiedByName = "toLocalDate")
+        List<InvestigationMember> activeMembers = inv.getMembers() != null
+                ? inv.getMembers().stream()
+                .filter(m -> Boolean.TRUE.equals(m.getActive()))
+                .toList()
+                : Collections.emptyList();
+
+        // ── LOG DIAGNOSTIC ──────────────────────────────
+        System.out.println("[MAPPER] inv=" + inv.getId()
+                + " | members_total=" + (inv.getMembers() != null ? inv.getMembers().size() : "NULL")
+                + " | actifs=" + activeMembers.size());
+        // ────────────────────────────────────────────────
+
+        response.setMembers(
+                activeMembers.stream()
+                        .map(this::toMemberResponse)
+                        .toList()
+        );
+        response.setMemberCount(activeMembers.size());
+    }
+
+    @Mapping(target = "dateAttribution", source = "createdAt", qualifiedByName = "toLocalDate")
+    @Mapping(target = "active",          source = "active")
     InvestigationMemberResponse toMemberResponse(InvestigationMember member);
 
     @Named("toLocalDate")

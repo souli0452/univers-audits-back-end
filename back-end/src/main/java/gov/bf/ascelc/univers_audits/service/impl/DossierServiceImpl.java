@@ -49,11 +49,29 @@ public class DossierServiceImpl implements DossierService {
     private final NotificationDispatcherService notificationDispatcher;
 
 
+    // ════════════════════════════════════════════════════════════
+    //  LECTURE
+    // ════════════════════════════════════════════════════════════
 
     @Override
     public DossierResponse findById(UUID id) {
         Dossier dossier = getDossierOrThrow(id);
         logSensitiveAccessIfProtected(dossier, "findById");
+
+        boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
+        boolean isCge   = securityUtils.hasRole("CGE");
+        boolean isCgea  = securityUtils.hasRole("CGEA");
+
+        if (!isAdmin && !isCge && !isCgea) {
+            Agent agent = getCurrentAgent();
+            boolean isAssigned = dossier.getAgentInCharge() != null
+                    && dossier.getAgentInCharge().getId().equals(agent.getId());
+            if (!isAssigned) {
+                throw new BusinessException(
+                        "Accès refusé — ce dossier ne vous est pas assigné");
+            }
+        }
+
         return enrichAndMask(dossier);
     }
 
@@ -84,9 +102,23 @@ public class DossierServiceImpl implements DossierService {
 
     @Override
     public Page<DossierResponse> findAll(Pageable pageable) {
-        return dossierRepository.findAll(pageable)
+        boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
+        boolean isCge   = securityUtils.hasRole("CGE");
+        boolean isCgea  = securityUtils.hasRole("CGEA");
+
+        if (isAdmin || isCge || isCgea) {
+            return dossierRepository.findAll(pageable)
+                    .map(this::enrichAndMask);
+        }
+
+        Agent agent = getCurrentAgent();
+        log.debug("[Dossiers] Accès restreint — agent: {} voit uniquement ses dossiers",
+                agent.getMatricule());
+        return dossierRepository
+                .findByAgentInChargeId(agent.getId(), pageable)
                 .map(this::enrichAndMask);
     }
+
     @Override
     public Page<DossierResponse> findByReceptionDateBetween(
             Instant start, Instant end, Pageable pageable) {
@@ -94,6 +126,11 @@ public class DossierServiceImpl implements DossierService {
                 .findByReceptionDateBetween(start, end, pageable)
                 .map(this::enrichAndMask);
     }
+
+
+    // ════════════════════════════════════════════════════════════
+    //  SOUMISSION
+    // ════════════════════════════════════════════════════════════
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -175,7 +212,9 @@ public class DossierServiceImpl implements DossierService {
     }
 
 
-
+    // ════════════════════════════════════════════════════════════
+    //  TRANSITIONS DE STATUT
+    // ════════════════════════════════════════════════════════════
 
     @Override
     @Transactional
@@ -251,9 +290,6 @@ public class DossierServiceImpl implements DossierService {
         log.info("Dossier {} enregistré par {}", number, agent.getMatricule());
         return enrichAndMask(saved);
     }
-
-
-
 
     @Override
     @Transactional
@@ -347,10 +383,7 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved,
-                "EN_ETUDE_OPPORTUNITE",
-                null);
+        notificationDispatcher.dispatchStatusUpdate(saved, "EN_ETUDE_OPPORTUNITE", null);
 
         recordStatusChange(saved,
                 DossierStatus.EN_ATTENTE_COMPLEMENT,
@@ -410,8 +443,7 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved, "RECEVABLE", request.getReason());
+        notificationDispatcher.dispatchStatusUpdate(saved, "RECEVABLE", request.getReason());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.RECEVABLE,
@@ -446,8 +478,7 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved, "IRRECEVABLE", request.getReason());
+        notificationDispatcher.dispatchStatusUpdate(saved, "IRRECEVABLE", request.getReason());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.IRRECEVABLE,
@@ -486,8 +517,7 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchTransferExternal(
-                saved, request.getTransferInstitution());
+        notificationDispatcher.dispatchTransferExternal(saved, request.getTransferInstitution());
 
         recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.TRANSFERE,
@@ -523,10 +553,7 @@ public class DossierServiceImpl implements DossierService {
 
         Dossier saved = dossierRepository.save(dossier);
 
-        notificationDispatcher.dispatchStatusUpdate(
-                saved,
-                newStatus.name(),
-                null);
+        notificationDispatcher.dispatchStatusUpdate(saved, newStatus.name(), null);
 
         recordStatusChange(saved, previousStatus, newStatus,
                 request.getReason(), agent, ipAddress);
@@ -534,10 +561,14 @@ public class DossierServiceImpl implements DossierService {
         return enrichAndMask(saved);
     }
 
+
+    // ════════════════════════════════════════════════════════════
+    //  MODIFICATION
+    // ════════════════════════════════════════════════════════════
+
     @Override
     @Transactional
-    public DossierResponse update(UUID dossierId,
-                                  DossierUpdateRequest request) {
+    public DossierResponse update(UUID dossierId, DossierUpdateRequest request) {
         Dossier dossier = getDossierOrThrow(dossierId);
 
         if (dossier.isClosed()) {
@@ -546,8 +577,7 @@ public class DossierServiceImpl implements DossierService {
         }
 
         boolean isProtected = dossier.getDeclarant() != null
-                && Boolean.TRUE.equals(
-                dossier.getDeclarant().getProtectionRequested());
+                && Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
         boolean isCge  = securityUtils.hasRole("CGE");
         boolean isCgea = securityUtils.hasRole("CGEA");
 
@@ -576,8 +606,7 @@ public class DossierServiceImpl implements DossierService {
         Agent agent = getCurrentAgent();
 
         boolean isProtected = dossier.getDeclarant() != null
-                && Boolean.TRUE.equals(
-                dossier.getDeclarant().getProtectionRequested());
+                && Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
         boolean isCge  = securityUtils.hasRole("CGE");
         boolean isCgea = securityUtils.hasRole("CGEA");
 
@@ -619,16 +648,13 @@ public class DossierServiceImpl implements DossierService {
         }
 
         if (request.getReason() == null || request.getReason().isBlank()) {
-            throw new BusinessException(
-                    "Le motif de révocation est obligatoire.");
+            throw new BusinessException("Le motif de révocation est obligatoire.");
         }
 
         if (dossier.getDeclarant() == null
-                || !Boolean.TRUE.equals(
-                dossier.getDeclarant().getProtectionRequested())) {
+                || !Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested())) {
             throw new BusinessException(
-                    "Ce dossier ne bénéficie d'aucune protection "
-                            + "lanceur d'alerte active.");
+                    "Ce dossier ne bénéficie d'aucune protection lanceur d'alerte active.");
         }
 
         dossier.getDeclarant().setProtectionRequested(false);
@@ -648,6 +674,9 @@ public class DossierServiceImpl implements DossierService {
     }
 
 
+    // ════════════════════════════════════════════════════════════
+    //  PRIORITÉ
+    // ════════════════════════════════════════════════════════════
 
     @Override
     @Transactional
@@ -717,6 +746,9 @@ public class DossierServiceImpl implements DossierService {
     }
 
 
+    // ════════════════════════════════════════════════════════════
+    //  MÉTHODES PRIVÉES
+    // ════════════════════════════════════════════════════════════
 
     private DossierResponse enrichAndMask(Dossier dossier) {
         DossierResponse response = dossierMapper.toResponse(dossier);
@@ -731,9 +763,6 @@ public class DossierServiceImpl implements DossierService {
 
         return maskSensitiveData(response);
     }
-
-
-
 
     private Dossier getDossierOrThrow(UUID id) {
         return dossierRepository.findById(id)
@@ -956,6 +985,4 @@ public class DossierServiceImpl implements DossierService {
 
         return response;
     }
-
-
 }
