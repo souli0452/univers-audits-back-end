@@ -59,7 +59,7 @@ public class RoleManagementController {
                 id(jwt), name(jwt), "ADMIN_DDIC",
                 "CREER_ROLE", "ROLE", result.roleKey(),
                 "Création rôle : " + result.roleKey() + " — " + result.label(),
-                httpRequest);
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.status(201).body(result);
     }
@@ -77,7 +77,7 @@ public class RoleManagementController {
                 id(jwt), name(jwt), "ADMIN_DDIC",
                 "MODIFIER_ROLE", "ROLE", roleKey,
                 "Modification rôle : " + roleKey,
-                httpRequest);
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -94,7 +94,7 @@ public class RoleManagementController {
                 id(jwt), name(jwt), "ADMIN_DDIC",
                 "SUPPRIMER_ROLE", "ROLE", roleKey,
                 "Suppression rôle : " + roleKey,
-                httpRequest);
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.noContent().build();
     }

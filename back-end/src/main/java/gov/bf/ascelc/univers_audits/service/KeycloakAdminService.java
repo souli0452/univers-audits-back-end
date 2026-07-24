@@ -102,9 +102,12 @@ public class KeycloakAdminService {
                 log.info("Rôles assignés à {}: {}", keycloakId, roleNames);
             }
         } catch (jakarta.ws.rs.NotFoundException e) {
-            log.warn("Impossible d'assigner les rôles — utilisateur introuvable : {}", keycloakId);
+            throw new RuntimeException(
+                    "Impossible d'assigner les rôles — utilisateur Keycloak introuvable : "
+                            + keycloakId, e);
         } catch (Exception e) {
-            log.error("Erreur assignation rôles pour {}: {}", keycloakId, e.getMessage());
+            throw new RuntimeException(
+                    "Erreur assignation rôles pour " + keycloakId + " : " + e.getMessage(), e);
         }
     }
 
@@ -120,9 +123,12 @@ public class KeycloakAdminService {
                 log.info("Rôles retirés de {}: {}", keycloakId, roleNames);
             }
         } catch (jakarta.ws.rs.NotFoundException e) {
-            log.warn("Impossible de retirer les rôles — utilisateur introuvable : {}", keycloakId);
+            throw new RuntimeException(
+                    "Impossible de retirer les rôles — utilisateur Keycloak introuvable : "
+                            + keycloakId, e);
         } catch (Exception e) {
-            log.error("Erreur suppression rôles pour {}: {}", keycloakId, e.getMessage());
+            throw new RuntimeException(
+                    "Erreur suppression rôles pour " + keycloakId + " : " + e.getMessage(), e);
         }
     }
 
@@ -147,6 +153,24 @@ public class KeycloakAdminService {
             log.error("Erreur création rôle '{}': {}", roleKey, e.getMessage(), e);
             throw new RuntimeException(
                     "Impossible de créer le rôle dans Keycloak : " + e.getMessage());
+        }
+    }
+
+    /**
+     * Compensation pour un échec après création — supprime un user Keycloak
+     * qui n'a pas d'Agent correspondant en base (dual-write non transactionnel
+     * entre Keycloak et la DB).
+     */
+    public void deleteUser(String keycloakId) {
+        if (keycloakId == null || keycloakId.isBlank()) return;
+        try {
+            realmResource().users().get(keycloakId).remove();
+            log.warn("User Keycloak supprimé (compensation) : {}", keycloakId);
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            log.warn("User Keycloak déjà absent lors de la compensation : {}", keycloakId);
+        } catch (Exception e) {
+            log.error("Échec de la suppression de compensation du user Keycloak {} : {}",
+                    keycloakId, e.getMessage(), e);
         }
     }
 
@@ -229,6 +253,35 @@ public class KeycloakAdminService {
             throw new RuntimeException("Utilisateur introuvable dans Keycloak : " + keycloakId);
         } catch (Exception e) {
             throw new RuntimeException("Impossible de mettre à jour le profil : " + e.getMessage());
+        }
+    }
+
+    /**
+     * Vérifie le mot de passe actuel d'un utilisateur via un flux Direct Access
+     * Grant Keycloak (grant_type=password) — n'émet aucun token utilisable,
+     * ne fait que valider les identifiants avant d'autoriser un changement
+     * de mot de passe.
+     */
+    public boolean verifyCurrentPassword(String username, String password) {
+        if (username == null || username.isBlank()
+                || password == null || password.isBlank()) {
+            return false;
+        }
+        try (Keycloak client = KeycloakBuilder.builder()
+                .serverUrl(serverUrl)
+                .realm(realm)
+                .clientId(clientId)
+                .clientSecret(clientSecret)
+                .grantType(OAuth2Constants.PASSWORD)
+                .username(username)
+                .password(password)
+                .build()) {
+            client.tokenManager().getAccessToken();
+            return true;
+        } catch (Exception e) {
+            log.warn("Échec de vérification du mot de passe actuel pour {} : {}",
+                    username, e.getMessage());
+            return false;
         }
     }
 

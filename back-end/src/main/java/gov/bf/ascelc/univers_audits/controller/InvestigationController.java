@@ -121,7 +121,7 @@ public class InvestigationController {
                 id(jwt), name(jwt), role(jwt),
                 "OUVRIR_INVESTIGATION", "INVESTIGATION", result.getId().toString(),
                 "Ouverture investigation pour dossier " + dossierId,
-                httpRequest);
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
@@ -140,7 +140,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "DEMARRER_INVESTIGATION", "INVESTIGATION", id.toString(),
-                "Démarrage officiel de l'investigation", httpRequest);
+                "Démarrage officiel de l'investigation", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -160,7 +160,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "SUSPENDRE_INVESTIGATION", "INVESTIGATION", id.toString(),
-                "Suspension — motif : " + reason, httpRequest);
+                "Suspension — motif : " + reason, AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -181,7 +181,7 @@ public class InvestigationController {
                 id(jwt), name(jwt), role(jwt),
                 "REPRENDRE_INVESTIGATION", "INVESTIGATION", id.toString(),
                 "Reprise" + (reason != null ? " — " + reason : ""),
-                httpRequest);
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -201,7 +201,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "PROLONGER_INVESTIGATION", "INVESTIGATION", id.toString(),
-                "Prolongation délai → " + request.getNewDeadline(), httpRequest);
+                "Prolongation délai → " + request.getNewDeadline(), AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -221,7 +221,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "SOUMETTRE_RAPPORT", "INVESTIGATION", id.toString(),
-                "Soumission du rapport final", httpRequest);
+                "Soumission du rapport final", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -240,7 +240,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "APPROUVER_DEI", "INVESTIGATION", id.toString(),
-                "Approbation DEI", httpRequest);
+                "Approbation DEI", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -259,7 +259,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "APPROUVER_JURIDIQUE", "INVESTIGATION", id.toString(),
-                "Approbation conseiller juridique", httpRequest);
+                "Approbation conseiller juridique", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -279,7 +279,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "APPROUVER_CGE", "INVESTIGATION", id.toString(),
-                "Décision finale CGE — " + reason, httpRequest);
+                "Décision finale CGE — " + reason, AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -301,7 +301,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "AJOUTER_MEMBRE", "INVESTIGATION", id.toString(),
-                "Ajout membre agent " + request.getAgentId(), httpRequest);
+                "Ajout membre agent " + request.getAgentId(), AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -321,7 +321,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "RETIRER_MEMBRE", "INVESTIGATION", id.toString(),
-                "Retrait membre agent " + agentId, httpRequest);
+                "Retrait membre agent " + agentId, AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }

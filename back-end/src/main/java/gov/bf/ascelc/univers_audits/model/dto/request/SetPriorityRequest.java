@@ -3,10 +3,14 @@ package gov.bf.ascelc.univers_audits.model.dto.request;
 import gov.bf.ascelc.univers_audits.enums.DossierPriority;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import lombok.*;
 import java.time.Instant;
 
-@Data
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SetPriorityRequest {
 
     @NotNull(message = "Le niveau de priorité est obligatoire")

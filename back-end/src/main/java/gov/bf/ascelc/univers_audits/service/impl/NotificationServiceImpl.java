@@ -6,15 +6,16 @@ import gov.bf.ascelc.univers_audits.enums.NotificationStatus;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
+import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Notification;
+import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
-import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
-import gov.bf.ascelc.univers_audits.service.SmsService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,17 +37,95 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final DossierRepository      dossierRepository;
+    private final AgentRepository        agentRepository;
     private final DossierDetailsMapper   detailsMapper;
-    private final EmailService           emailService;
-    private final SmsService             smsService;
+    private final DossierAccessGuard     accessGuard;
 
 
     @Override
     public Page<NotificationResponse> findByDossierId(
             UUID dossierId, Pageable pageable) {
+
+        Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
+        accessGuard.checkReadAccess(dossier);
+
+        // Un dossier confidentiel masque entièrement ses notifications aux rôles
+        // non habilités — même comportement que Witness/TargetedPartyServiceImpl.
+        if (Boolean.TRUE.equals(dossier.getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            return Page.empty(pageable);
+        }
+
         return notificationRepository
                 .findByDossierId(dossierId, pageable)
                 .map(detailsMapper::toResponse);
+    }
+
+    @Override
+    public Page<NotificationResponse> findMyNotifications(
+            String keycloakId, boolean unreadOnly, Pageable pageable) {
+
+        Agent agent = resolveAgentOrThrow(keycloakId);
+
+        return unreadOnly
+                ? notificationRepository
+                        .findUnreadByAgentOrRecipient(agent.getId(), keycloakId, pageable)
+                        .map(detailsMapper::toResponse)
+                : notificationRepository
+                        .findByAgentOrRecipient(agent.getId(), keycloakId, pageable)
+                        .map(detailsMapper::toResponse);
+    }
+
+    @Override
+    public long countUnread(String keycloakId) {
+        Agent agent = resolveAgentOrThrow(keycloakId);
+        return notificationRepository
+                .countUnreadByAgentOrRecipient(agent.getId(), keycloakId);
+    }
+
+    @Override
+    @Transactional
+    public void markAsRead(UUID notificationId, String keycloakId) {
+        Agent agent = resolveAgentOrThrow(keycloakId);
+        Notification notification = getOrThrow(notificationId);
+
+        boolean isOwner = false;
+        if (notification.getDossier() != null
+                && notification.getDossier().getAgentInCharge() != null) {
+            isOwner = notification.getDossier()
+                    .getAgentInCharge().getId().equals(agent.getId());
+        }
+        if (!isOwner && keycloakId.equals(notification.getRecipient())) {
+            isOwner = true;
+        }
+
+        if (!isOwner) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Vous n'êtes pas destinataire de cette notification");
+        }
+
+        notification.markAsRead();
+        notificationRepository.save(notification);
+    }
+
+    @Override
+    @Transactional
+    public void markAllAsRead(String keycloakId) {
+        Agent agent = resolveAgentOrThrow(keycloakId);
+        notificationRepository.markAllReadByAgentOrRecipient(
+                agent.getId(), keycloakId, Instant.now());
+    }
+
+    @Override
+    public Page<NotificationResponse> findPending(Pageable pageable) {
+        return notificationRepository
+                .findByStatusIn(List.of(NotificationStatus.PENDING), pageable)
+                .map(detailsMapper::toResponse);
+    }
+
+    private Agent resolveAgentOrThrow(String keycloakId) {
+        return agentRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agent introuvable"));
     }
 
     @Override
@@ -112,127 +191,6 @@ public class NotificationServiceImpl implements NotificationService {
         return detailsMapper.toResponse(notificationRepository.save(notif));
     }
 
-
-    @Transactional
-    public void notifyDeclarantStatusChange(Dossier dossier,
-                                            String status,
-                                            String note) {
-        if (dossier.getDeclarant() == null) return;
-
-        String[] emailContent = EmailService.getStatusEmailContent(status);
-        String statusLabel       = emailContent[0];
-        String statusDescription = emailContent[1];
-
-        String accessCode    = dossier.getAccessCode();
-        String declarantName = isAnonymous(dossier)
-                ? null
-                : dossier.getDeclarant().getDisplayName();
-
-        // ── Email ─────────────────────────────────────────────
-        String email = dossier.getDeclarant().getEmail();
-        if (email != null && !email.isBlank()) {
-            emailService.sendStatusUpdate(
-                    email,
-                    accessCode,
-                    declarantName,
-                    statusLabel,
-                    statusDescription,
-                    note
-            );
-
-            saveNotification(dossier, NotificationType.STATUS_UPDATE,
-                    NotificationChannel.EMAIL, email,
-                    "Mise à jour de votre dossier — " + statusLabel,
-                    statusDescription + (note != null ? "\n\nNote : " + note : "")
-            );
-        }
-
-        String phone = dossier.getDeclarant().getPhoneNumber();
-        if (phone != null && !phone.isBlank()) {
-            smsService.sendStatusUpdate(phone, accessCode, statusLabel);
-
-            saveNotification(dossier, NotificationType.STATUS_UPDATE,
-                    NotificationChannel.SMS, phone,
-                    "Mise à jour de votre dossier",
-                    statusLabel
-            );
-        }
-
-        log.info("[Notification] Déclarant notifié — statut: {} — dossier: {}",
-                status, dossier.getId());
-    }
-
-    @Transactional
-    public void notifyComplementRequest(Dossier dossier, String motif) {
-        if (dossier.getDeclarant() == null) return;
-
-        String accessCode    = dossier.getAccessCode();
-        String declarantName = isAnonymous(dossier)
-                ? null : dossier.getDeclarant().getDisplayName();
-
-        String email = dossier.getDeclarant().getEmail();
-        if (email != null && !email.isBlank()) {
-            emailService.sendComplementRequest(
-                    email, accessCode, declarantName, motif);
-
-            saveNotification(dossier, NotificationType.COMPLEMENT_REQUEST,
-                    NotificationChannel.EMAIL, email,
-                    "Information complémentaire requise — votre dossier",
-                    motif
-            );
-        }
-
-
-        String phone = dossier.getDeclarant().getPhoneNumber();
-        if (phone != null && !phone.isBlank()) {
-            smsService.sendComplementRequest(phone, accessCode);
-
-            saveNotification(dossier, NotificationType.COMPLEMENT_REQUEST,
-                    NotificationChannel.SMS, phone,
-                    "Complément requis",
-                    "Action requise sur votre dossier"
-            );
-        }
-
-        log.info("[Notification] Demande complément envoyée — dossier: {}",
-                dossier.getId());
-    }
-
-    @Transactional
-    public void notifyTransferExternal(Dossier dossier,
-                                       String institutionLabel) {
-        if (dossier.getDeclarant() == null) return;
-
-        String accessCode    = dossier.getAccessCode();
-        String declarantName = isAnonymous(dossier)
-                ? null : dossier.getDeclarant().getDisplayName();
-
-        String email = dossier.getDeclarant().getEmail();
-        if (email != null && !email.isBlank()) {
-            emailService.sendTransferExternal(
-                    email, accessCode, declarantName, institutionLabel);
-
-            saveNotification(dossier, NotificationType.STATUS_UPDATE,
-                    NotificationChannel.EMAIL, email,
-                    "Votre dossier a été transmis à une institution compétente",
-                    "Transmis à : " + institutionLabel
-            );
-        }
-
-        String phone = dossier.getDeclarant().getPhoneNumber();
-        if (phone != null && !phone.isBlank()) {
-            smsService.sendTransferExternal(phone, accessCode);
-
-            saveNotification(dossier, NotificationType.STATUS_UPDATE,
-                    NotificationChannel.SMS, phone,
-                    "Dossier transmis",
-                    "Votre dossier a été transmis"
-            );
-        }
-
-        log.info("[Notification] Transfert notifié — dossier: {} → {}",
-                dossier.getId(), institutionLabel);
-    }
 
     @Override
     @Scheduled(fixedDelay = 900_000)
@@ -425,32 +383,6 @@ public class NotificationServiceImpl implements NotificationService {
         log.info("[Portail] Notification disponible — sujet: {}", notif.getSubject());
     }
 
-
-    @Transactional
-    private void saveNotification(Dossier dossier,
-                                  NotificationType type,
-                                  NotificationChannel channel,
-                                  String recipient,
-                                  String subject,
-                                  String content) {
-        Notification notif = Notification.builder()
-                .dossier(dossier)
-                .type(type)
-                .channel(channel)
-                .recipient(recipient)
-                .subject(subject)
-                .content(content)
-                .scheduledAt(Instant.now())
-                .build();
-
-        notificationRepository.save(notif);
-    }
-
-    private boolean isAnonymous(Dossier dossier) {
-        return dossier.getDeclarant() == null
-                || Boolean.TRUE.equals(dossier.getDeclarant().isAnonymous())
-                || Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
-    }
 
     private Notification getOrThrow(UUID id) {
         return notificationRepository.findById(id)

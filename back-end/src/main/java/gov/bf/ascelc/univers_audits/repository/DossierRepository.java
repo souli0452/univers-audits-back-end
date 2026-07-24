@@ -4,6 +4,7 @@ import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -29,12 +30,22 @@ public interface DossierRepository
 
     boolean existsByNumber(String number);
 
+    // investigation est un @OneToOne(mappedBy) — sans JOIN FETCH explicite,
+    // Hibernate exécute une requête par dossier pour le charger (N+1) même en
+    // FetchType.LAZY, faute de bytecode enhancement. Un EntityGraph sur ce seul
+    // champ (une jointure simple, pas une collection) évite le N+1 sans risquer
+    // de multiplier les lignes comme le ferait un JOIN FETCH sur une collection.
+    @EntityGraph(attributePaths = "investigation")
+    Page<Dossier> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = "investigation")
     Page<Dossier> findByStatus(DossierStatus status, Pageable pageable);
 
     Page<Dossier> findByStatusIn(List<DossierStatus> statuses, Pageable pageable);
 
     long countByStatusIn(List<DossierStatus> statuses);
 
+    @EntityGraph(attributePaths = "investigation")
     Page<Dossier> findByAgentInChargeId(UUID agentId, Pageable pageable);
 
     Page<Dossier> findByAgentInChargeIdAndStatus(
@@ -43,6 +54,7 @@ public interface DossierRepository
     List<Dossier> findByDeclarantId(UUID declarantId);
 
 
+    @EntityGraph(attributePaths = "investigation")
     Page<Dossier> findByReceptionDateBetween(
             Instant start, Instant end, Pageable pageable);
 
@@ -62,12 +74,31 @@ public interface DossierRepository
     List<Dossier> findOverdueAcknowledgments(@Param("now") Instant now);
 
     @Query("""
+            SELECT COUNT(d) FROM Dossier d
+            WHERE d.acknowledgmentDeadline < :now
+            AND d.status NOT IN (
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.CLOS,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.CLASSE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.IRRECEVABLE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.TRANSFERE
+            )
+            """)
+    long countOverdueAcknowledgments(@Param("now") Instant now);
+
+    @Query("""
             SELECT d FROM Dossier d
             WHERE d.status = gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_ATTENTE_COMPLEMENT
             AND d.additionalInfoDeadline < :now
             ORDER BY d.additionalInfoDeadline ASC
             """)
     List<Dossier> findOverdueComplementRequests(@Param("now") Instant now);
+
+    @Query("""
+            SELECT COUNT(d) FROM Dossier d
+            WHERE d.status = gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_ATTENTE_COMPLEMENT
+            AND d.additionalInfoDeadline < :now
+            """)
+    long countOverdueComplementRequests(@Param("now") Instant now);
 
     @Query("""
             SELECT d FROM Dossier d

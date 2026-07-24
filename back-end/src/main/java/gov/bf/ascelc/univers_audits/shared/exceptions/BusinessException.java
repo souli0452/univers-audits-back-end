@@ -1,10 +1,7 @@
 package gov.bf.ascelc.univers_audits.shared.exceptions;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
-
-
-@ResponseStatus(HttpStatus.BAD_REQUEST)
+// Le code HTTP (400) est fixé par GlobalExceptionHandler, qui intercepte
+// explicitement ce type — @ResponseStatus ici ne serait jamais consulté.
 public class BusinessException extends RuntimeException {
     public BusinessException(String message) {
         super(message);

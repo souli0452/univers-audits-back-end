@@ -13,6 +13,17 @@ public interface NotificationService {
     Page<NotificationResponse> findByDossierId(
             UUID dossierId, Pageable pageable);
 
+    Page<NotificationResponse> findMyNotifications(
+            String keycloakId, boolean unreadOnly, Pageable pageable);
+
+    long countUnread(String keycloakId);
+
+    void markAsRead(UUID notificationId, String keycloakId);
+
+    void markAllAsRead(String keycloakId);
+
+    Page<NotificationResponse> findPending(Pageable pageable);
+
 
     List<NotificationResponse> findOverdue();
 

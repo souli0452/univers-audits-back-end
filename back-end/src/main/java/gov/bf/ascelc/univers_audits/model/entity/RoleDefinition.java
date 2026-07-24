@@ -58,6 +58,10 @@ public class RoleDefinition {
     @Builder.Default
     private Instant updatedAt = Instant.now();
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @ManyToMany(fetch = FetchType.LAZY, targetEntity = Permission.class)
     @JoinTable(
             name = "role_permission",

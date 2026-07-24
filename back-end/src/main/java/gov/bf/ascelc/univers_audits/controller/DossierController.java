@@ -128,7 +128,7 @@ public class DossierController {
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "CREER_DOSSIER", "DOSSIER", result.getId().toString(),
                 "Création dossier : " + result.getNumber(),
-                httpRequest);
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
@@ -149,7 +149,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "ENREGISTRER_DOSSIER", "DOSSIER", id.toString(),
-                "Enregistrement réception dossier", httpRequest);
+                "Enregistrement réception dossier", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -169,7 +169,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "DEMARRER_ETUDE", "DOSSIER", id.toString(),
-                "Démarrage étude d'opportunité", httpRequest);
+                "Démarrage étude d'opportunité", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -189,7 +189,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "DEMANDER_COMPLEMENT", "DOSSIER", id.toString(),
-                "Demande de complément d'information", httpRequest);
+                "Demande de complément d'information", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -209,7 +209,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "RECEVOIR_COMPLEMENT", "DOSSIER", id.toString(),
-                "Complément d'information reçu", httpRequest);
+                "Complément d'information reçu", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -229,7 +229,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "SOUMETTRE_CTADP", "DOSSIER", id.toString(),
-                "Soumission au CTADP", httpRequest);
+                "Soumission au CTADP", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -249,7 +249,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "DECLARER_RECEVABLE", "DOSSIER", id.toString(),
-                "Dossier déclaré recevable par CGE", httpRequest);
+                "Dossier déclaré recevable par CGE", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -269,7 +269,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "DECLARER_IRRECEVABLE", "DOSSIER", id.toString(),
-                "Dossier déclaré irrecevable par CGE", httpRequest);
+                "Dossier déclaré irrecevable par CGE", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -289,7 +289,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "TRANSFERER_DOSSIER", "DOSSIER", id.toString(),
-                "Transfert vers : " + request.getTransferInstitution(), httpRequest);
+                "Transfert vers : " + request.getTransferInstitution(), AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -309,7 +309,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "CLOTURER_DOSSIER", "DOSSIER", id.toString(),
-                "Clôture du dossier", httpRequest);
+                "Clôture du dossier", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -328,7 +328,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "MODIFIER_DOSSIER", "DOSSIER", id.toString(),
-                "Modification du contenu du dossier", httpRequest);
+                "Modification du contenu du dossier", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -348,7 +348,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "CHANGER_CONFIDENTIALITE", "DOSSIER", id.toString(),
-                "Confidentialité → " + (value ? "CONFIDENTIEL" : "PUBLIC"), httpRequest);
+                "Confidentialité → " + (value ? "CONFIDENTIEL" : "PUBLIC"), AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }
@@ -373,7 +373,7 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "DEFINIR_PRIORITE", "DOSSIER", id.toString(),
-                "Priorité → " + request.getPriority(), httpRequest);
+                "Priorité → " + request.getPriority(), AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
     }

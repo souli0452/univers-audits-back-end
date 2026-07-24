@@ -523,7 +523,7 @@
     "requiredActions" : [ ],
     "realmRoles" : [ "default-roles-asce-lc" ],
     "clientRoles" : {
-      "realm-management" : [ "view-realm", "manage-users", "manage-realm", "impersonation", "create-client" ]
+      "realm-management" : [ "view-realm", "manage-users" ]
     },
     "notBefore" : 0,
     "groups" : [ ]
@@ -645,7 +645,7 @@
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "secret" : "wK2sXd4ovtG3KlYhN8IbkPJfE1nhFfT3",
+    "secret" : "${env.KEYCLOAK_CLIENT_SECRET}",
     "redirectUris" : [ "http://localhost:8081/*" ],
     "webOrigins" : [ " http://localhost:8081" ],
     "notBefore" : 0,

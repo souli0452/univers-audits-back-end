@@ -57,7 +57,9 @@ public class LoginAuditFilter extends OncePerRequestFilter {
                         agentName = jwt.getClaimAsString("preferred_username");
                     }
 
-                    auditService.logLogin(agentId, agentName, true, null, request);
+                    auditService.logLogin(agentId, agentName, true, null,
+                            AuditService.extractIp(request),
+                            AuditService.extractUserAgent(request));
                     log.debug("[LoginAudit] Connexion enregistrée — agent: {}", agentName);
                 }
             }

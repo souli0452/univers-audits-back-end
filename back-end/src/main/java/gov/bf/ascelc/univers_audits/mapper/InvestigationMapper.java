@@ -64,11 +64,6 @@ public interface InvestigationMapper {
                 .toList()
                 : Collections.emptyList();
 
-        // ── LOG DIAGNOSTIC ──────────────────────────────
-        System.out.println("[MAPPER] inv=" + inv.getId()
-                + " | members_total=" + (inv.getMembers() != null ? inv.getMembers().size() : "NULL")
-                + " | actifs=" + activeMembers.size());
-        // ────────────────────────────────────────────────
 
         response.setMembers(
                 activeMembers.stream()

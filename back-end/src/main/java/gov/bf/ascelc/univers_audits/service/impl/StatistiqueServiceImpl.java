@@ -89,11 +89,11 @@ public class StatistiqueServiceImpl implements StatistiqueService {
         Double avgCgeDays = investigationRepository.avgCgeApprovalDays(start, end);
 
         long overdueAck  = dossierRepository
-                .findOverdueAcknowledgments(Instant.now()).size();
+                .countOverdueAcknowledgments(Instant.now());
         long overdueInv  = investigationRepository
-                .findOverdue(Instant.now()).size();
+                .countOverdue(Instant.now());
         long overdueComp = dossierRepository
-                .findOverdueComplementRequests(Instant.now()).size();
+                .countOverdueComplementRequests(Instant.now());
 
         List<StatistiqueResponse.MonthlyCount> monthlyTrend =
                 buildMonthlyTrend(start, end);

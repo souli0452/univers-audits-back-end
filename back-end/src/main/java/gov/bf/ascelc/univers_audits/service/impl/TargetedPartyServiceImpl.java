@@ -5,11 +5,11 @@ import gov.bf.ascelc.univers_audits.model.dto.request.TargetedPartyRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.TargetedPartyResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.TargetedParty;
-import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.TargetedPartyRepository;
 import gov.bf.ascelc.univers_audits.service.TargetedPartyService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,12 +25,21 @@ import java.util.UUID;
 public class TargetedPartyServiceImpl implements TargetedPartyService {
 
     private final TargetedPartyRepository targetedPartyRepository;
-    private final DossierRepository       dossierRepository;
     private final DossierDetailsMapper    detailsMapper;
+    private final DossierAccessGuard      accessGuard;
 
     @Override
     public List<TargetedPartyResponse> findByDossierId(UUID dossierId) {
-        getDossierOrThrow(dossierId);
+        Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
+        accessGuard.checkReadAccess(dossier);
+
+        // Un dossier confidentiel masque entièrement ses parties visées aux rôles
+        // non habilités — même comportement que DossierServiceImpl.maskSensitiveData.
+        if (Boolean.TRUE.equals(dossier.getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            return List.of();
+        }
+
         return targetedPartyRepository
                 .findByDossierId(dossierId)
                 .stream()
@@ -42,7 +51,7 @@ public class TargetedPartyServiceImpl implements TargetedPartyService {
     @Transactional
     public TargetedPartyResponse create(UUID dossierId,
                                         TargetedPartyRequest request) {
-        Dossier dossier = getDossierOrThrow(dossierId);
+        Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
 
         if (dossier.isClosed()) {
             throw new BusinessException(
@@ -75,7 +84,7 @@ public class TargetedPartyServiceImpl implements TargetedPartyService {
     public TargetedPartyResponse update(UUID dossierId,
                                         UUID partyId,
                                         TargetedPartyRequest request) {
-        getDossierOrThrow(dossierId);
+        accessGuard.getDossierOrThrow(dossierId);
         TargetedParty party = getPartyOrThrow(partyId, dossierId);
 
         party.setPartyType(request.getPartyType());
@@ -98,17 +107,10 @@ public class TargetedPartyServiceImpl implements TargetedPartyService {
     @Override
     @Transactional
     public void delete(UUID dossierId, UUID partyId) {
-        getDossierOrThrow(dossierId);
+        accessGuard.getDossierOrThrow(dossierId);
         TargetedParty party = getPartyOrThrow(partyId, dossierId);
         targetedPartyRepository.delete(party);
         log.info("Partie visée supprimée — id: {}", partyId);
-    }
-
-
-    private Dossier getDossierOrThrow(UUID dossierId) {
-        return dossierRepository.findById(dossierId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Dossier introuvable : " + dossierId));
     }
 
     private TargetedParty getPartyOrThrow(UUID partyId, UUID dossierId) {

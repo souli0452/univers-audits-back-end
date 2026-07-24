@@ -5,11 +5,11 @@ import gov.bf.ascelc.univers_audits.model.dto.request.WitnessRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Witness;
-import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.WitnessRepository;
 import gov.bf.ascelc.univers_audits.service.WitnessService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,23 +25,33 @@ import java.util.UUID;
 public class WitnessServiceImpl implements WitnessService {
 
     private final WitnessRepository    witnessRepository;
-    private final DossierRepository    dossierRepository;
     private final DossierDetailsMapper detailsMapper;
+    private final DossierAccessGuard   accessGuard;
 
     @Override
     public List<WitnessResponse> findByDossierId(UUID dossierId) {
-        getDossierOrThrow(dossierId);
+        Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
+        accessGuard.checkReadAccess(dossier);
+
+        // Un dossier confidentiel masque entièrement ses témoins aux rôles
+        // non habilités — même comportement que DossierServiceImpl.maskSensitiveData.
+        if (Boolean.TRUE.equals(dossier.getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            return List.of();
+        }
+
         return witnessRepository
                 .findByDossierId(dossierId)
                 .stream()
                 .map(detailsMapper::toResponse)
+                .peek(this::maskIfAnonymous)
                 .toList();
     }
 
     @Override
     @Transactional
     public WitnessResponse create(UUID dossierId, WitnessRequest request) {
-        Dossier dossier = getDossierOrThrow(dossierId);
+        Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
 
         if (dossier.isClosed()) {
             throw new BusinessException(
@@ -75,7 +85,7 @@ public class WitnessServiceImpl implements WitnessService {
     public WitnessResponse update(UUID dossierId,
                                   UUID witnessId,
                                   WitnessRequest request) {
-        getDossierOrThrow(dossierId);
+        accessGuard.getDossierOrThrow(dossierId);
         Witness witness = getWitnessOrThrow(witnessId, dossierId);
 
         witness.setFirstName(request.getFirstName());
@@ -102,17 +112,21 @@ public class WitnessServiceImpl implements WitnessService {
     @Override
     @Transactional
     public void delete(UUID dossierId, UUID witnessId) {
-        getDossierOrThrow(dossierId);
+        accessGuard.getDossierOrThrow(dossierId);
         Witness witness = getWitnessOrThrow(witnessId, dossierId);
         witnessRepository.delete(witness);
         log.info("Témoin supprimé — id: {}", witnessId);
     }
 
-
-    private Dossier getDossierOrThrow(UUID dossierId) {
-        return dossierRepository.findById(dossierId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Dossier introuvable : " + dossierId));
+    private void maskIfAnonymous(WitnessResponse witness) {
+        if (Boolean.TRUE.equals(witness.getAnonymous())) {
+            witness.setFirstName(null);
+            witness.setLastName(null);
+            witness.setEmail(null);
+            witness.setPhoneNumber(null);
+            witness.setAddress(null);
+            witness.setProfession(null);
+        }
     }
 
     private Witness getWitnessOrThrow(UUID witnessId, UUID dossierId) {

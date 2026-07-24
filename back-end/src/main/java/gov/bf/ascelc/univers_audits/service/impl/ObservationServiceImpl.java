@@ -6,12 +6,12 @@ import gov.bf.ascelc.univers_audits.model.dto.response.ObservationResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Observation;
-import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
 import gov.bf.ascelc.univers_audits.service.ObservationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +30,9 @@ public class ObservationServiceImpl implements ObservationService {
 
     private final ObservationRepository observationRepository;
     private final DossierRepository     dossierRepository;
-    private final AgentRepository       agentRepository;
     private final DossierDetailsMapper  detailsMapper;
     private final SecurityUtils         securityUtils;
+    private final AgentContextResolver  agentContextResolver;
 
     @Override
     public List<ObservationResponse> findByDossierId(UUID dossierId) {
@@ -70,7 +70,7 @@ public class ObservationServiceImpl implements ObservationService {
                     "Impossible d'ajouter une observation à un dossier clôturé");
         }
 
-        Agent agent = getCurrentAgent();
+        Agent agent = agentContextResolver.getCurrentAgent();
 
         Observation obs = Observation.builder()
                 .dossier(dossier)
@@ -93,14 +93,5 @@ public class ObservationServiceImpl implements ObservationService {
         return dossierRepository.findById(dossierId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Dossier introuvable : " + dossierId));
-    }
-
-    private Agent getCurrentAgent() {
-        String keycloakId = securityUtils.getCurrentKeycloakId()
-                .orElseThrow(() -> new BusinessException(
-                        "Agent non authentifié"));
-        return agentRepository.findByKeycloakId(keycloakId)
-                .orElseThrow(() -> new BusinessException(
-                        "Agent introuvable. Contactez l'administrateur DDIC."));
     }
 }

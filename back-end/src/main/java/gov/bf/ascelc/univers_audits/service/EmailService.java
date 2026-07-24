@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 @Slf4j
 @Service
@@ -179,6 +180,28 @@ public class EmailService {
         }
     }
 
+    @Async
+    public void sendPasswordChangedConfirmation(String toEmail, String fullName) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        try {
+            MimeMessage mail = mailSender.createMimeMessage();
+            MimeMessageHelper helper =
+                    new MimeMessageHelper(mail, true, "UTF-8");
+
+            helper.setFrom(fromAddress, "ASCE-LC — Intégrité+");
+            helper.setTo(toEmail);
+            helper.setSubject("ASCE-LC — Votre mot de passe a été modifié");
+            helper.setText(buildPasswordChangedHtml(fullName), true);
+
+            mailSender.send(mail);
+            log.info("[Email] Confirmation changement mot de passe → {}", toEmail);
+
+        } catch (Exception e) {
+            log.error("[Email] Échec confirmation mot de passe → {} : {}",
+                    toEmail, e.getMessage());
+        }
+    }
+
     private static final String STYLES = """
         <style>
           *{box-sizing:border-box;margin:0;padding:0}
@@ -303,11 +326,20 @@ public class EmailService {
         </div>
         """;
 
+    // ─── Échappement HTML des champs saisis par un utilisateur ─────────
+    // Toute donnée provenant d'un déclarant (public, non authentifié) ou
+    // d'un agent est interpolée telle quelle dans ces templates HTML actifs
+    // (MimeMessageHelper en mode HTML) — un échappement systématique évite
+    // l'injection de markup/liens dans les emails envoyés à des tiers.
+    private String esc(String value) {
+        return value == null ? "" : HtmlUtils.htmlEscape(value);
+    }
+
     // ─── Salutation personnalisée ──────────────────────────────────────
     private String salut(String name) {
         if (name != null && !name.isBlank()
                 && !name.equalsIgnoreCase("Anonyme")) {
-            return "<p class=\"salut\">Bonjour <strong>" + name + "</strong>,</p>";
+            return "<p class=\"salut\">Bonjour <strong>" + esc(name) + "</strong>,</p>";
         }
         return "<p class=\"salut\">Bonjour,</p>";
     }
@@ -405,9 +437,9 @@ public class EmailService {
                 STYLES,
                 header("Notification d'affectation — Usage interne"),
                 salut(agentName),
-                dossierNumber,
-                dossierObject != null ? dossierObject : "",
-                roleLabel,
+                esc(dossierNumber),
+                esc(dossierObject),
+                esc(roleLabel),
                 linkDossier,
                 linkInvestigation,
                 FOOTER);
@@ -477,7 +509,7 @@ public class EmailService {
                     <div class="block-label">Note de l'ASCE-LC</div>
                     <div class="block-text">%s</div>
                   </div>
-                  """.formatted(note)
+                  """.formatted(esc(note))
                 : "";
 
         return """
@@ -518,8 +550,8 @@ public class EmailService {
                 STYLES,
                 header("Mise à jour de votre dossier"),
                 salut(declarantName),
-                statusLabel,
-                statusDescription != null ? statusDescription : "",
+                esc(statusLabel),
+                esc(statusDescription),
                 noteBlock,
                 codeBlock(accessCode),
                 ctaPortail(accessCode),
@@ -584,7 +616,7 @@ public class EmailService {
                 STYLES,
                 header("Complément d'information requis"),
                 salut(declarantName),
-                motif != null ? motif : "",
+                esc(motif),
                 codeBlock(accessCode),
                 ctaPortail(accessCode),
                 CONFID,
@@ -642,7 +674,7 @@ public class EmailService {
                 STYLES,
                 header("Votre dossier a été transmis"),
                 salut(declarantName),
-                institutionLabel != null ? institutionLabel : "Institution compétente",
+                institutionLabel != null ? esc(institutionLabel) : "Institution compétente",
                 codeBlock(accessCode),
                 CONFID,
                 FOOTER);
@@ -695,9 +727,45 @@ public class EmailService {
                 STYLES,
                 headerAlert(),
                 salut(agentName),
-                alertTitle,
-                alertBody,
+                esc(alertTitle),
+                esc(alertBody),
                 dashboardUrl,
+                FOOTER);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  TEMPLATE 7 — Confirmation de changement de mot de passe (pour agents)
+    // ═══════════════════════════════════════════════════════════════════
+    private String buildPasswordChangedHtml(String fullName) {
+        return """
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head><meta charset="UTF-8"/>
+            <meta name="viewport" content="width=device-width,initial-scale=1"/>
+            %s
+            </head>
+            <body>
+            <div class="outer"><div class="card">
+              %s
+              <div class="body">
+                %s
+                <p>Le mot de passe de votre compte ASCE-LC — Intégrité+ vient d'être modifié.</p>
+
+                <div class="block block-amber">
+                  <div class="block-label">Vous n'êtes pas à l'origine de cette action ?</div>
+                  <div class="block-text">
+                    Contactez immédiatement l'administrateur DDIC afin de sécuriser
+                    votre compte.
+                  </div>
+                </div>
+              </div>
+              %s
+            </div></div>
+            </body></html>
+            """.formatted(
+                STYLES,
+                header("Sécurité de votre compte"),
+                salut(fullName),
                 FOOTER);
     }
 

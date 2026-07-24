@@ -37,17 +37,18 @@ public interface InvestigationRepository
 
     boolean existsByDossierId(UUID dossierId);
 
-    @Query(
-            value = """
-                SELECT DISTINCT i FROM Investigation i
-                LEFT JOIN FETCH i.members m
-                LEFT JOIN FETCH m.agent
-                """,
-            countQuery = """
-                SELECT COUNT(DISTINCT i) FROM Investigation i
-                """
-    )
-    Page<Investigation> findAllWithMembers(Pageable pageable);
+    // Combiner JOIN FETCH sur une collection avec Pageable force Hibernate à
+    // charger TOUTE la table en mémoire pour paginer manuellement (voir
+    // findAllWithMembers ci-dessus). Pour paginer correctement au niveau SQL,
+    // on récupère d'abord la page d'IDs (JpaRepository.findAll(Pageable), sans
+    // fetch join), puis on charge les membres uniquement pour ces IDs.
+    @Query("""
+            SELECT DISTINCT i FROM Investigation i
+            LEFT JOIN FETCH i.members m
+            LEFT JOIN FETCH m.agent
+            WHERE i.id IN :ids
+            """)
+    List<Investigation> findAllWithMembersByIdIn(@Param("ids") List<UUID> ids);
 
     // ── Rapport — filtre par période de démarrage ─────────────
     Page<Investigation> findByStartDateBetween(

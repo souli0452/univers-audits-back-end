@@ -42,6 +42,10 @@ public class PortalConfig {
     @Column(name = "updated_by", length = 200)
     private String updatedBy;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @PreUpdate
     void onUpdate() { this.updatedAt = Instant.now(); }
 }

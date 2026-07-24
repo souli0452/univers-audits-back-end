@@ -47,7 +47,7 @@ public abstract class AuditEntity implements Serializable {
     @LastModifiedBy
     @Column(name = "updated_by_id", length = 100)
     private String updatedById;
-
+//CORBEIL SUPPRESION DEFINITIF OU RESTAURE
     @Version
     @Column(name = "version", nullable = false)
     private Long version;

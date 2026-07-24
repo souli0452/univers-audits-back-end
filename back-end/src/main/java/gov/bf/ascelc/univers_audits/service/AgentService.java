@@ -4,6 +4,9 @@ import gov.bf.ascelc.univers_audits.model.dto.request.CreateAgentRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.UpdateAgentRequest;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,7 +33,7 @@ public class AgentService {
 
     public Agent findById(UUID id) {
         return agentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Agent introuvable: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Agent introuvable: " + id));
     }
 
     public List<String> getAvailableKeycloakRoles() {
@@ -47,34 +50,44 @@ public class AgentService {
     public Agent createAgent(CreateAgentRequest req) {
 
         if (agentRepository.existsByEmail(req.email())) {
-            throw new IllegalStateException("Email déjà utilisé: " + req.email());
+            throw new ConflictException("Email déjà utilisé: " + req.email());
         }
         if (agentRepository.existsByMatricule(req.matricule())) {
-            throw new IllegalStateException("Matricule déjà utilisé: " + req.matricule());
+            throw new ConflictException("Matricule déjà utilisé: " + req.matricule());
         }
 
         String keycloakId = keycloakAdminService.createUser(
                 req.email(), req.firstName(), req.lastName(), req.matricule()
         );
 
-        if (req.keycloakRoles() != null && !req.keycloakRoles().isEmpty()) {
-            keycloakAdminService.assignRoles(keycloakId, req.keycloakRoles());
+        // À partir d'ici, le user Keycloak existe déjà et n'est couvert par
+        // aucune transaction DB — tout échec doit compenser en le supprimant,
+        // sinon il reste orphelin (aucun Agent correspondant en base).
+        try {
+            if (req.keycloakRoles() != null && !req.keycloakRoles().isEmpty()) {
+                keycloakAdminService.assignRoles(keycloakId, req.keycloakRoles());
+            }
+
+            keycloakAdminService.sendPasswordResetEmail(keycloakId);
+
+            Agent agent = Agent.builder()
+                    .matricule(req.matricule())
+                    .firstName(req.firstName())
+                    .lastName(req.lastName())
+                    .email(req.email())
+                    .phoneNumber(req.phoneNumber())
+                    .grade(req.grade())
+                    .keycloakId(keycloakId)
+                    .actif(true)
+                    .build();
+
+            return agentRepository.save(agent);
+        } catch (RuntimeException e) {
+            log.error("Échec de la création de l'agent après création Keycloak "
+                    + "— compensation : suppression du user Keycloak {}", keycloakId, e);
+            keycloakAdminService.deleteUser(keycloakId);
+            throw e;
         }
-
-        keycloakAdminService.sendPasswordResetEmail(keycloakId);
-
-        Agent agent = Agent.builder()
-                .matricule(req.matricule())
-                .firstName(req.firstName())
-                .lastName(req.lastName())
-                .email(req.email())
-                .phoneNumber(req.phoneNumber())
-                .grade(req.grade())
-                .keycloakId(keycloakId)
-                .actif(true)
-                .build();
-
-        return agentRepository.save(agent);
     }
 
 
@@ -100,7 +113,7 @@ public class AgentService {
     public void updateAgentRoles(UUID agentId, List<String> newRoles) {
         Agent agent = findById(agentId);
         if (agent.getKeycloakId() == null) {
-            throw new IllegalStateException("Agent sans keycloakId");
+            throw new BusinessException("Agent sans compte Keycloak associé");
         }
         updateKeycloakRoles(agent.getKeycloakId(), newRoles);
     }

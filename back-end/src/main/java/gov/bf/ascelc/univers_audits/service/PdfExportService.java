@@ -13,9 +13,9 @@ import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
-import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.entity.StatusHistory;
-import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.StatusHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PdfExportService {
 
-    private final DossierRepository dossierRepository;
+    private final DossierService dossierService;
     private final StatusHistoryRepository statusHistoryRepository;
 
     private static final DeviceRgb VERT_ASCE  = new DeviceRgb(26,  107, 60);
@@ -54,8 +54,9 @@ public class PdfExportService {
 
     public byte[] exportDossier(UUID dossierId) {
 
-        Dossier dossier = dossierRepository.findById(dossierId)
-                .orElseThrow(() -> new RuntimeException("Dossier introuvable"));
+        // findById applique le contrôle d'affectation/rôle et le masquage de
+        // confidentialité — le PDF ne doit jamais exposer plus que l'API JSON.
+        DossierResponse dossier = dossierService.findById(dossierId);
 
         List<StatusHistory> history =
                 statusHistoryRepository.findByDossierIdOrderByChangedAtAsc(dossierId);
@@ -97,7 +98,7 @@ public class PdfExportService {
 
 
 
-    private void addHeader(Document doc, Dossier dossier,
+    private void addHeader(Document doc, DossierResponse dossier,
                            PdfFont fontBold, PdfFont fontNormal) {
 
         Table topBar = new Table(UnitValue.createPercentArray(new float[]{1}))
@@ -180,7 +181,7 @@ public class PdfExportService {
 
 
 
-    private void addDossierInfo(Document doc, Dossier dossier,
+    private void addDossierInfo(Document doc, DossierResponse dossier,
                                 PdfFont fontBold, PdfFont fontNormal) {
 
         doc.add(sectionTitle("Informations du Dossier", fontBold));
@@ -233,12 +234,12 @@ public class PdfExportService {
 
 
 
-    private void addDeclarantInfo(Document doc, Dossier dossier,
+    private void addDeclarantInfo(Document doc, DossierResponse dossier,
                                   PdfFont fontBold, PdfFont fontNormal) {
 
         doc.add(sectionTitle("Déclarant", fontBold));
 
-        var declarant = dossier.getDeclarant();
+        DeclarantResponse declarant = dossier.getDeclarant();
 
         Table table = new Table(UnitValue.createPercentArray(new float[]{1, 1, 1, 1}))
                 .setWidth(UnitValue.createPercentValue(100))
@@ -300,7 +301,7 @@ public class PdfExportService {
     }
 
 
-    private void addDescription(Document doc, Dossier dossier,
+    private void addDescription(Document doc, DossierResponse dossier,
                                 PdfFont fontBold, PdfFont fontNormal) {
 
         if (dossier.getObject() != null) {
@@ -378,7 +379,7 @@ public class PdfExportService {
 
 
 
-    private void addFooter(Document doc, Dossier dossier,
+    private void addFooter(Document doc, DossierResponse dossier,
                            PdfFont fontBold, PdfFont fontNormal) {
 
         doc.add(new Paragraph()

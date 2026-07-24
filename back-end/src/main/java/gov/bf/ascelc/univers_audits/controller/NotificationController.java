@@ -1,24 +1,15 @@
 package gov.bf.ascelc.univers_audits.controller;
 
-import gov.bf.ascelc.univers_audits.enums.NotificationStatus;
 import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
-import gov.bf.ascelc.univers_audits.model.entity.Agent;
-import gov.bf.ascelc.univers_audits.model.entity.Notification;
-import gov.bf.ascelc.univers_audits.repository.AgentRepository;
-import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
-import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -26,39 +17,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class NotificationController {
 
-    private final NotificationService    notificationService;
-    private final NotificationRepository notificationRepository;
-    private final AgentRepository        agentRepository;
-
-    private Agent resolveAgent(Jwt jwt) {
-        return agentRepository.findByKeycloakId(jwt.getSubject())
-                .orElseThrow(() -> new ResourceNotFoundException("Agent introuvable"));
-    }
-
-    private NotificationResponse toResponse(Notification n) {
-        return NotificationResponse.builder()
-                .id(n.getId())
-                .type(n.getType())
-                .channel(n.getChannel())
-                .subject(n.getSubject())
-                .content(n.getContent())
-                .status(n.getStatus())
-                .formReference(n.getFormReference())
-                .scheduledAt(n.getScheduledAt())
-                .sentAt(n.getSentAt())
-                .retryCount(n.getRetryCount())
-                .readAt(n.getReadAt())
-                .overdue(n.isOverdue())
-                .dossierId(
-                        n.getDossier() != null
-                                ? n.getDossier().getId().toString()
-                                : null)
-                .dossierNumber(
-                        n.getDossier() != null
-                                ? n.getDossier().getNumber()
-                                : null)
-                .build();
-    }
+    private final NotificationService notificationService;
 
     @GetMapping("/my")
     @PreAuthorize("isAuthenticated()")
@@ -71,88 +30,39 @@ public class NotificationController {
         Pageable pageable = PageRequest.of(page, size,
                 Sort.by("createdAt").descending());
 
-        Agent  agent      = resolveAgent(jwt);
-        String keycloakId = jwt.getSubject();
-
-        Page<NotificationResponse> result = unreadOnly
-                ? notificationRepository
-                .findUnreadByAgentOrRecipient(agent.getId(), keycloakId, pageable)
-                .map(this::toResponse)
-                : notificationRepository
-                .findByAgentOrRecipient(agent.getId(), keycloakId, pageable)
-                .map(this::toResponse);
-
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(notificationService.findMyNotifications(
+                jwt.getSubject(), unreadOnly, pageable));
     }
 
     @GetMapping("/my/unread-count")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Long> getUnreadCount(
             @AuthenticationPrincipal Jwt jwt) {
-
-        Agent  agent      = resolveAgent(jwt);
-        String keycloakId = jwt.getSubject();
-
-        long count = notificationRepository
-                .countUnreadByAgentOrRecipient(agent.getId(), keycloakId);
-
-        return ResponseEntity.ok(count);
+        return ResponseEntity.ok(notificationService.countUnread(jwt.getSubject()));
     }
 
     @PatchMapping("/{id}/read")
     @PreAuthorize("isAuthenticated()")
-    @Transactional
     public ResponseEntity<Void> markAsRead(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
 
-        Agent  agent      = resolveAgent(jwt);
-        String keycloakId = jwt.getSubject();
-
-        Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Notification introuvable : " + id));
-
-        boolean isOwner = false;
-
-        if (notification.getDossier() != null
-                && notification.getDossier().getAgentInCharge() != null) {
-            isOwner = notification.getDossier()
-                    .getAgentInCharge().getId().equals(agent.getId());
-        }
-        if (!isOwner && keycloakId.equals(notification.getRecipient())) {
-            isOwner = true;
-        }
-
-        if (!isOwner) {
-            return ResponseEntity.status(403).build();
-        }
-
-        notification.markAsRead();
-        notificationRepository.save(notification);
-
+        notificationService.markAsRead(id, jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
-
 
     @PatchMapping("/read-all")
     @PreAuthorize("isAuthenticated()")
-    @Transactional
     public ResponseEntity<Void> markAllAsRead(
             @AuthenticationPrincipal Jwt jwt) {
 
-        Agent  agent      = resolveAgent(jwt);
-        String keycloakId = jwt.getSubject();
-
-        notificationRepository.markAllReadByAgentOrRecipient(
-                agent.getId(), keycloakId, Instant.now());
-
+        notificationService.markAllAsRead(jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
 
-
     @GetMapping("/dossier/{dossierId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP',"
+            + "'CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<NotificationResponse>> getByDossier(
             @PathVariable UUID dossierId,
             @RequestParam(defaultValue = "0")  int page,
@@ -172,10 +82,7 @@ public class NotificationController {
 
         Pageable pageable = PageRequest.of(page, size,
                 Sort.by("scheduledAt").ascending());
-        return ResponseEntity.ok(
-                notificationRepository
-                        .findByStatusIn(List.of(NotificationStatus.PENDING), pageable)
-                        .map(this::toResponse));
+        return ResponseEntity.ok(notificationService.findPending(pageable));
     }
 
     @PatchMapping("/{id}/send")

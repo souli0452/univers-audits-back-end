@@ -11,6 +11,8 @@ import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
+import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -36,12 +40,12 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final InvestigationMemberRepository memberRepository;
     private final DossierRepository             dossierRepository;
     private final AgentRepository               agentRepository;
-    private final ObservationRepository         observationRepository;
-    private final StatusHistoryRepository       statusHistoryRepository;
     private final NotificationRepository        notificationRepository;
     private final EmailService                  emailService;
     private final InvestigationMapper           investigationMapper;
     private final SecurityUtils                 securityUtils;
+    private final AgentContextResolver          agentContextResolver;
+    private final DossierAuditRecorder          auditRecorder;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -54,13 +58,6 @@ public class InvestigationServiceImpl implements InvestigationService {
     @Override
     public InvestigationResponse findById(UUID id) {
         Investigation inv = getInvestigationOrThrow(id);
-        log.info("[findById] id={} members_in_collection={}  actifs={}",
-                id,
-                inv.getMembers() != null ? inv.getMembers().size() : "NULL",
-                inv.getMembers() != null
-                        ? inv.getMembers().stream().filter(m -> Boolean.TRUE.equals(m.getActive())).count()
-                        : 0
-        );
         return buildResponseWithFreshMembers(inv, id);
     }
 
@@ -75,9 +72,7 @@ public class InvestigationServiceImpl implements InvestigationService {
 
     @Override
     public Page<InvestigationResponse> findAll(Pageable pageable) {
-        return investigationRepository
-                .findAllWithMembers(pageable)
-                .map(inv -> buildResponseWithFreshMembers(inv, inv.getId()));
+        return mapPageWithMembers(investigationRepository.findAll(pageable));
     }
 
     @Override
@@ -103,9 +98,32 @@ public class InvestigationServiceImpl implements InvestigationService {
     @Transactional(readOnly = true)
     public Page<InvestigationResponse> findByPeriod(
             Instant start, Instant end, Pageable pageable) {
-        return investigationRepository
-                .findByStartDateBetween(start, end, pageable)
-                .map(investigationMapper::toResponse);
+        return mapPageWithMembers(
+                investigationRepository.findByStartDateBetween(start, end, pageable));
+    }
+
+    /**
+     * Recharge les membres (JOIN FETCH) pour les seuls investigations d'une
+     * page déjà paginée au niveau SQL — évite le N+1 (un appel par ligne)
+     * sans jamais combiner JOIN FETCH sur une collection avec Pageable
+     * (ce qui forcerait Hibernate à paginer en mémoire, voir InvestigationRepository).
+     */
+    private Page<InvestigationResponse> mapPageWithMembers(Page<Investigation> page) {
+        List<UUID> ids = page.getContent().stream().map(Investigation::getId).toList();
+        if (ids.isEmpty()) {
+            return page.map(investigationMapper::toResponse);
+        }
+
+        Map<UUID, Investigation> withMembers = investigationRepository
+                .findAllWithMembersByIdIn(ids).stream()
+                .collect(Collectors.toMap(Investigation::getId, i -> i));
+
+        List<InvestigationResponse> content = page.getContent().stream()
+                .map(i -> investigationMapper.toResponse(
+                        withMembers.getOrDefault(i.getId(), i)))
+                .toList();
+
+        return new PageImpl<>(content, page.getPageable(), page.getTotalElements());
     }
 
 
@@ -136,7 +154,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Une investigation existe déjà pour ce dossier");
         }
 
-        Agent cgea = getCurrentAgent();
+        Agent cgea = agentContextResolver.getCurrentAgent();
 
         Investigation investigation = Investigation.builder()
                 .dossier(dossier)
@@ -153,13 +171,13 @@ public class InvestigationServiceImpl implements InvestigationService {
         dossier.setStatus(DossierStatus.EN_INVESTIGATION);
         dossierRepository.save(dossier);
 
-        recordDossierStatusChange(dossier,
+        auditRecorder.recordStatusChange(dossier,
                 DossierStatus.RECEVABLE,
                 DossierStatus.EN_INVESTIGATION,
                 "Investigation ouverte par le CGEA",
                 cgea, ipAddress);
 
-        addObservation(dossier,
+        auditRecorder.addObservation(dossier,
                 ObservationType.INTERNAL_NOTE,
                 "Investigation ouverte. Durée prévue : "
                         + saved.getPlannedDurationDays() + " jours.",
@@ -187,11 +205,11 @@ public class InvestigationServiceImpl implements InvestigationService {
         inv.start();
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Investigation démarrée. Date de fin prévue : "
                         + saved.getPlannedEndDate(),
-                true, getCurrentAgent());
+                true, agentContextResolver.getCurrentAgent());
 
         log.info("Investigation {} démarrée — fin prévue: {}",
                 investigationId, saved.getPlannedEndDate());
@@ -217,10 +235,10 @@ public class InvestigationServiceImpl implements InvestigationService {
         inv.suspend(reason);
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Investigation suspendue. Motif : " + reason,
-                true, getCurrentAgent());
+                true, agentContextResolver.getCurrentAgent());
 
         return investigationMapper.toResponse(saved);
     }
@@ -242,10 +260,10 @@ public class InvestigationServiceImpl implements InvestigationService {
         inv.setSuspensionReason(null);
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Investigation reprise. " + (reason != null ? reason : ""),
-                true, getCurrentAgent());
+                true, agentContextResolver.getCurrentAgent());
 
         return investigationMapper.toResponse(saved);
     }
@@ -258,7 +276,7 @@ public class InvestigationServiceImpl implements InvestigationService {
             String ipAddress) {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
-        Agent cgea = getCurrentAgent();
+        Agent cgea = agentContextResolver.getCurrentAgent();
 
         if (inv.getStatus() != InvestigationStatus.IN_PROGRESS
                 && inv.getStatus() != InvestigationStatus.SUSPENDED) {
@@ -290,7 +308,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         inv.extendDeadline(request.getNewDeadline(), request.getReason(), cgea);
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Délai d'investigation prolongé jusqu'au "
                         + request.getNewDeadline()
@@ -328,18 +346,18 @@ public class InvestigationServiceImpl implements InvestigationService {
         dossier.setStatus(DossierStatus.RAPPORT_PRODUIT);
         dossierRepository.save(dossier);
 
-        recordDossierStatusChange(dossier,
+        auditRecorder.recordStatusChange(dossier,
                 DossierStatus.EN_INVESTIGATION,
                 DossierStatus.RAPPORT_PRODUIT,
                 "Rapport d'investigation soumis",
-                getCurrentAgent(), ipAddress);
+                agentContextResolver.getCurrentAgent(), ipAddress);
 
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(dossier,
+        auditRecorder.addObservation(dossier,
                 ObservationType.FIELD_FINDING,
                 "Rapport final soumis. Conclusions : " + request.getConclusions(),
-                true, getCurrentAgent());
+                true, agentContextResolver.getCurrentAgent());
 
         log.info("Rapport soumis — investigation: {}", investigationId);
         return investigationMapper.toResponse(saved);
@@ -355,12 +373,12 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "L'approbation DEI n'est possible qu'après soumission du rapport.");
         }
 
-        Agent agent = getCurrentAgent();
+        Agent agent = agentContextResolver.getCurrentAgent();
         inv.setDeiApprovedAt(Instant.now());
         inv.setDeiApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Rapport approuvé par le DEI (délai légal : 15 jours ouvrables).",
                 true, agent);
@@ -381,12 +399,12 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Le rapport doit d'abord être approuvé par le DEI.");
         }
 
-        Agent agent = getCurrentAgent();
+        Agent agent = agentContextResolver.getCurrentAgent();
         inv.setLegalAdvisorApprovedAt(Instant.now());
         inv.setLegalAdvisorApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.ADMISSIBILITY_ANALYSIS,
                 "Rapport approuvé par le Conseiller Juridique "
                         + "(délai légal : 10 jours ouvrables).",
@@ -414,7 +432,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                             + "avant la décision CGE.");
         }
 
-        Agent cge = getCurrentAgent();
+        Agent cge = agentContextResolver.getCurrentAgent();
         inv.setCgeApprovedAt(Instant.now());
         inv.setCgeApprovedBy(cge);
         inv.setStatus(InvestigationStatus.ARCHIVED);
@@ -441,11 +459,11 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         dossier.setStatus(newDossierStatus);
         dossierRepository.save(dossier);
-        recordDossierStatusChange(dossier, previousStatus, newDossierStatus,
+        auditRecorder.recordStatusChange(dossier, previousStatus, newDossierStatus,
                 transitionReason, cge, ipAddress);
 
         Investigation saved = investigationRepository.save(inv);
-        addObservation(dossier, ObservationType.CGE_DECISION,
+        auditRecorder.addObservation(dossier, ObservationType.CGE_DECISION,
                 observationContent, true, cge);
 
         log.info("Décision CGE finalisée — dossier: {} → {}",
@@ -478,7 +496,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Agent introuvable : " + request.getAgentId()));
 
-        Agent currentAgent = getCurrentAgent();
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
 
         Optional<InvestigationMember> existing =
                 memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(
@@ -508,7 +526,7 @@ public class InvestigationServiceImpl implements InvestigationService {
             log.info("[addMember] Nouveau membre ajouté — agent: {}", agent.getMatricule());
         }
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Membre ajouté à l'équipe : "
                         + agent.getNomComplet()
@@ -528,7 +546,7 @@ public class InvestigationServiceImpl implements InvestigationService {
             String ipAddress) {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
-        Agent currentAgent = getCurrentAgent();
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
 
         InvestigationMember member = inv.getMembers().stream()
                 .filter(m -> Boolean.TRUE.equals(m.getActive())
@@ -539,7 +557,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         member.setActive(false);
         memberRepository.save(member);
 
-        addObservation(inv.getDossier(),
+        auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Membre retiré de l'équipe : " + member.getAgent().getNomComplet(),
                 true, currentAgent);
@@ -639,44 +657,4 @@ public class InvestigationServiceImpl implements InvestigationService {
                         "Investigation introuvable : " + id));
     }
 
-    private Agent getCurrentAgent() {
-        String keycloakId = securityUtils.getCurrentKeycloakId()
-                .orElseThrow(() -> new BusinessException("Agent non authentifié"));
-        return agentRepository.findByKeycloakId(keycloakId)
-                .orElseThrow(() -> new BusinessException(
-                        "Agent introuvable. Contactez l'administrateur DDIC."));
-    }
-
-    private void addObservation(Dossier dossier, ObservationType type,
-                                String content, boolean confidential,
-                                Agent agent) {
-        Observation obs = Observation.builder()
-                .dossier(dossier)
-                .type(type)
-                .content(content)
-                .confidential(confidential)
-                .author(agent)
-                .authorFullName(agent.getNomComplet())
-                .statusSnapshot(dossier.getStatus())
-                .build();
-        observationRepository.save(obs);
-    }
-
-    private void recordDossierStatusChange(Dossier dossier,
-                                           DossierStatus previous,
-                                           DossierStatus next,
-                                           String reason,
-                                           Agent agent,
-                                           String ipAddress) {
-        StatusHistory history = StatusHistory.builder()
-                .dossier(dossier)
-                .previousStatus(previous)
-                .newStatus(next)
-                .reason(reason)
-                .agent(agent)
-                .agentFullName(agent.getNomComplet())
-                .ipAddress(ipAddress)
-                .build();
-        statusHistoryRepository.save(history);
-    }
 }

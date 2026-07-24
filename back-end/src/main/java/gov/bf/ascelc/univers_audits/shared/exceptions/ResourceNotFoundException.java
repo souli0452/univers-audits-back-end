@@ -1,9 +1,7 @@
 package gov.bf.ascelc.univers_audits.shared.exceptions;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
-
-@ResponseStatus(HttpStatus.NOT_FOUND)
+// Le code HTTP (404) est fixé par GlobalExceptionHandler, qui intercepte
+// explicitement ce type — @ResponseStatus ici ne serait jamais consulté.
 public class ResourceNotFoundException extends RuntimeException {
     public ResourceNotFoundException(String message) {
         super(message);

@@ -16,8 +16,16 @@ import org.mapstruct.*;
 )
 public interface DossierMapper {
 
+    // Les collections *-to-many ne sont mappées que pour la vue détail d'un
+    // dossier (voir DossierServiceImpl.enrichAndMaskDetail) — les inclure ici
+    // déclenche un N+1 sur chaque dossier d'une page paginée (findAll/findByStatus...).
     @Mapping(target = "acknowledgmentOverdue", ignore = true)
     @Mapping(target = "daysSinceReception", ignore = true)
+    @Mapping(target = "targetedParties", ignore = true)
+    @Mapping(target = "witnesses", ignore = true)
+    @Mapping(target = "observations", ignore = true)
+    @Mapping(target = "attachments", ignore = true)
+    @Mapping(target = "notifications", ignore = true)
     DossierResponse toResponse(Dossier dossier);
 
     @AfterMapping

@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.mapper;
 
+import gov.bf.ascelc.univers_audits.model.dto.response.AgentResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.AgentSummaryResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import org.mapstruct.*;
@@ -12,6 +13,8 @@ public interface AgentMapper {
 
     @Mapping(target = "departementLabel", expression = "java(mapDepartement(agent))")
     AgentSummaryResponse toSummaryResponse(Agent agent);
+
+    AgentResponse toResponse(Agent agent);
 
     default String mapDepartement(Agent agent) {
         if (agent == null || agent.getDepartement() == null) {

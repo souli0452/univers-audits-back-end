@@ -42,12 +42,12 @@ public class SecurityConfig {
                                 "/api/v1/dossiers/public/track/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/dossiers/public/submit").permitAll()
+                        // Upload public autorisé (dépôt de pièces jointes lors de la
+                        // soumission citoyenne) ; le listing et le téléchargement
+                        // exigent une authentification + un contrôle d'accès au
+                        // dossier (voir AttachmentController).
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/attachments/dossier/**").permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/attachments/dossier/**").permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/attachments/*/download").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/stats/public").permitAll()
                         .requestMatchers(HttpMethod.GET,

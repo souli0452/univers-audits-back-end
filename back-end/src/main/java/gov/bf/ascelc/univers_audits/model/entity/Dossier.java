@@ -156,9 +156,12 @@ public class Dossier extends AuditEntity {
     @Builder.Default
     private List<Witness> witnesses = new ArrayList<>();
 
+    // observations/notifications/statusHistory sont des traces d'audit
+    // immuables (append-only) — cascade limité à PERSIST/MERGE et pas
+    // d'orphanRemoval, pour qu'un retrait accidentel de la collection en
+    // mémoire (ex: un removeIf) ne supprime jamais une ligne en base.
     @OneToMany(mappedBy = "dossier",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true)
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @OrderBy("createdAt ASC")
     @Builder.Default
     private List<Observation> observations = new ArrayList<>();
@@ -170,14 +173,12 @@ public class Dossier extends AuditEntity {
     private List<Attachment> attachments = new ArrayList<>();
 
     @OneToMany(mappedBy = "dossier",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true)
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @Builder.Default
     private List<Notification> notifications = new ArrayList<>();
 
     @OneToMany(mappedBy = "dossier",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true)
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @OrderBy("changedAt ASC")
     @Builder.Default
     private List<StatusHistory> statusHistory = new ArrayList<>();

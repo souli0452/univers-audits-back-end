@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.model.dto.request;
 
 import gov.bf.ascelc.univers_audits.enums.AllegedRole;
 import gov.bf.ascelc.univers_audits.enums.PartyType;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -37,6 +38,7 @@ public class TargetedPartyRequest {
     @Size(max = 20)
     private String phoneNumber;
 
+    @Email
     @Size(max = 150)
     private String email;
 
