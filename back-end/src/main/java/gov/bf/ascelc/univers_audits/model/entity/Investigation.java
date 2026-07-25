@@ -45,8 +45,7 @@ public class Investigation extends AuditEntity {
     private Instant startDate;
 
     @Column(name = "planned_duration_days", nullable = false)
-    @Builder.Default
-    private Integer plannedDurationDays = 90;
+    private Integer plannedDurationDays;
 
     @Column(name = "planned_end_date")
     private Instant plannedEndDate;
