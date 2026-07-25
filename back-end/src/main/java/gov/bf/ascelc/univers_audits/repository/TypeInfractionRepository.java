@@ -15,4 +15,6 @@ public interface TypeInfractionRepository
     Optional<TypeInfraction> findByCode(String code);
 
     List<TypeInfraction> findByActifTrueOrderByOrdreAsc();
+
+    boolean existsByCode(String code);
 }
