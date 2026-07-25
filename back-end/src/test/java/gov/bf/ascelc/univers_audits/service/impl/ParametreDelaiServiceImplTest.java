@@ -67,6 +67,21 @@ class ParametreDelaiServiceImplTest {
     }
 
     @Test
+    void resolveDelaiJours_throwsWhenValeurJoursIsNull() {
+        ParametreDelai delai = ParametreDelai.builder()
+                .code("ACCUSE_RECEPTION")
+                .libelle("Délai d'accusé de réception")
+                .valeurJours(null)
+                .actif(true)
+                .build();
+        when(repository.findByCode("ACCUSE_RECEPTION"))
+                .thenReturn(Optional.of(delai));
+
+        assertThatThrownBy(() -> service.resolveDelaiJours("ACCUSE_RECEPTION"))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
     void update_changesValeurJoursAndSaves() {
         ParametreDelai existing = ParametreDelai.builder()
                 .code("ACCUSE_RECEPTION")
