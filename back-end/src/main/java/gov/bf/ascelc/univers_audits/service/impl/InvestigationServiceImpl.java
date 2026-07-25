@@ -11,6 +11,7 @@ import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
+import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -46,6 +47,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final SecurityUtils                 securityUtils;
     private final AgentContextResolver          agentContextResolver;
     private final DossierAuditRecorder          auditRecorder;
+    private final ParametreDelaiService parametreDelaiService;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -163,7 +165,8 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .plannedDurationDays(
                         request.getPlannedDurationDays() != null
                                 ? request.getPlannedDurationDays()
-                                : 90)
+                                : parametreDelaiService.resolveDelaiJours(
+                                        "INVESTIGATION_DUREE_DEFAUT"))
                 .build();
 
         Investigation saved = investigationRepository.save(investigation);

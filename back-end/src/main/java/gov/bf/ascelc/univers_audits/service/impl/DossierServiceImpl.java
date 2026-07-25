@@ -14,6 +14,7 @@ import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
+import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -51,6 +52,7 @@ public class DossierServiceImpl implements DossierService {
     private final NotificationDispatcherService notificationDispatcher;
     private final AgentContextResolver          agentContextResolver;
     private final DossierAuditRecorder          auditRecorder;
+    private final ParametreDelaiService          parametreDelaiService;
 
 
     // ════════════════════════════════════════════════════════════
@@ -232,7 +234,11 @@ public class DossierServiceImpl implements DossierService {
 
         String number = generateUniqueNumber();
         dossier.setNumber(number);
-        dossier.registerReception(agent);
+        int accuseReceptionJours = parametreDelaiService
+                .resolveDelaiJours("ACCUSE_RECEPTION");
+        int demandeComplementJours = parametreDelaiService
+                .resolveDelaiJours("DEMANDE_COMPLEMENT");
+        dossier.registerReception(agent, accuseReceptionJours, demandeComplementJours);
 
         auditRecorder.addObservation(dossier,
                 ObservationType.INTERNAL_NOTE,

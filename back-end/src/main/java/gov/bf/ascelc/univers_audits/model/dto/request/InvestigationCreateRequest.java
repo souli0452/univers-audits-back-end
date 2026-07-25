@@ -13,8 +13,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class InvestigationCreateRequest {
 
-    @Builder.Default
-    private Integer plannedDurationDays = 90;
+    private Integer plannedDurationDays;
 
     private String notes;
 }
