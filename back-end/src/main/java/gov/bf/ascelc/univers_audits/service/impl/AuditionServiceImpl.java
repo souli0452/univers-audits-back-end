@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
 import gov.bf.ascelc.univers_audits.enums.AuditionStatus;
+import gov.bf.ascelc.univers_audits.enums.IntervieweeType;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.AuditionConductRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.AuditionScheduleRequest;
@@ -41,12 +42,21 @@ public class AuditionServiceImpl implements AuditionService {
     @Transactional
     public AuditionResponse schedule(UUID investigationId, AuditionScheduleRequest request) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(investigation.getDossier());
 
         boolean hasTargetedParty = request.getTargetedPartyId() != null;
         boolean hasWitness = request.getWitnessId() != null;
         if (hasTargetedParty == hasWitness) {
             throw new BusinessException(
                     "Il faut renseigner exactement une personne auditionnée (partie visée OU témoin)");
+        }
+        if (request.getIntervieweeType() == IntervieweeType.TARGETED_PARTY && !hasTargetedParty) {
+            throw new BusinessException(
+                    "intervieweeType=TARGETED_PARTY requiert targetedPartyId");
+        }
+        if (request.getIntervieweeType() == IntervieweeType.WITNESS && !hasWitness) {
+            throw new BusinessException(
+                    "intervieweeType=WITNESS requiert witnessId");
         }
 
         Audition.AuditionBuilder<?, ?> builder = Audition.builder()
@@ -77,6 +87,7 @@ public class AuditionServiceImpl implements AuditionService {
     @Transactional
     public AuditionResponse conduct(UUID auditionId, AuditionConductRequest request) {
         Audition audition = getAuditionOrThrow(auditionId);
+        accessGuard.checkReadAccess(audition.getInvestigation().getDossier());
         if (audition.getStatus() != AuditionStatus.SCHEDULED) {
             throw new BusinessException(
                     "Seule une audition planifiée peut être tenue (statut actuel : " + audition.getStatus() + ")");
@@ -91,6 +102,7 @@ public class AuditionServiceImpl implements AuditionService {
     @Transactional
     public AuditionResponse cancel(UUID auditionId, String reason) {
         Audition audition = getAuditionOrThrow(auditionId);
+        accessGuard.checkReadAccess(audition.getInvestigation().getDossier());
         if (audition.getStatus() != AuditionStatus.SCHEDULED) {
             throw new BusinessException(
                     "Seule une audition planifiée peut être annulée (statut actuel : " + audition.getStatus() + ")");
@@ -104,6 +116,7 @@ public class AuditionServiceImpl implements AuditionService {
     @Override
     public List<AuditionResponse> findByInvestigationId(UUID investigationId) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(investigation.getDossier());
 
         if (Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
                 && !accessGuard.canSeeConfidential()) {

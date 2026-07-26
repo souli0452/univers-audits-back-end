@@ -105,9 +105,11 @@ class AuditionServiceImplTest {
 
     @Test
     void conduct_setsStatusAndSummary() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Audition audition = Audition.builder()
                 .id(UUID.randomUUID())
                 .status(AuditionStatus.SCHEDULED)
+                .investigation(Investigation.builder().dossier(dossier).build())
                 .build();
         when(auditionRepository.findById(audition.getId()))
                 .thenReturn(Optional.of(audition));
@@ -126,15 +128,53 @@ class AuditionServiceImplTest {
 
     @Test
     void conduct_throwsWhenAuditionNotScheduled() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Audition audition = Audition.builder()
                 .id(UUID.randomUUID())
                 .status(AuditionStatus.CANCELLED)
+                .investigation(Investigation.builder().dossier(dossier).build())
                 .build();
         when(auditionRepository.findById(audition.getId()))
                 .thenReturn(Optional.of(audition));
 
         assertThatThrownBy(() -> service.conduct(audition.getId(),
                 AuditionConductRequest.builder().summary("x").build()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void cancel_setsStatusAndReason() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .status(AuditionStatus.SCHEDULED)
+                .investigation(Investigation.builder().dossier(dossier).build())
+                .build();
+        when(auditionRepository.findById(audition.getId()))
+                .thenReturn(Optional.of(audition));
+        when(auditionRepository.save(any(Audition.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(Audition.class)))
+                .thenReturn(AuditionResponse.builder().build());
+
+        service.cancel(audition.getId(), "Personne injoignable");
+
+        assertThat(audition.getStatus()).isEqualTo(AuditionStatus.CANCELLED);
+        assertThat(audition.getCancellationReason()).isEqualTo("Personne injoignable");
+    }
+
+    @Test
+    void cancel_throwsWhenAuditionNotScheduled() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .status(AuditionStatus.CONDUCTED)
+                .investigation(Investigation.builder().dossier(dossier).build())
+                .build();
+        when(auditionRepository.findById(audition.getId()))
+                .thenReturn(Optional.of(audition));
+
+        assertThatThrownBy(() -> service.cancel(audition.getId(), "motif"))
                 .isInstanceOf(BusinessException.class);
     }
 
