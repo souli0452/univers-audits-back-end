@@ -67,4 +67,8 @@ public interface DossierDetailsMapper {
             @MappingTarget AuditionResponse response) {
         response.setIntervieweeDisplayName(audition.getIntervieweeDisplayName());
     }
+
+    @Mapping(target = "auditionId", source = "audition.id")
+    @Mapping(target = "draftedByName", source = "draftedBy.nomComplet")
+    PvAuditionResponse toResponse(PVAudition pvAudition);
 }
