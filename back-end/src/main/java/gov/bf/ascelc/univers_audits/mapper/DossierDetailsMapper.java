@@ -55,4 +55,20 @@ public interface DossierDetailsMapper {
     }
 
     StatusHistoryResponse toResponse(StatusHistory statusHistory);
+
+    @Mapping(target = "investigationId", source = "investigation.id")
+    @Mapping(target = "intervieweeDisplayName", ignore = true)
+    @Mapping(target = "conductedByName", source = "conductedBy.nomComplet")
+    AuditionResponse toResponse(Audition audition);
+
+    @AfterMapping
+    default void fillAudition(
+            Audition audition,
+            @MappingTarget AuditionResponse response) {
+        response.setIntervieweeDisplayName(audition.getIntervieweeDisplayName());
+    }
+
+    @Mapping(target = "auditionId", source = "audition.id")
+    @Mapping(target = "draftedByName", source = "draftedBy.nomComplet")
+    PvAuditionResponse toResponse(PVAudition pvAudition);
 }
