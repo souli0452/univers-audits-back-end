@@ -71,4 +71,16 @@ public interface DossierDetailsMapper {
     @Mapping(target = "auditionId", source = "audition.id")
     @Mapping(target = "draftedByName", source = "draftedBy.nomComplet")
     PvAuditionResponse toResponse(PVAudition pvAudition);
+
+    @Mapping(target = "investigationId", source = "investigation.id")
+    @Mapping(target = "requestedByName", source = "requestedBy.nomComplet")
+    @Mapping(target = "overdue", ignore = true)
+    DemandeDocumentsResponse toResponse(DemandeDocuments demandeDocuments);
+
+    @AfterMapping
+    default void fillDemandeDocuments(
+            DemandeDocuments demandeDocuments,
+            @MappingTarget DemandeDocumentsResponse response) {
+        response.setOverdue(demandeDocuments.isOverdue());
+    }
 }
