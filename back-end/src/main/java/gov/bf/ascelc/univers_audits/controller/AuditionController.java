@@ -2,8 +2,12 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.AuditionConductRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.AuditionScheduleRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionCreateRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionFinalizeRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.AuditionResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.PvAuditionResponse;
 import gov.bf.ascelc.univers_audits.service.AuditionService;
+import gov.bf.ascelc.univers_audits.service.PvAuditionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +29,7 @@ public class AuditionController {
             "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')";
 
     private final AuditionService auditionService;
+    private final PvAuditionService pvAuditionService;
 
     @GetMapping
     @PreAuthorize(READ_ROLES)
@@ -59,5 +64,33 @@ public class AuditionController {
             @PathVariable UUID auditionId,
             @RequestParam String reason) {
         return ResponseEntity.ok(auditionService.cancel(auditionId, reason));
+    }
+
+    @GetMapping("/{auditionId}/pv")
+    @PreAuthorize(READ_ROLES)
+    public ResponseEntity<PvAuditionResponse> getPv(
+            @PathVariable UUID investigationId,
+            @PathVariable UUID auditionId) {
+        return ResponseEntity.ok(pvAuditionService.findByAuditionId(auditionId));
+    }
+
+    @PostMapping("/{auditionId}/pv")
+    @PreAuthorize(WRITE_ROLES)
+    public ResponseEntity<PvAuditionResponse> createPv(
+            @PathVariable UUID investigationId,
+            @PathVariable UUID auditionId,
+            @Valid @RequestBody PvAuditionCreateRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(pvAuditionService.create(auditionId, request));
+    }
+
+    @PatchMapping("/{auditionId}/pv/finalize")
+    @PreAuthorize(WRITE_ROLES)
+    public ResponseEntity<PvAuditionResponse> finalizePv(
+            @PathVariable UUID investigationId,
+            @PathVariable UUID auditionId,
+            @Valid @RequestBody PvAuditionFinalizeRequest request) {
+        return ResponseEntity.ok(pvAuditionService.finalizeSignatures(auditionId, request));
     }
 }
