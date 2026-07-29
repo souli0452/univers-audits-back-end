@@ -9,17 +9,21 @@ import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.mapper.DossierMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.DeclarantCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.repository.DeclarantRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
+import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.NatureSaisineResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -28,6 +32,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +61,8 @@ class DossierServiceImplTest {
     @Mock private DossierAuditRecorder auditRecorder;
     @Mock private ParametreDelaiService parametreDelaiService;
     @Mock private NatureSaisineResolver natureSaisineResolver;
+    @Mock private DossierAccessGuard accessGuard;
+    @Mock private DossierHabilitationService habilitationService;
 
     @InjectMocks
     private DossierServiceImpl service;
@@ -161,5 +174,60 @@ class DossierServiceImplTest {
                 .isInstanceOf(BusinessException.class);
 
         verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void findById_delegatesAccessCheckToGuard() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+
+        service.findById(dossierId);
+
+        verify(accessGuard).checkReadAccess(dossier);
+    }
+
+    @Test
+    void findById_propagatesGuardRejection() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        doThrow(new BusinessException("Accès refusé"))
+                .when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.findById(dossierId))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void findAll_usesAccessibleDossiersForNonPrivilegedAgent() {
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        Pageable pageable = PageRequest.of(0, 20);
+
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(dossierRepository.findAccessibleByAgentId(agent.getId(), pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.findAll(pageable);
+
+        verify(dossierRepository).findAccessibleByAgentId(agent.getId(), pageable);
+        verify(dossierRepository, never()).findAll(any(Pageable.class));
+    }
+
+    @Test
+    void findAll_usesFindAllForPrivilegedAgent() {
+        Pageable pageable = PageRequest.of(0, 20);
+
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of()));
+
+        service.findAll(pageable);
+
+        verify(dossierRepository).findAll(pageable);
+        verify(dossierRepository, never()).findAccessibleByAgentId(any(), any());
     }
 }

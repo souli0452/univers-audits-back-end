@@ -12,6 +12,7 @@ import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -20,6 +21,7 @@ import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.NatureSaisineResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -55,6 +57,8 @@ public class DossierServiceImpl implements DossierService {
     private final DossierAuditRecorder          auditRecorder;
     private final ParametreDelaiService          parametreDelaiService;
     private final NatureSaisineResolver         natureSaisineResolver;
+    private final DossierAccessGuard            accessGuard;
+    private final DossierHabilitationService    habilitationService;
 
 
     // ════════════════════════════════════════════════════════════
@@ -65,21 +69,7 @@ public class DossierServiceImpl implements DossierService {
     public DossierResponse findById(UUID id) {
         Dossier dossier = getDossierOrThrow(id);
         logSensitiveAccessIfProtected(dossier, "findById");
-
-        boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
-        boolean isCge   = securityUtils.hasRole("CGE");
-        boolean isCgea  = securityUtils.hasRole("CGEA");
-
-        if (!isAdmin && !isCge && !isCgea) {
-            Agent agent = agentContextResolver.getCurrentAgent();
-            boolean isAssigned = dossier.getAgentInCharge() != null
-                    && dossier.getAgentInCharge().getId().equals(agent.getId());
-            if (!isAssigned) {
-                throw new BusinessException(
-                        "Accès refusé — ce dossier ne vous est pas assigné");
-            }
-        }
-
+        accessGuard.checkReadAccess(dossier);
         return enrichAndMaskDetail(dossier);
     }
 
@@ -110,20 +100,16 @@ public class DossierServiceImpl implements DossierService {
 
     @Override
     public Page<DossierResponse> findAll(Pageable pageable) {
-        boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
-        boolean isCge   = securityUtils.hasRole("CGE");
-        boolean isCgea  = securityUtils.hasRole("CGEA");
-
-        if (isAdmin || isCge || isCgea) {
+        if (accessGuard.canSeeConfidential()) {
             return dossierRepository.findAll(pageable)
                     .map(this::enrichAndMask);
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
-        log.debug("[Dossiers] Accès restreint — agent: {} voit uniquement ses dossiers",
+        log.debug("[Dossiers] Accès restreint — agent: {} voit uniquement ses dossiers habilités",
                 agent.getMatricule());
         return dossierRepository
-                .findByAgentInChargeId(agent.getId(), pageable)
+                .findAccessibleByAgentId(agent.getId(), pageable)
                 .map(this::enrichAndMask);
     }
 
@@ -258,6 +244,9 @@ public class DossierServiceImpl implements DossierService {
         int demandeComplementJours = parametreDelaiService
                 .resolveDelaiJours("DEMANDE_COMPLEMENT");
         dossier.registerReception(agent, accuseReceptionJours, demandeComplementJours);
+
+        habilitationService.grant(dossier, agent, HabilitationSource.AGENT_IN_CHARGE,
+                agent, "Agent en charge du dossier (enregistrement BRPD)");
 
         auditRecorder.addObservation(dossier,
                 ObservationType.INTERNAL_NOTE,
