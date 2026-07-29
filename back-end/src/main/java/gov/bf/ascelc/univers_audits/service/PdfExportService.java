@@ -482,11 +482,11 @@ public class PdfExportService {
 
     private String getTypeLabel(String type) {
         return switch (type) {
-            case "COMPLAINT"    -> "Plainte";
-            case "DENUNCIATION" -> "Dénonciation";
-            case "AUTO_REFERRAL"-> "Auto-saisine";
-            case "ANONYMOUS"    -> "Anonyme";
-            default             -> type;
+            case "DENONCIATION"  -> "Dénonciation";
+            case "PLAINTE"       -> "Plainte";
+            case "SIGNALEMENT"   -> "Signalement";
+            case "AUTO_SAISINE"  -> "Auto-saisine";
+            default              -> type;
         };
     }
 

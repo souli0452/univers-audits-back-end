@@ -1,8 +1,8 @@
 package gov.bf.ascelc.univers_audits.enums;
 
 public enum TypeSaisine {
-    COMPLAINT,
-    DENUNCIATION,
-    AUTO_REFERRAL,
-    ANONYMOUS
+    DENONCIATION,
+    PLAINTE,
+    SIGNALEMENT,
+    AUTO_SAISINE
 }
