@@ -48,6 +48,15 @@ public interface DossierRepository
     @EntityGraph(attributePaths = "investigation")
     Page<Dossier> findByAgentInChargeId(UUID agentId, Pageable pageable);
 
+    @EntityGraph(attributePaths = "investigation")
+    @Query("""
+            SELECT DISTINCT d FROM Dossier d
+            JOIN DossierHabilitation h ON h.dossier = d
+            WHERE h.agent.id = :agentId AND h.revokedAt IS NULL
+            """)
+    Page<Dossier> findAccessibleByAgentId(
+            @Param("agentId") UUID agentId, Pageable pageable);
+
     Page<Dossier> findByAgentInChargeIdAndStatus(
             UUID agentId, DossierStatus status, Pageable pageable);
 
