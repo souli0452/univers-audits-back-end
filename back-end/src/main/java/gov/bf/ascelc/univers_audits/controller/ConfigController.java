@@ -67,8 +67,11 @@ public class ConfigController {
                         "AUDIT_REPORT", "POSTAL_MAIL"
                 ),
                 "typeSaisine", List.of(
-                        "COMPLAINT", "DENUNCIATION",
-                        "AUTO_REFERRAL", "ANONYMOUS"
+                        "DENONCIATION", "PLAINTE",
+                        "SIGNALEMENT", "AUTO_SAISINE"
+                ),
+                "qualiteDeclarant", List.of(
+                        "VICTIME", "REPRESENTANT_VICTIME", "TEMOIN"
                 ),
                 "partyTypes", List.of(
                         "PRIVATE_PERSON", "COMPANY",

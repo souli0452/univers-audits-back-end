@@ -94,6 +94,43 @@ class DossierServiceImplTest {
     }
 
     @Test
+    void submit_nullsQualityForSignalement() {
+        DeclarantCreateRequest declarantData = DeclarantCreateRequest.builder()
+                .typeDeclarant(TypeDeclarant.PUBLIC_AUTHORITY)
+                .anonymous(false)
+                .firstName("Awa")
+                .lastName("Ouedraogo")
+                .build();
+        DossierCreateRequest request = DossierCreateRequest.builder()
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .object("Signalement d'une autorité publique")
+                .quality(QualiteDeclarant.VICTIME)
+                .declarantData(declarantData)
+                .build();
+        Declarant declarant = Declarant.builder()
+                .typeDeclarant(TypeDeclarant.PUBLIC_AUTHORITY)
+                .anonymous(false)
+                .build();
+
+        when(declarantMapper.toEntity(request.getDeclarantData())).thenReturn(declarant);
+        when(declarantRepository.save(declarant)).thenReturn(declarant);
+        when(natureSaisineResolver.resolve(
+                TypeDeclarant.PUBLIC_AUTHORITY, QualiteDeclarant.VICTIME, false))
+                .thenReturn(TypeSaisine.SIGNALEMENT);
+        when(dossierMapper.toEntity(request)).thenReturn(
+                Dossier.builder().quality(QualiteDeclarant.VICTIME).build());
+        when(accessCodeGenerator.generate()).thenReturn("ABCD1234");
+        when(dossierRepository.existsByAccessCode("ABCD1234")).thenReturn(false);
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d ->
+                d.getType() == TypeSaisine.SIGNALEMENT
+                        && d.getQuality() == null));
+    }
+
+    @Test
     void submit_throwsWhenDeclarantMissing() {
         DossierCreateRequest request = DossierCreateRequest.builder()
                 .submissionMode(SubmissionMode.WEB_FORM)

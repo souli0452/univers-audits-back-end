@@ -126,5 +126,7 @@ public class Declarant extends AuditEntity {
             notificationsAccepted = true;
         if (typeDeclarant == null)
             typeDeclarant = TypeDeclarant.CITIZEN;
+        if (TypeDeclarant.ANONYMOUS.equals(typeDeclarant))
+            anonymous = true;
     }
 }

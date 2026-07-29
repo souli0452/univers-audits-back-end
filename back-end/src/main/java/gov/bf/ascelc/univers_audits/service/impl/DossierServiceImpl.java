@@ -170,6 +170,13 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
         dossier.setType(natureSaisine);
+        if (natureSaisine == TypeSaisine.SIGNALEMENT
+                || natureSaisine == TypeSaisine.AUTO_SAISINE) {
+            // La qualité (victime/représentant/témoin) n'a de sens que pour
+            // une plainte ou une dénonciation ; le mapper l'ayant recopiée
+            // depuis la requête, on la neutralise ici pour ces deux natures.
+            dossier.setQuality(null);
+        }
         dossier.setStatus(DossierStatus.SOUMIS);
 
         if (dossier.getIsConfidential() == null) {
