@@ -4,6 +4,7 @@ import gov.bf.ascelc.univers_audits.abstracts.AuditEntity;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.DossierPriority;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
@@ -52,6 +53,10 @@ public class Dossier extends AuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
     private TypeSaisine type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quality", length = 30)
+    private QualiteDeclarant quality;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "submission_mode", length = 25)

@@ -15,8 +15,6 @@ public class DeclarantCreateRequest {
 
     private TypeDeclarant typeDeclarant;
 
-    private String quality;
-
     @Size(max = 100)
     private String firstName;
 

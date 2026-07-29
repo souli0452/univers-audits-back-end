@@ -39,9 +39,6 @@ public class Declarant extends AuditEntity {
     @Builder.Default
     private TypeDeclarant typeDeclarant = TypeDeclarant.CITIZEN;
 
-    @Column(name = "quality", length = 20)
-    private String quality;
-
     @Column(name = "email", length = 150)
     private String email;
 

@@ -46,6 +46,7 @@ public interface DossierMapper {
     @Mapping(target = "number", ignore = true)
     @Mapping(target = "accessCode", ignore = true)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "type", ignore = true)
     @Mapping(target = "declarant", ignore = true)
     @Mapping(target = "agentInCharge", ignore = true)
     @Mapping(target = "targetedParties", ignore = true)

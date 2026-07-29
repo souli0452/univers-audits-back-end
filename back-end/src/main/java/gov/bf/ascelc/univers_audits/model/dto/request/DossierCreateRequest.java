@@ -2,9 +2,9 @@ package gov.bf.ascelc.univers_audits.model.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
+import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
-import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -21,8 +21,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class DossierCreateRequest {
 
-    @NotNull(message = "Le type de saisine est obligatoire")
-    private TypeSaisine type;
+    private QualiteDeclarant quality;
 
     @NotNull(message = "Le mode de soumission est obligatoire")
     private SubmissionMode submissionMode;

@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.model.dto.response;
 
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
@@ -25,6 +26,7 @@ public class DossierResponse {
     private Long                       version;
     private DossierStatus              status;
     private TypeSaisine                type;
+    private QualiteDeclarant           quality;
     private SubmissionMode             submissionMode;
     private SocialPlatform             socialPlatform;
     private AutoReferralSource         autoReferralSource;

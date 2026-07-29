@@ -14,7 +14,6 @@ public class DeclarantResponse {
 
     private UUID id;
     private TypeDeclarant typeDeclarant;
-    private String quality;
     private String firstName;
     private String lastName;
     private String organizationName;
