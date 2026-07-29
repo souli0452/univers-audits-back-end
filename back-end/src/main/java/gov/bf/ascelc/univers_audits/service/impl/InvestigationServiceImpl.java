@@ -9,6 +9,7 @@ import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationMemberResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -48,6 +49,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final AgentContextResolver          agentContextResolver;
     private final DossierAuditRecorder          auditRecorder;
     private final ParametreDelaiService parametreDelaiService;
+    private final DossierHabilitationService habilitationService;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -529,6 +531,9 @@ public class InvestigationServiceImpl implements InvestigationService {
             log.info("[addMember] Nouveau membre ajouté — agent: {}", agent.getMatricule());
         }
 
+        habilitationService.grant(inv.getDossier(), agent, HabilitationSource.INVESTIGATION_TEAM,
+                currentAgent, "Membre de l'équipe d'investigation");
+
         auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
                 "Membre ajouté à l'équipe : "
@@ -559,6 +564,9 @@ public class InvestigationServiceImpl implements InvestigationService {
                         "Membre introuvable dans cette équipe"));
         member.setActive(false);
         memberRepository.save(member);
+
+        habilitationService.revokeBySource(inv.getDossier(), member.getAgent(),
+                HabilitationSource.INVESTIGATION_TEAM);
 
         auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,
