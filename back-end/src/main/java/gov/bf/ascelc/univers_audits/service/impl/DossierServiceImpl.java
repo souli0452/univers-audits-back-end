@@ -21,6 +21,7 @@ import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
+import gov.bf.ascelc.univers_audits.shared.utils.NatureSaisineResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,7 @@ public class DossierServiceImpl implements DossierService {
     private final AgentContextResolver          agentContextResolver;
     private final DossierAuditRecorder          auditRecorder;
     private final ParametreDelaiService          parametreDelaiService;
+    private final NatureSaisineResolver         natureSaisineResolver;
 
 
     // ════════════════════════════════════════════════════════════
@@ -156,8 +158,18 @@ public class DossierServiceImpl implements DossierService {
         }
 
         Declarant declarant = resolveDeclarant(request);
-        Dossier   dossier   = dossierMapper.toEntity(request);
+        if (declarant == null) {
+            throw new BusinessException(
+                    "Le déclarant est requis pour déterminer la nature de la saisine.");
+        }
+
+        TypeSaisine natureSaisine = natureSaisineResolver.resolve(
+                declarant.getTypeDeclarant(), request.getQuality(),
+                declarant.isAnonymous());
+
+        Dossier dossier = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
+        dossier.setType(natureSaisine);
         dossier.setStatus(DossierStatus.SOUMIS);
 
         if (dossier.getIsConfidential() == null) {
