@@ -209,14 +209,26 @@ public class PdfExportService {
                 fontBold, fontNormal);
 
         DeclarantResponse declarant = dossier.getDeclarant();
-        String deposantLabel = declarant != null && Boolean.TRUE.equals(declarant.getAnonymous())
-                ? "Anonyme"
-                : declarant != null
-                        ? ((declarant.getFirstName() != null ? declarant.getFirstName() : "")
-                                + " " + (declarant.getLastName() != null ? declarant.getLastName() : "")).trim()
-                        : "—";
-        addInfoCell(table, "Déposant", deposantLabel.isEmpty() ? "—" : deposantLabel,
-                fontBold, fontNormal);
+        String deposantLabel;
+        if (declarant == null) {
+            deposantLabel = "—";
+        } else if (Boolean.TRUE.equals(declarant.getAnonymous())) {
+            deposantLabel = "Anonyme";
+        } else {
+            String nomComplet = ((declarant.getFirstName() != null ? declarant.getFirstName() : "")
+                    + " " + (declarant.getLastName() != null ? declarant.getLastName() : "")).trim();
+            if (!nomComplet.isEmpty()) {
+                deposantLabel = nomComplet;
+            } else if (declarant.getDisplayName() != null && !declarant.getDisplayName().isBlank()) {
+                // Identité masquée pour cause de protection lanceur d'alerte —
+                // cf. DossierServiceImpl.maskSensitiveData, qui pose un
+                // libellé standard à la place du nom/prénom (nullifiés).
+                deposantLabel = declarant.getDisplayName();
+            } else {
+                deposantLabel = "—";
+            }
+        }
+        addInfoCell(table, "Déposant", deposantLabel, fontBold, fontNormal);
 
         addInfoCell(table, "Code de suivi",
                 dossier.getAccessCode() != null ? dossier.getAccessCode() : "—",
