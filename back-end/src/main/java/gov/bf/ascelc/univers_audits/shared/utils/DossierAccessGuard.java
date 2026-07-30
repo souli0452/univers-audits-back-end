@@ -63,12 +63,19 @@ public class DossierAccessGuard {
      * sans compte : au dépôt initial (SOUMIS) ou en réponse à une demande
      * de complément (EN_ATTENTE_COMPLEMENT), la requête est anonyme et ne
      * porte aucune information d'authentification — c'est attendu, pas une
-     * faille. En dehors de ces deux statuts, se comporte comme
+     * faille. Dans ce cas, le code de suivi du dossier (accessCode) doit
+     * être fourni et correspondre, afin de prouver que l'appelant est bien
+     * le déposant légitime et pas seulement quelqu'un ayant deviné/trouvé
+     * l'UUID du dossier. En dehors de ces deux statuts, se comporte comme
      * checkReadAccess : authentification et habilitation nominative exigées.
      */
-    public void checkAttachmentUploadAccess(Dossier dossier) {
+    public void checkAttachmentUploadAccess(Dossier dossier, String suppliedAccessCode) {
         if (dossier.getStatus() == DossierStatus.SOUMIS
                 || dossier.getStatus() == DossierStatus.EN_ATTENTE_COMPLEMENT) {
+            if (suppliedAccessCode == null || !suppliedAccessCode.equals(dossier.getAccessCode())) {
+                throw new BusinessException(
+                        "Code de suivi requis ou invalide pour déposer une pièce à ce stade");
+            }
             return;
         }
         checkReadAccess(dossier);

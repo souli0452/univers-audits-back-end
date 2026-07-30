@@ -39,9 +39,9 @@ class AttachmentStorageServiceTest {
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         doThrow(new BusinessException("Accès refusé"))
-                .when(accessGuard).checkAttachmentUploadAccess(dossier);
+                .when(accessGuard).checkAttachmentUploadAccess(dossier, null);
 
-        assertThatThrownBy(() -> service.upload(dossierId.toString(), List.of()))
+        assertThatThrownBy(() -> service.upload(dossierId.toString(), List.of(), null))
                 .isInstanceOf(BusinessException.class);
 
         verify(attachmentRepository, never()).save(any());

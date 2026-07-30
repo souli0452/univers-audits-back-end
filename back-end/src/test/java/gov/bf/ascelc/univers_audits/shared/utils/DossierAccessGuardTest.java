@@ -92,25 +92,51 @@ class DossierAccessGuardTest {
     }
 
     @Test
-    void checkAttachmentUploadAccess_allowsAnonymousWhileSoumis() {
+    void checkAttachmentUploadAccess_allowsAnonymousWhileSoumisWithCorrectAccessCode() {
         Dossier dossier = Dossier.builder()
                 .id(UUID.randomUUID())
                 .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.SOUMIS)
+                .accessCode("ABCD1234")
                 .build();
 
-        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier))
+        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier, "ABCD1234"))
                 .doesNotThrowAnyException();
     }
 
     @Test
-    void checkAttachmentUploadAccess_allowsAnonymousWhileAwaitingComplement() {
+    void checkAttachmentUploadAccess_allowsAnonymousWhileAwaitingComplementWithCorrectAccessCode() {
         Dossier dossier = Dossier.builder()
                 .id(UUID.randomUUID())
                 .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_ATTENTE_COMPLEMENT)
+                .accessCode("ABCD1234")
                 .build();
 
-        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier))
+        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier, "ABCD1234"))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void checkAttachmentUploadAccess_rejectsWrongAccessCodeWhileSoumis() {
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.SOUMIS)
+                .accessCode("ABCD1234")
+                .build();
+
+        assertThatThrownBy(() -> guard.checkAttachmentUploadAccess(dossier, "WRONGCODE"))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void checkAttachmentUploadAccess_rejectsMissingAccessCodeWhileSoumis() {
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.SOUMIS)
+                .accessCode("ABCD1234")
+                .build();
+
+        assertThatThrownBy(() -> guard.checkAttachmentUploadAccess(dossier, null))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -125,7 +151,7 @@ class DossierAccessGuardTest {
                 .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_INVESTIGATION)
                 .build();
 
-        assertThatThrownBy(() -> guard.checkAttachmentUploadAccess(dossier))
+        assertThatThrownBy(() -> guard.checkAttachmentUploadAccess(dossier, "IRRELEVANT"))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -148,7 +174,7 @@ class DossierAccessGuardTest {
         when(habilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, agentId))
                 .thenReturn(true);
 
-        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier))
+        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier, null))
                 .doesNotThrowAnyException();
     }
 }

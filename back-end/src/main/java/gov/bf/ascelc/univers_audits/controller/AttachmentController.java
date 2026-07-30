@@ -38,12 +38,13 @@ public class AttachmentController {
     @PostMapping("/dossier/{dossierId}")
     public ResponseEntity<?> uploadFiles(
             @PathVariable String dossierId,
-            @RequestParam("files") List<MultipartFile> files) {
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "accessCode", required = false) String accessCode) {
 
         log.info("Upload {} fichier(s) pour dossier {}", files.size(), dossierId);
 
         List<AttachmentStorageService.UploadedFile> saved =
-                attachmentStorageService.upload(dossierId, files);
+                attachmentStorageService.upload(dossierId, files, accessCode);
 
         return ResponseEntity.ok(Map.of(
                 "uploaded", saved.size(),

@@ -61,11 +61,11 @@ public class AttachmentStorageService {
                                     boolean isAudio, String status) {}
 
     @Transactional
-    public List<UploadedFile> upload(String dossierId, List<MultipartFile> files) {
+    public List<UploadedFile> upload(String dossierId, List<MultipartFile> files, String accessCode) {
         Dossier dossier = dossierRepository.findById(UUID.fromString(dossierId))
                 .orElseThrow(() -> new BusinessException(
                         "Dossier introuvable: " + dossierId));
-        accessGuard.checkAttachmentUploadAccess(dossier);
+        accessGuard.checkAttachmentUploadAccess(dossier, accessCode);
 
         Path dir = Paths.get(uploadDir, dossierId);
         try {
