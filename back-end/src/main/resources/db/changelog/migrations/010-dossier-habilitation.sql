@@ -32,10 +32,28 @@ SELECT gen_random_uuid(), d.id, d.agent_in_charge_id, 'AGENT_IN_CHARGE',
 FROM dossier d
 WHERE d.agent_in_charge_id IS NOT NULL;
 
+-- DISTINCT ON (dossier, agent) : un agent peut apparaître plusieurs fois comme
+-- membre actif d'une même investigation (lignes historiques dupliquées).
+-- Un simple "SELECT DISTINCT" ne suffirait pas ici car gen_random_uuid() rend
+-- chaque ligne unique — DISTINCT ON déduplique explicitement sur la paire
+-- (dossier, agent) avant de générer l'id. Sans ça, deux lignes actives
+-- seraient créées pour la même (dossier, agent, source), et une révocation
+-- ultérieure de l'une laisserait l'autre active silencieusement.
 INSERT INTO dossier_habilitation
     (id, dossier_id, agent_id, source, reason, version, created_at)
-SELECT gen_random_uuid(), i.case_id, im.agent_id, 'INVESTIGATION_TEAM',
+SELECT DISTINCT ON (i.case_id, im.agent_id)
+       gen_random_uuid(), i.case_id, im.agent_id, 'INVESTIGATION_TEAM',
        'Backfill migration 010 — membre d''équipe actif existant', 0, now()
 FROM investigation_member im
 JOIN investigation i ON i.id = im.investigation_id
-WHERE im.active = TRUE;
+WHERE im.active = TRUE
+ORDER BY i.case_id, im.agent_id;
+
+-- Garde-fou au niveau base : au plus une ligne active par (dossier, agent,
+-- source). Deux sources différentes pour le même agent (ex : AGENT_IN_CHARGE
+-- ET INVESTIGATION_TEAM) restent autorisées à coexister — c'est voulu.
+-- Placé après les backfills ci-dessus (et leur DISTINCT) pour ne jamais être
+-- bloqué par des doublons hérités des données existantes.
+CREATE UNIQUE INDEX idx_dossier_habilitation_unique_active
+    ON dossier_habilitation (dossier_id, agent_id, source)
+    WHERE revoked_at IS NULL;

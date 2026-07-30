@@ -15,8 +15,13 @@ public interface DossierHabilitationService {
     void grant(Dossier dossier, Agent agent, HabilitationSource source,
                Agent grantedBy, String reason);
 
-    /** Révocation (auto-déclenchée) de l'habilitation active de cette source. No-op si absente. */
-    void revokeBySource(Dossier dossier, Agent agent, HabilitationSource source);
+    /**
+     * Révocation (auto-déclenchée) de TOUTES les habilitations actives de
+     * cette source pour cet agent sur ce dossier. No-op si aucune n'est
+     * active. {@code revokedBy} est l'agent à l'origine de l'action
+     * déclenchante (ex : celui qui retire un membre d'équipe).
+     */
+    void revokeBySource(Dossier dossier, Agent agent, HabilitationSource source, Agent revokedBy);
 
     /** Octroi manuel (API), source = MANUAL. */
     DossierHabilitationResponse grantManual(UUID dossierId, HabilitationGrantRequest request);

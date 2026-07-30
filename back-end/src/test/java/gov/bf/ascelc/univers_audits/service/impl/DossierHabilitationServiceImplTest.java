@@ -75,38 +75,50 @@ class DossierHabilitationServiceImplTest {
     }
 
     @Test
-    void revokeBySource_revokesTheActiveRow() {
+    void revokeBySource_revokesAllActiveRowsForThatSource() {
+        // Finding 1 : rien n'empêche deux lignes actives d'exister pour la
+        // même (dossier, agent, source) — une seule révoquée laisserait un
+        // accès résiduel. revokeBySource doit toutes les révoquer.
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Agent   agent   = Agent.builder().id(UUID.randomUUID()).build();
-        DossierHabilitation existing = DossierHabilitation.builder()
+        Agent   revokedBy = Agent.builder().id(UUID.randomUUID()).build();
+        DossierHabilitation row1 = DossierHabilitation.builder()
+                .dossier(dossier).agent(agent)
+                .source(HabilitationSource.INVESTIGATION_TEAM)
+                .build();
+        DossierHabilitation row2 = DossierHabilitation.builder()
                 .dossier(dossier).agent(agent)
                 .source(HabilitationSource.INVESTIGATION_TEAM)
                 .build();
 
         when(habilitationRepository
-                .findFirstByDossierIdAndAgentIdAndSourceAndRevokedAtIsNullOrderByCreatedAtDesc(
+                .findByDossierIdAndAgentIdAndSourceAndRevokedAtIsNull(
                         dossier.getId(), agent.getId(), HabilitationSource.INVESTIGATION_TEAM))
-                .thenReturn(Optional.of(existing));
+                .thenReturn(List.of(row1, row2));
 
-        service.revokeBySource(dossier, agent, HabilitationSource.INVESTIGATION_TEAM);
+        service.revokeBySource(dossier, agent, HabilitationSource.INVESTIGATION_TEAM, revokedBy);
 
-        assertThat(existing.getRevokedAt()).isNotNull();
-        verify(habilitationRepository).save(existing);
+        assertThat(row1.getRevokedAt()).isNotNull();
+        assertThat(row2.getRevokedAt()).isNotNull();
+        assertThat(row1.getRevokedBy()).isEqualTo(revokedBy);
+        assertThat(row2.getRevokedBy()).isEqualTo(revokedBy);
+        verify(habilitationRepository).saveAll(List.of(row1, row2));
     }
 
     @Test
     void revokeBySource_isNoOpWhenNoneActive() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Agent   agent   = Agent.builder().id(UUID.randomUUID()).build();
+        Agent   revokedBy = Agent.builder().id(UUID.randomUUID()).build();
 
         when(habilitationRepository
-                .findFirstByDossierIdAndAgentIdAndSourceAndRevokedAtIsNullOrderByCreatedAtDesc(
+                .findByDossierIdAndAgentIdAndSourceAndRevokedAtIsNull(
                         dossier.getId(), agent.getId(), HabilitationSource.INVESTIGATION_TEAM))
-                .thenReturn(Optional.empty());
+                .thenReturn(List.of());
 
-        service.revokeBySource(dossier, agent, HabilitationSource.INVESTIGATION_TEAM);
+        service.revokeBySource(dossier, agent, HabilitationSource.INVESTIGATION_TEAM, revokedBy);
 
-        verify(habilitationRepository, never()).save(any());
+        verify(habilitationRepository, never()).saveAll(any());
     }
 
     @Test
@@ -117,6 +129,7 @@ class DossierHabilitationServiceImplTest {
         Agent   agent   = Agent.builder().id(agentId).build();
 
         when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
         when(agentRepository.findById(agentId)).thenReturn(Optional.of(agent));
         when(habilitationRepository.existsByDossierIdAndAgentIdAndSourceAndRevokedAtIsNull(
                 dossierId, agentId, HabilitationSource.MANUAL)).thenReturn(true);
@@ -139,6 +152,7 @@ class DossierHabilitationServiceImplTest {
         Agent   currentAgent = Agent.builder().id(UUID.randomUUID()).build();
 
         when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
         when(agentRepository.findById(agentId)).thenReturn(Optional.of(agent));
         when(habilitationRepository.existsByDossierIdAndAgentIdAndSourceAndRevokedAtIsNull(
                 dossierId, agentId, HabilitationSource.MANUAL)).thenReturn(false);
@@ -172,6 +186,7 @@ class DossierHabilitationServiceImplTest {
                 .source(HabilitationSource.MANUAL).build();
 
         when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
         when(habilitationRepository.findByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, agentId))
                 .thenReturn(List.of(row1, row2));
         when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
@@ -191,6 +206,7 @@ class DossierHabilitationServiceImplTest {
         Dossier dossier = Dossier.builder().id(dossierId).build();
 
         when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
         when(habilitationRepository.findByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, agentId))
                 .thenReturn(List.of());
 
@@ -205,6 +221,7 @@ class DossierHabilitationServiceImplTest {
         Dossier dossier = Dossier.builder().id(dossierId).build();
 
         when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
         when(agentRepository.findById(agentId)).thenReturn(Optional.empty());
 
         HabilitationGrantRequest request = HabilitationGrantRequest.builder()
@@ -212,5 +229,67 @@ class DossierHabilitationServiceImplTest {
 
         assertThatThrownBy(() -> service.grantManual(dossierId, request))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // ── Finding 2 : revocation manuelle de l'agent en charge ──────────────
+
+    @Test
+    void revokeManual_rejectsWhenTargetIsStillAgentInCharge() {
+        UUID dossierId = UUID.randomUUID();
+        Agent agentInCharge = Agent.builder().id(UUID.randomUUID()).build();
+        Dossier dossier = Dossier.builder().id(dossierId).agentInCharge(agentInCharge).build();
+
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+
+        assertThatThrownBy(() ->
+                service.revokeManual(dossierId, agentInCharge.getId(), "Fin de mission"))
+                .isInstanceOf(BusinessException.class);
+
+        verify(habilitationRepository, never())
+                .findByDossierIdAndAgentIdAndRevokedAtIsNull(any(), any());
+        verify(habilitationRepository, never()).saveAll(any());
+    }
+
+    // ── Finding 7 : grant/revoke défendus par le service, pas seulement
+    //    par le @PreAuthorize du contrôleur ────────────────────────────────
+
+    @Test
+    void grantManual_rejectsNonPrivilegedAgentEvenIfItPassesReadAccess() {
+        UUID dossierId = UUID.randomUUID();
+        UUID agentId   = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+
+        // checkReadAccess passe (ex : l'appelant est lui-même habilité sur ce
+        // dossier) mais canSeeConfidential() est faux — un agent habilité
+        // ne doit pas pouvoir accorder l'accès à un tiers pour autant.
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        HabilitationGrantRequest request = HabilitationGrantRequest.builder()
+                .agentId(agentId).reason("motif").build();
+
+        assertThatThrownBy(() -> service.grantManual(dossierId, request))
+                .isInstanceOf(BusinessException.class);
+
+        verify(agentRepository, never()).findById(any());
+        verify(habilitationRepository, never()).save(any());
+    }
+
+    @Test
+    void revokeManual_rejectsNonPrivilegedAgentEvenIfItPassesReadAccess() {
+        UUID dossierId = UUID.randomUUID();
+        UUID agentId   = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.revokeManual(dossierId, agentId, "motif"))
+                .isInstanceOf(BusinessException.class);
+
+        verify(habilitationRepository, never())
+                .findByDossierIdAndAgentIdAndRevokedAtIsNull(any(), any());
+        verify(habilitationRepository, never()).saveAll(any());
     }
 }

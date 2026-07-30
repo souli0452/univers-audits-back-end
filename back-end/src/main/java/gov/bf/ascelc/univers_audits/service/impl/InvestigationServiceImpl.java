@@ -566,7 +566,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         memberRepository.save(member);
 
         habilitationService.revokeBySource(inv.getDossier(), member.getAgent(),
-                HabilitationSource.INVESTIGATION_TEAM);
+                HabilitationSource.INVESTIGATION_TEAM, currentAgent);
 
         auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,

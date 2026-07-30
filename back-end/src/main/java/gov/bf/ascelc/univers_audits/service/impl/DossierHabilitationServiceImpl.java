@@ -58,20 +58,23 @@ public class DossierHabilitationServiceImpl implements DossierHabilitationServic
 
     @Override
     @Transactional
-    public void revokeBySource(Dossier dossier, Agent agent, HabilitationSource source) {
-        habilitationRepository
-                .findFirstByDossierIdAndAgentIdAndSourceAndRevokedAtIsNullOrderByCreatedAtDesc(
-                        dossier.getId(), agent.getId(), source)
-                .ifPresentOrElse(
-                        h -> {
-                            h.revoke(null, "Retrait automatique — source " + source);
-                            habilitationRepository.save(h);
-                            log.info("[Habilitation] Révoquée — dossier: {}, agent: {}, source: {}",
-                                    dossier.getId(), agent.getId(), source);
-                        },
-                        () -> log.warn("[Habilitation] Aucune habilitation active à révoquer — "
-                                        + "dossier: {}, agent: {}, source: {}",
-                                dossier.getId(), agent.getId(), source));
+    public void revokeBySource(Dossier dossier, Agent agent, HabilitationSource source,
+                                Agent revokedBy) {
+        List<DossierHabilitation> active = habilitationRepository
+                .findByDossierIdAndAgentIdAndSourceAndRevokedAtIsNull(
+                        dossier.getId(), agent.getId(), source);
+
+        if (active.isEmpty()) {
+            log.warn("[Habilitation] Aucune habilitation active à révoquer — "
+                            + "dossier: {}, agent: {}, source: {}",
+                    dossier.getId(), agent.getId(), source);
+            return;
+        }
+
+        active.forEach(h -> h.revoke(revokedBy, "Retrait automatique — source " + source));
+        habilitationRepository.saveAll(active);
+        log.info("[Habilitation] Révoquée ({} ligne(s)) — dossier: {}, agent: {}, source: {}",
+                active.size(), dossier.getId(), agent.getId(), source);
     }
 
     @Override
@@ -79,6 +82,7 @@ public class DossierHabilitationServiceImpl implements DossierHabilitationServic
     public DossierHabilitationResponse grantManual(UUID dossierId, HabilitationGrantRequest request) {
         Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
         accessGuard.checkReadAccess(dossier);
+        requirePrivilegedRole();
 
         Agent agent = agentRepository.findById(request.getAgentId())
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -110,7 +114,16 @@ public class DossierHabilitationServiceImpl implements DossierHabilitationServic
     @Override
     @Transactional
     public void revokeManual(UUID dossierId, UUID agentId, String reason) {
-        accessGuard.checkReadAccess(accessGuard.getDossierOrThrow(dossierId));
+        Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
+        accessGuard.checkReadAccess(dossier);
+        requirePrivilegedRole();
+
+        if (dossier.getAgentInCharge() != null
+                && dossier.getAgentInCharge().getId().equals(agentId)) {
+            throw new BusinessException(
+                    "Cet agent est toujours l'agent en charge de ce dossier — "
+                            + "il doit être réassigné avant que son accès puisse être révoqué");
+        }
 
         List<DossierHabilitation> active = habilitationRepository
                 .findByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, agentId);
@@ -132,5 +145,21 @@ public class DossierHabilitationServiceImpl implements DossierHabilitationServic
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+    }
+
+    /**
+     * Défense en profondeur : grant/revoke sont des actions administratives
+     * qui ne doivent JAMAIS reposer uniquement sur le {@code @PreAuthorize}
+     * du contrôleur. {@code checkReadAccess} seul ne suffit pas : pour un
+     * rôle privilégié (CGE/CGEA/ADMIN_DDIC) il est toujours vrai, et pour un
+     * agent simplement habilité sur ce dossier il le serait aussi — ce qui
+     * lui permettrait à tort de gérer les habilitations d'autrui.
+     */
+    private void requirePrivilegedRole() {
+        if (!accessGuard.canSeeConfidential()) {
+            throw new BusinessException(
+                    "Seuls les rôles CGE, CGEA ou ADMIN_DDIC peuvent gérer "
+                            + "les habilitations d'un dossier.");
+        }
     }
 }
