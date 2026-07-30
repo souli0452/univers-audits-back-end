@@ -17,6 +17,7 @@ import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.entity.StatusHistory;
 import gov.bf.ascelc.univers_audits.repository.StatusHistoryRepository;
+import gov.bf.ascelc.univers_audits.shared.utils.AsceLcInstitutionalInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -389,9 +390,9 @@ public class PdfExportService {
 
         doc.add(new Paragraph(
                 "Document confidentiel — ASCE-LC Burkina Faso | " +
-                        "03 BP 7204 Ouagadougou 03 | " +
-                        "Tél: +226 25 36 62 62 | " +
-                        "Numéro vert: 80 00 11 57")
+                        AsceLcInstitutionalInfo.ADDRESS + " | " +
+                        "Tél: " + AsceLcInstitutionalInfo.PHONE + " | " +
+                        "Numéro vert: " + AsceLcInstitutionalInfo.NUMERO_VERT)
                 .setFont(fontNormal)
                 .setFontSize(8)
                 .setFontColor(TEXTE_GRIS)

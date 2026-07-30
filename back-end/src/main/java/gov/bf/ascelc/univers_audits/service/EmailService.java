@@ -9,6 +9,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
+import gov.bf.ascelc.univers_audits.shared.utils.AsceLcInstitutionalInfo;
 
 @Slf4j
 @Service
@@ -310,13 +311,17 @@ public class EmailService {
         <div class="footer">
           <p>
             Ce message est généré automatiquement — merci de ne pas y répondre.<br>
-            <strong>ASCE-LC</strong> · 03 BP 7204 Ouagadougou 03, Burkina Faso<br>
-            Numéro Vert : <strong>80 00 11 11</strong> ·
-            <a href="mailto:contact@asce-lc.bf">contact@asce-lc.bf</a><br><br>
+            <strong>ASCE-LC</strong> · %s<br>
+            Numéro Vert : <strong>%s</strong> ·
+            <a href="mailto:%s">%s</a><br><br>
             Vos informations sont traitées conformément à la Loi N°010-2004/AN
           </p>
         </div>
-        """;
+        """.formatted(
+                AsceLcInstitutionalInfo.ADDRESS,
+                AsceLcInstitutionalInfo.NUMERO_VERT,
+                AsceLcInstitutionalInfo.EMAIL_CONTACT,
+                AsceLcInstitutionalInfo.EMAIL_CONTACT);
 
     // ─── Notice de confidentialité ─────────────────────────────────────
     private static final String CONFID = """
