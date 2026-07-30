@@ -67,6 +67,17 @@ public interface DossierRepository
     Page<Dossier> findByReceptionDateBetween(
             Instant start, Instant end, Pageable pageable);
 
+    @EntityGraph(attributePaths = "investigation")
+    @Query("""
+            SELECT DISTINCT d FROM Dossier d
+            JOIN DossierHabilitation h ON h.dossier = d
+            WHERE h.agent.id = :agentId AND h.revokedAt IS NULL
+            AND d.receptionDate BETWEEN :start AND :end
+            """)
+    Page<Dossier> findAccessibleByAgentIdAndReceptionDateBetween(
+            @Param("agentId") UUID agentId, @Param("start") Instant start,
+            @Param("end") Instant end, Pageable pageable);
+
 
 
     @Query("""

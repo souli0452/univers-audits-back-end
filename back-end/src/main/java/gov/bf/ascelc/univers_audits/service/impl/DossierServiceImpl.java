@@ -116,8 +116,18 @@ public class DossierServiceImpl implements DossierService {
     @Override
     public Page<DossierResponse> findByReceptionDateBetween(
             Instant start, Instant end, Pageable pageable) {
+        if (accessGuard.canSeeConfidential()) {
+            return dossierRepository
+                    .findByReceptionDateBetween(start, end, pageable)
+                    .map(this::enrichAndMask);
+        }
+
+        Agent agent = agentContextResolver.getCurrentAgent();
+        log.debug("[Dossiers] Accès restreint (période) — agent: {} voit uniquement "
+                        + "ses dossiers habilités",
+                agent.getMatricule());
         return dossierRepository
-                .findByReceptionDateBetween(start, end, pageable)
+                .findAccessibleByAgentIdAndReceptionDateBetween(agent.getId(), start, end, pageable)
                 .map(this::enrichAndMask);
     }
 

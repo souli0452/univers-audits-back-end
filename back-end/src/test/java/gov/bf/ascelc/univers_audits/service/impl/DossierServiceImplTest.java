@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
+import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeDeclarant;
@@ -9,11 +10,14 @@ import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.mapper.DossierMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.DeclarantCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DeclarantRepository;
+import gov.bf.ascelc.univers_audits.repository.DossierHabilitationRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
@@ -36,12 +40,16 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -229,5 +237,113 @@ class DossierServiceImplTest {
 
         verify(dossierRepository).findAll(pageable);
         verify(dossierRepository, never()).findAccessibleByAgentId(any(), any());
+    }
+
+    @Test
+    void findByReceptionDateBetween_usesAccessibleDossiersForNonPrivilegedAgent() {
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        Pageable pageable = PageRequest.of(0, 20);
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant end   = Instant.parse("2026-01-31T00:00:00Z");
+
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(dossierRepository.findAccessibleByAgentIdAndReceptionDateBetween(
+                agent.getId(), start, end, pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.findByReceptionDateBetween(start, end, pageable);
+
+        verify(dossierRepository).findAccessibleByAgentIdAndReceptionDateBetween(
+                agent.getId(), start, end, pageable);
+        verify(dossierRepository, never())
+                .findByReceptionDateBetween(any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void findByReceptionDateBetween_usesFindByReceptionDateBetweenForPrivilegedAgent() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant end   = Instant.parse("2026-01-31T00:00:00Z");
+
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findByReceptionDateBetween(start, end, pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.findByReceptionDateBetween(start, end, pageable);
+
+        verify(dossierRepository).findByReceptionDateBetween(start, end, pageable);
+        verify(dossierRepository, never()).findAccessibleByAgentIdAndReceptionDateBetween(
+                any(), any(), any(), any());
+    }
+
+    /**
+     * Preuve de bout en bout (spec Tests) : un agent dont la SEULE
+     * habilitation provient de l'équipe d'investigation (INVESTIGATION_TEAM,
+     * pas AGENT_IN_CHARGE) doit pouvoir consulter le dossier via findById.
+     * Contrairement aux autres tests de cette classe, le garde d'accès n'est
+     * PAS mocké ici : on instancie un DossierAccessGuard réel pour prouver
+     * que la chaîne findById → guard → repository fonctionne réellement,
+     * et pas seulement que findById délègue à un mock.
+     */
+    @Test
+    void findById_succeedsForAgentWhoseOnlyHabilitationIsInvestigationTeam() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-investigator").build();
+
+        AgentRepository realAgentRepository =
+                mock(AgentRepository.class);
+        DossierHabilitationRepository realHabilitationRepository =
+                mock(DossierHabilitationRepository.class);
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole("CGE")).thenReturn(false);
+        when(securityUtils.hasRole("CGEA")).thenReturn(false);
+        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-investigator"));
+        when(realAgentRepository.findByKeycloakId("kc-investigator")).thenReturn(Optional.of(agent));
+        // Ne dépend pas de la source (AGENT_IN_CHARGE vs INVESTIGATION_TEAM) —
+        // seule compte l'existence d'une ligne active, ce qui est réaliste :
+        // simule ici un agent habilité UNIQUEMENT via INVESTIGATION_TEAM.
+        when(realHabilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(
+                dossierId, agent.getId())).thenReturn(true);
+
+        DossierAccessGuard realGuard = new DossierAccessGuard(
+                dossierRepository, realAgentRepository, securityUtils, realHabilitationRepository);
+
+        DossierServiceImpl serviceWithRealGuard = new DossierServiceImpl(
+                dossierRepository, declarantRepository, notificationRepository, observationRepository,
+                dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
+                notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
+                natureSaisineResolver, realGuard, habilitationService);
+
+        assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void registerReception_grantsAgentInChargeHabilitation() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).matricule("M001").build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder().build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(parametreDelaiService.resolveDelaiJours("ACCUSE_RECEPTION")).thenReturn(5);
+        when(parametreDelaiService.resolveDelaiJours("DEMANDE_COMPLEMENT")).thenReturn(10);
+        when(dossierRepository.countByReceptionDateBetween(any(), any())).thenReturn(0L);
+        when(accessCodeGenerator.generateDossierNumber(anyInt(), anyInt())).thenReturn("2026-0001");
+        when(dossierRepository.existsByNumber(anyString())).thenReturn(false);
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        service.registerReception(dossierId, request, "127.0.0.1");
+
+        verify(habilitationService).grant(dossier, agent, HabilitationSource.AGENT_IN_CHARGE,
+                agent, "Agent en charge du dossier (enregistrement BRPD)");
     }
 }
