@@ -90,4 +90,65 @@ class DossierAccessGuardTest {
         assertThatThrownBy(() -> guard.checkReadAccess(dossier))
                 .isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    void checkAttachmentUploadAccess_allowsAnonymousWhileSoumis() {
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.SOUMIS)
+                .build();
+
+        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void checkAttachmentUploadAccess_allowsAnonymousWhileAwaitingComplement() {
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_ATTENTE_COMPLEMENT)
+                .build();
+
+        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void checkAttachmentUploadAccess_delegatesToReadAccessForOtherStatuses() {
+        when(securityUtils.hasRole("CGE")).thenReturn(false);
+        when(securityUtils.hasRole("CGEA")).thenReturn(false);
+        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_INVESTIGATION)
+                .build();
+
+        assertThatThrownBy(() -> guard.checkAttachmentUploadAccess(dossier))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void checkAttachmentUploadAccess_allowsHabilitatedAgentForOtherStatuses() {
+        when(securityUtils.hasRole("CGE")).thenReturn(false);
+        when(securityUtils.hasRole("CGEA")).thenReturn(false);
+        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+
+        UUID agentId   = UUID.randomUUID();
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder()
+                .id(dossierId)
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_INVESTIGATION)
+                .build();
+        Agent agent = Agent.builder().id(agentId).build();
+
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-1"));
+        when(agentRepository.findByKeycloakId("kc-1")).thenReturn(Optional.of(agent));
+        when(habilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, agentId))
+                .thenReturn(true);
+
+        assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier))
+                .doesNotThrowAnyException();
+    }
 }

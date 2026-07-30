@@ -9,6 +9,7 @@ import gov.bf.ascelc.univers_audits.repository.AttachmentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,6 +48,7 @@ public class AttachmentStorageService {
 
     private final AttachmentRepository attachmentRepository;
     private final DossierRepository    dossierRepository;
+    private final DossierAccessGuard   accessGuard;
 
     @Value("${storage.upload-dir:C:/asce-lc/uploads}")
     private String uploadDir;
@@ -63,6 +65,7 @@ public class AttachmentStorageService {
         Dossier dossier = dossierRepository.findById(UUID.fromString(dossierId))
                 .orElseThrow(() -> new BusinessException(
                         "Dossier introuvable: " + dossierId));
+        accessGuard.checkAttachmentUploadAccess(dossier);
 
         Path dir = Paths.get(uploadDir, dossierId);
         try {

@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.shared.utils;
 
+import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
@@ -55,5 +56,21 @@ public class DossierAccessGuard {
             throw new BusinessException(
                     "Accès refusé — ce dossier ne vous est pas assigné");
         }
+    }
+
+    /**
+     * Lève BusinessException sauf pour un dépôt de pièce jointe légitime
+     * sans compte : au dépôt initial (SOUMIS) ou en réponse à une demande
+     * de complément (EN_ATTENTE_COMPLEMENT), la requête est anonyme et ne
+     * porte aucune information d'authentification — c'est attendu, pas une
+     * faille. En dehors de ces deux statuts, se comporte comme
+     * checkReadAccess : authentification et habilitation nominative exigées.
+     */
+    public void checkAttachmentUploadAccess(Dossier dossier) {
+        if (dossier.getStatus() == DossierStatus.SOUMIS
+                || dossier.getStatus() == DossierStatus.EN_ATTENTE_COMPLEMENT) {
+            return;
+        }
+        checkReadAccess(dossier);
     }
 }
