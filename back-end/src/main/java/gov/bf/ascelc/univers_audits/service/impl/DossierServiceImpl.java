@@ -16,6 +16,7 @@ import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
+import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -35,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.Year;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -59,6 +61,7 @@ public class DossierServiceImpl implements DossierService {
     private final NatureSaisineResolver         natureSaisineResolver;
     private final DossierAccessGuard            accessGuard;
     private final DossierHabilitationService    habilitationService;
+    private final PortalConfigService           portalConfigService;
 
 
     // ════════════════════════════════════════════════════════════
@@ -205,10 +208,10 @@ public class DossierServiceImpl implements DossierService {
             createNotification(saved,
                     NotificationType.INTERNAL_ALERT,
                     NotificationChannel.PORTAL,
-                    "ALERTE — Dénonciation audio à traiter",
-                    "Un citoyen a soumis une dénonciation vocale. "
-                            + "Veuillez écouter l'enregistrement et constituer "
-                            + "le dossier.",
+                    portalConfigService.resolveNotificationText(
+                            "notif_subject_audio_alert", Map.of()),
+                    portalConfigService.resolveNotificationText(
+                            "notif_content_audio_alert", Map.of()),
                     Instant.now());
         }
 
@@ -216,10 +219,10 @@ public class DossierServiceImpl implements DossierService {
             createNotification(saved,
                     NotificationType.INTERNAL_ALERT,
                     NotificationChannel.PORTAL,
-                    "⚠ PROTECTION LANCEUR D'ALERTE — Soumission reçue",
-                    "Un déclarant a invoqué la protection lanceur d'alerte "
-                            + "(Loi N°010-2004/AN) dès la soumission. "
-                            + "Le dossier a été automatiquement marqué confidentiel.",
+                    portalConfigService.resolveNotificationText(
+                            "notif_subject_protection_submitted", Map.of()),
+                    portalConfigService.resolveNotificationText(
+                            "notif_content_protection_submitted", Map.of()),
                     Instant.now());
         }
 
@@ -278,11 +281,10 @@ public class DossierServiceImpl implements DossierService {
             createNotification(dossier,
                     NotificationType.INTERNAL_ALERT,
                     NotificationChannel.PORTAL,
-                    "PROTECTION LANCEUR D'ALERTE — Dossier " + number,
-                    "Le déclarant du dossier " + number
-                            + " a invoqué la protection lanceur d'alerte "
-                            + "(Loi N°010-2004/AN). "
-                            + "Veuillez prendre les mesures de protection appropriées.",
+                    portalConfigService.resolveNotificationText(
+                            "notif_subject_protection_registered", Map.of("numero", number)),
+                    portalConfigService.resolveNotificationText(
+                            "notif_content_protection_registered", Map.of("numero", number)),
                     Instant.now());
 
             log.warn("[SECURITE] PROTECTION LANCEUR D'ALERTE activée — "
@@ -293,17 +295,19 @@ public class DossierServiceImpl implements DossierService {
         createNotification(dossier,
                 NotificationType.RECEIPT_B4,
                 NotificationChannel.PORTAL,
-                "Récépissé de dépôt — " + number,
-                "Votre dossier a été enregistré. Le code de suivi vous a été "
-                        + "communiqué séparément lors de votre soumission.",
+                portalConfigService.resolveNotificationText(
+                        "notif_subject_receipt_b4", Map.of("numero", number)),
+                portalConfigService.resolveNotificationText(
+                        "notif_content_receipt_b4", Map.of("numero", number)),
                 Instant.now());
 
         createNotification(dossier,
                 NotificationType.ACKNOWLEDGMENT_B5,
                 resolveNotificationChannel(dossier),
-                "Accusé de réception — votre dossier",
-                "L'ASCE-LC accuse réception de votre dossier "
-                        + "et vous informera des suites dans les meilleurs délais.",
+                portalConfigService.resolveNotificationText(
+                        "notif_subject_acknowledgment_b5", Map.of()),
+                portalConfigService.resolveNotificationText(
+                        "notif_content_acknowledgment_b5", Map.of()),
                 dossier.getAcknowledgmentDeadline());
 
         Dossier saved = dossierRepository.save(dossier);
@@ -372,9 +376,11 @@ public class DossierServiceImpl implements DossierService {
         createNotification(dossier,
                 NotificationType.COMPLEMENT_REQUEST,
                 resolveNotificationChannel(dossier),
-                "Information complémentaire requise — votre dossier",
-                "L'ASCE-LC a besoin d'informations supplémentaires. Motif : "
-                        + request.getReason(),
+                portalConfigService.resolveNotificationText(
+                        "notif_subject_complement_request", Map.of()),
+                portalConfigService.resolveNotificationText(
+                        "notif_content_complement_request",
+                        Map.of("motif", request.getReason())),
                 dossier.getAdditionalInfoDeadline());
 
         Dossier saved = dossierRepository.save(dossier);

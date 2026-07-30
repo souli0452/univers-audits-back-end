@@ -13,6 +13,7 @@ import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
+import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -45,6 +46,7 @@ class InvestigationServiceImplTest {
     @Mock private DossierAuditRecorder          auditRecorder;
     @Mock private ParametreDelaiService         parametreDelaiService;
     @Mock private DossierHabilitationService    habilitationService;
+    @Mock private PortalConfigService           portalConfigService;
 
     @InjectMocks
     private InvestigationServiceImpl service;

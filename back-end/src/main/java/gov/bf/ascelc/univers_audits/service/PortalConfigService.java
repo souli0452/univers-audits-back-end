@@ -52,6 +52,27 @@ public class PortalConfigService {
         return saved;
     }
 
+    /**
+     * Résout un modèle de notification configurable (portal_config), en
+     * substituant chaque {clé} par sa valeur. Retourne "" si la clé n'existe
+     * pas ou n'a pas de valeur — ne jette jamais.
+     */
+    @Transactional(readOnly = true)
+    public String resolveNotificationText(String configKey, Map<String, String> placeholders) {
+        String template = repo.findByConfigKey(configKey)
+                .map(PortalConfig::getConfigValue)
+                .orElse("");
+        if (template == null) {
+            template = "";
+        }
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            template = template.replace(
+                    "{" + entry.getKey() + "}",
+                    entry.getValue() != null ? entry.getValue() : "");
+        }
+        return template;
+    }
+
     @Transactional
     public List<PortalConfig> updateBatch(Map<String, String> updates, String updatedBy) {
         List<PortalConfig> saved = new ArrayList<>();

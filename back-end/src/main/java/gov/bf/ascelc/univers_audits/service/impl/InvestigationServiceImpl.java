@@ -13,6 +13,7 @@ import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
+import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -50,6 +51,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final DossierAuditRecorder          auditRecorder;
     private final ParametreDelaiService parametreDelaiService;
     private final DossierHabilitationService habilitationService;
+    private final PortalConfigService portalConfigService;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -641,10 +643,13 @@ public class InvestigationServiceImpl implements InvestigationService {
                     .type(NotificationType.INVESTIGATION_ASSIGNMENT)
                     .channel(NotificationChannel.PORTAL)
                     .recipient(agent.getKeycloakId())
-                    .subject("Vous avez été affecté(e) à l'investigation — "
-                            + dossierNumber)
-                    .content("Rôle : " + roleLabel
-                            + " · Dossier : " + dossier.getObject())
+                    .subject(portalConfigService.resolveNotificationText(
+                            "notif_subject_investigation_assignment",
+                            Map.of("numero", dossierNumber)))
+                    .content(portalConfigService.resolveNotificationText(
+                            "notif_content_investigation_assignment",
+                            Map.of("role", roleLabel != null ? roleLabel : "",
+                                    "objet", dossier.getObject() != null ? dossier.getObject() : "")))
                     .scheduledAt(Instant.now())
                     .build();
 

@@ -24,6 +24,7 @@ import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
+import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
@@ -71,6 +72,7 @@ class DossierServiceImplTest {
     @Mock private NatureSaisineResolver natureSaisineResolver;
     @Mock private DossierAccessGuard accessGuard;
     @Mock private DossierHabilitationService habilitationService;
+    @Mock private PortalConfigService portalConfigService;
 
     @InjectMocks
     private DossierServiceImpl service;
@@ -317,7 +319,7 @@ class DossierServiceImplTest {
                 dossierRepository, declarantRepository, notificationRepository, observationRepository,
                 dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
                 notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
-                natureSaisineResolver, realGuard, habilitationService);
+                natureSaisineResolver, realGuard, habilitationService, portalConfigService);
 
         assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
                 .doesNotThrowAnyException();

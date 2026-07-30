@@ -13,6 +13,7 @@ import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
+import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +42,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final AgentRepository        agentRepository;
     private final DossierDetailsMapper   detailsMapper;
     private final DossierAccessGuard     accessGuard;
+    private final PortalConfigService    portalConfigService;
 
 
     @Override
@@ -251,20 +254,16 @@ public class NotificationServiceImpl implements NotificationService {
                             NotificationType.DEADLINE_ALERT);
 
             if (!alreadyAlerted) {
-                String alertTitle = "ALERTE : Délai AR dépassé";
-                String alertBody  = String.format(
-                        "Le délai légal de 7 jours pour l'envoi de l'accusé de " +
-                                "réception B5 est dépassé pour le dossier %s. " +
-                                "Action requise immédiatement.",
-                        dossier.getNumber()
-                );
-
                 Notification alert = Notification.builder()
                         .dossier(dossier)
                         .type(NotificationType.DEADLINE_ALERT)
                         .channel(NotificationChannel.PORTAL)
-                        .subject("ALERTE : Délai dépassé — " + dossier.getNumber())
-                        .content(alertBody)
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_ar",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_ar",
+                                Map.of("numero", dossier.getNumber())))
                         .scheduledAt(Instant.now())
                         .build();
 
@@ -288,12 +287,12 @@ public class NotificationServiceImpl implements NotificationService {
                         .dossier(dossier)
                         .type(NotificationType.INTERNAL_ALERT)
                         .channel(NotificationChannel.PORTAL)
-                        .subject("ALERTE : Complément non reçu — " + dossier.getNumber())
-                        .content(String.format(
-                                "Le délai de 14 jours pour recevoir le complément " +
-                                        "d'information est dépassé pour le dossier %s.",
-                                dossier.getNumber()
-                        ))
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_complement",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_complement",
+                                Map.of("numero", dossier.getNumber())))
                         .scheduledAt(Instant.now())
                         .build();
 
@@ -317,13 +316,12 @@ public class NotificationServiceImpl implements NotificationService {
                         .dossier(dossier)
                         .type(NotificationType.INVESTIGATION_ALERT)
                         .channel(NotificationChannel.PORTAL)
-                        .subject("ALERTE : Investigation dépassée — " + dossier.getNumber())
-                        .content(String.format(
-                                "L'investigation du dossier %s dépasse le délai " +
-                                        "réglementaire de 90 jours. Une prolongation doit " +
-                                        "être validée par le CGEA et le CGE.",
-                                dossier.getNumber()
-                        ))
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_investigation",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_investigation",
+                                Map.of("numero", dossier.getNumber())))
                         .scheduledAt(Instant.now())
                         .build();
 
