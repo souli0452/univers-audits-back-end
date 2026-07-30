@@ -976,6 +976,8 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setAddress(null);
             response.getDeclarant().setCommune(null);
             response.getDeclarant().setProvince(null);
+            response.getDeclarant().setCellulaire(null);
+            response.getDeclarant().setLocalite(null);
             response.getDeclarant().setProfession(null);
             response.getDeclarant().setDisplayName(
                     "Lanceur d'alerte protégé (Loi N°010-2004/AN)");
@@ -992,6 +994,8 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setAddress(null);
             response.getDeclarant().setCommune(null);
             response.getDeclarant().setProvince(null);
+            response.getDeclarant().setCellulaire(null);
+            response.getDeclarant().setLocalite(null);
         }
 
         if (response.getWitnesses() != null) {

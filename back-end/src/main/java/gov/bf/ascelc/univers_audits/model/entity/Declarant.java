@@ -54,6 +54,12 @@ public class Declarant extends AuditEntity {
     @Column(name = "province", length = 100)
     private String province;
 
+    @Column(name = "cellulaire", length = 20)
+    private String cellulaire;
+
+    @Column(name = "localite", length = 100)
+    private String localite;
+
     @Column(name = "profession", length = 100)
     private String profession;
 

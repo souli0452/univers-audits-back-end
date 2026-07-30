@@ -672,6 +672,7 @@ public class PdfExportService {
             case "WEB_FORM"     -> "Formulaire Web";
             case "EMAIL"        -> "Email";
             case "PHONE"        -> "Téléphone";
+            case "FAX"          -> "Fax";
             case "GREEN_NUMBER" -> "Numéro Vert";
             case "AUDIO_COUNTER"-> "Comptoir Audio";
             case "PAPER_FORM"   -> "Formulaire Papier";

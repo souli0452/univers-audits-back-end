@@ -40,6 +40,12 @@ public class DeclarantCreateRequest {
     @Size(max = 100)
     private String province;
 
+    @Size(max = 20)
+    private String cellulaire;
+
+    @Size(max = 100)
+    private String localite;
+
     @Size(max = 100)
     private String profession;
 

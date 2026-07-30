@@ -22,6 +22,8 @@ public class DeclarantResponse {
     private String address;
     private String commune;
     private String province;
+    private String cellulaire;
+    private String localite;
     private String profession;
     private String displayName;
     private Boolean anonymous;

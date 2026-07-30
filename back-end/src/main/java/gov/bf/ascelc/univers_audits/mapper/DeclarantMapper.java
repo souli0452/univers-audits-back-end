@@ -11,13 +11,28 @@ import org.mapstruct.*;
 )
 public interface DeclarantMapper {
 
-    @Mapping(target = "displayName", ignore = true)
-    DeclarantResponse toResponse(Declarant declarant);
+    // DeclarantResponse est construit via un builder Lombok (@Builder) : dans
+    // cette configuration MapStruct/Lombok, le hook @AfterMapping n'est
+    // jamais invoqué par le code généré (il retourne directement
+    // builder.build() sans appeler la méthode de callback) — c'est un
+    // problème connu de MapStruct avec les cibles de type builder. On
+    // enveloppe donc la méthode générée par MapStruct dans une méthode
+    // default qui appelle fillAndMask nous-mêmes, pour garantir que le
+    // masquage de confidentialité s'applique réellement.
+    default DeclarantResponse toResponse(Declarant declarant) {
+        DeclarantResponse response = mapToResponse(declarant);
+        if (response != null) {
+            fillAndMask(declarant, response);
+        }
+        return response;
+    }
 
-    @AfterMapping
+    @Mapping(target = "displayName", ignore = true)
+    DeclarantResponse mapToResponse(Declarant declarant);
+
     default void fillAndMask(
             Declarant declarant,
-            @MappingTarget DeclarantResponse response) {
+            DeclarantResponse response) {
         response.setDisplayName(declarant.getDisplayName());
         if (declarant.isAnonymous()) {
             response.setFirstName(null);
@@ -27,6 +42,8 @@ public interface DeclarantMapper {
             response.setAddress(null);
             response.setCommune(null);
             response.setProvince(null);
+            response.setCellulaire(null);
+            response.setLocalite(null);
         }
     }
 
