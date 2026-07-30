@@ -99,6 +99,169 @@ public class PdfExportService {
 
 
 
+    public byte[] exportRecepisse(UUID dossierId) {
+
+        // findById applique le contrôle d'affectation/rôle et le masquage de
+        // confidentialité — le récépissé ne doit jamais exposer plus que
+        // l'API JSON, exactement comme exportDossier.
+        DossierResponse dossier = dossierService.findById(dossierId);
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            PdfWriter   writer = new PdfWriter(baos);
+            PdfDocument pdf    = new PdfDocument(writer);
+            Document    doc    = new Document(pdf, PageSize.A4);
+            doc.setMargins(40, 40, 40, 40);
+
+            PdfFont fontBold   = PdfFontFactory.createFont("Helvetica-Bold");
+            PdfFont fontNormal = PdfFontFactory.createFont("Helvetica");
+
+            addRecepisseHeader(doc, dossier, fontBold, fontNormal);
+            addRecepisseBody(doc, dossier, fontBold, fontNormal);
+            addRecepisseFooter(doc, fontBold, fontNormal);
+
+            doc.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            log.error("Erreur export récépissé dossier {}: {}", dossierId, e.getMessage());
+            throw new RuntimeException("Erreur génération récépissé: " + e.getMessage());
+        }
+    }
+
+    private void addRecepisseHeader(Document doc, DossierResponse dossier,
+                                    PdfFont fontBold, PdfFont fontNormal) {
+
+        Table topBar = new Table(UnitValue.createPercentArray(new float[]{1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setHeight(6)
+                .setBackgroundColor(OR_ASCE)
+                .setBorder(Border.NO_BORDER)
+                .setMarginBottom(0);
+        topBar.addCell(new Cell().setBorder(Border.NO_BORDER).add(new Paragraph("")));
+        doc.add(topBar);
+
+        Table header = new Table(UnitValue.createPercentArray(new float[]{2, 1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setBackgroundColor(VERT_ASCE)
+                .setBorder(Border.NO_BORDER)
+                .setMarginBottom(20);
+
+        Cell leftCell = new Cell().setBorder(Border.NO_BORDER).setPadding(20);
+        leftCell.add(new Paragraph("ASCE-LC")
+                .setFont(fontBold).setFontSize(22)
+                .setFontColor(ColorConstants.WHITE).setMarginBottom(4));
+        leftCell.add(new Paragraph("Autorité Supérieure de Contrôle d'État")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(2));
+        leftCell.add(new Paragraph("et de Lutte contre la Corruption")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(8));
+        leftCell.add(new Paragraph("RÉCÉPISSÉ DE DÉPÔT")
+                .setFont(fontBold).setFontSize(14).setFontColor(OR_ASCE));
+        header.addCell(leftCell);
+
+        Cell rightCell = new Cell()
+                .setBorder(Border.NO_BORDER).setPadding(20)
+                .setTextAlignment(TextAlignment.RIGHT);
+        String number = dossier.getNumber() != null ? dossier.getNumber() : "En attente";
+        rightCell.add(new Paragraph(number)
+                .setFont(fontBold).setFontSize(16)
+                .setFontColor(ColorConstants.WHITE).setMarginBottom(8));
+        if (dossier.getAccessCode() != null) {
+            rightCell.add(new Paragraph("Code de suivi : " + dossier.getAccessCode())
+                    .setFont(fontNormal).setFontSize(9)
+                    .setFontColor(new DeviceRgb(180, 220, 195)));
+        }
+        header.addCell(rightCell);
+        doc.add(header);
+    }
+
+    private void addRecepisseBody(Document doc, DossierResponse dossier,
+                                  PdfFont fontBold, PdfFont fontNormal) {
+
+        doc.add(new Paragraph("CONFIDENTIEL")
+                .setFont(fontBold).setFontSize(10)
+                .setFontColor(new DeviceRgb(180, 30, 30))
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(16));
+
+        Table table = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setMarginBottom(16);
+
+        addInfoCell(table, "Numéro d'enregistrement",
+                dossier.getNumber() != null ? dossier.getNumber() : "—",
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Date et heure de réception",
+                dossier.getReceptionDate() != null
+                        ? FMT.format(dossier.getReceptionDate()) : "—",
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Mode de réception",
+                getModeLabel(dossier.getSubmissionMode() != null
+                        ? dossier.getSubmissionMode().name() : ""),
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Objet",
+                dossier.getObject() != null ? dossier.getObject() : "—",
+                fontBold, fontNormal);
+
+        DeclarantResponse declarant = dossier.getDeclarant();
+        String deposantLabel = declarant != null && Boolean.TRUE.equals(declarant.getAnonymous())
+                ? "Anonyme"
+                : declarant != null
+                        ? ((declarant.getFirstName() != null ? declarant.getFirstName() : "")
+                                + " " + (declarant.getLastName() != null ? declarant.getLastName() : "")).trim()
+                        : "—";
+        addInfoCell(table, "Déposant", deposantLabel.isEmpty() ? "—" : deposantLabel,
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Code de suivi",
+                dossier.getAccessCode() != null ? dossier.getAccessCode() : "—",
+                fontBold, fontNormal);
+
+        doc.add(table);
+
+        doc.add(new Paragraph(
+                "Ce récépissé atteste de la réception de votre dénonciation ou plainte par "
+                        + "l'ASCE-LC. Conservez le code de suivi ci-dessus : il vous permet de "
+                        + "suivre l'état d'avancement de votre dossier sur le portail en ligne, "
+                        + "sans qu'aucune information permettant de vous identifier ne soit requise.")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(40, 40, 40))
+                .setMarginTop(8));
+    }
+
+    private void addRecepisseFooter(Document doc, PdfFont fontBold, PdfFont fontNormal) {
+
+        doc.add(new Paragraph()
+                .setBorderTop(new SolidBorder(VERT_ASCE, 1))
+                .setMarginTop(20)
+                .setMarginBottom(8));
+
+        doc.add(new Paragraph(
+                "Adresse postale : " + AsceLcInstitutionalInfo.ADDRESS)
+                .setFont(fontNormal).setFontSize(8).setFontColor(TEXTE_GRIS)
+                .setTextAlignment(TextAlignment.CENTER));
+
+        doc.add(new Paragraph(
+                "Tél. : " + AsceLcInstitutionalInfo.PHONE
+                        + " - E-mail : " + AsceLcInstitutionalInfo.EMAIL_INFO
+                        + " ou " + AsceLcInstitutionalInfo.EMAIL_CONTACT
+                        + " - Site web : " + AsceLcInstitutionalInfo.WEBSITE
+                        + " – Numéro vert : " + AsceLcInstitutionalInfo.NUMERO_VERT)
+                .setFont(fontNormal).setFontSize(8).setFontColor(TEXTE_GRIS)
+                .setTextAlignment(TextAlignment.CENTER));
+
+        doc.add(new Paragraph(AsceLcInstitutionalInfo.SLOGAN)
+                .setFont(fontBold).setFontSize(8).setFontColor(VERT_ASCE)
+                .setTextAlignment(TextAlignment.CENTER).setMarginTop(4));
+    }
+
+
+
     private void addHeader(Document doc, DossierResponse dossier,
                            PdfFont fontBold, PdfFont fontNormal) {
 

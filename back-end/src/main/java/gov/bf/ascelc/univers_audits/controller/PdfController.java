@@ -33,4 +33,19 @@ public class PdfController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }
+
+    @GetMapping("/recepisse/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> exportRecepisse(
+            @PathVariable UUID id) {
+
+        log.info("Export récépissé dossier {}", id);
+        byte[] pdf = pdfExportService.exportRecepisse(id);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"recepisse-" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
 }
