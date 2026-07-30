@@ -70,7 +70,7 @@ public class SecurityConfig {
                                 "/api-docs/**").permitAll()
 
                         // ── PDF ───────────────────────────────────────
-                        .requestMatchers("/api/v1/pdf/**").permitAll()
+                        .requestMatchers("/api/v1/pdf/**").authenticated()
 
                         // ── Tout le reste nécessite une auth ──────────
                         .anyRequest().authenticated()
