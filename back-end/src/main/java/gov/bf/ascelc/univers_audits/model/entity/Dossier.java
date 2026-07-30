@@ -91,6 +91,35 @@ public class Dossier extends AuditEntity {
     @Column(name = "incident_period", length = 200)
     private String incidentPeriod;
 
+    @Column(name = "lieu_depot", length = 300)
+    private String lieuDepot;
+
+    @Column(name = "organisme_faits_denomination", length = 200)
+    private String organismeFaitsDenomination;
+
+    @Column(name = "organisme_faits_adresse", length = 300)
+    private String organismeFaitsAdresse;
+
+    @Column(name = "attentes", columnDefinition = "TEXT")
+    private String attentes;
+
+    @Column(name = "decision_justice_existante", nullable = false)
+    @Builder.Default
+    private Boolean decisionJusticeExistante = false;
+
+    @Column(name = "decision_justice_precision", columnDefinition = "TEXT")
+    private String decisionJusticePrecision;
+
+    @Column(name = "autre_institution_saisie", nullable = false)
+    @Builder.Default
+    private Boolean autreInstitutionSaisie = false;
+
+    @Column(name = "autre_institution_nom", length = 200)
+    private String autreInstitutionNom;
+
+    @Column(name = "autre_institution_adresse", length = 300)
+    private String autreInstitutionAdresse;
+
     @Column(name = "estimated_loss", precision = 15, scale = 2)
     private BigDecimal estimatedLoss;
 

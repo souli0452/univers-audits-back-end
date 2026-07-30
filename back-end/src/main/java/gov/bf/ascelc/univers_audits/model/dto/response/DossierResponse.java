@@ -37,6 +37,15 @@ public class DossierResponse {
     private String                     motifs;
     private String                     incidentLocation;
     private String                     incidentPeriod;
+    private String                     lieuDepot;
+    private String                     organismeFaitsDenomination;
+    private String                     organismeFaitsAdresse;
+    private String                     attentes;
+    private Boolean                    decisionJusticeExistante;
+    private String                     decisionJusticePrecision;
+    private Boolean                    autreInstitutionSaisie;
+    private String                     autreInstitutionNom;
+    private String                     autreInstitutionAdresse;
     private BigDecimal                 estimatedLoss;
     private Boolean                    isConfidential;
     private Instant                    receptionDate;

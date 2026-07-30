@@ -51,6 +51,31 @@ public class DossierCreateRequest {
     @Size(max = 200, message = "La période ne doit pas dépasser 200 caractères")
     private String incidentPeriod;
 
+    @Size(max = 300, message = "Le lieu de dépôt ne doit pas dépasser 300 caractères")
+    private String lieuDepot;
+
+    @Size(max = 200, message = "La dénomination de l'organisme ne doit pas dépasser 200 caractères")
+    private String organismeFaitsDenomination;
+
+    @Size(max = 300, message = "L'adresse de l'organisme ne doit pas dépasser 300 caractères")
+    private String organismeFaitsAdresse;
+
+    @Size(max = 5000, message = "Les attentes ne doivent pas dépasser 5000 caractères")
+    private String attentes;
+
+    private Boolean decisionJusticeExistante;
+
+    @Size(max = 2000, message = "La précision ne doit pas dépasser 2000 caractères")
+    private String decisionJusticePrecision;
+
+    private Boolean autreInstitutionSaisie;
+
+    @Size(max = 200, message = "Le nom de l'institution ne doit pas dépasser 200 caractères")
+    private String autreInstitutionNom;
+
+    @Size(max = 300, message = "L'adresse de l'institution ne doit pas dépasser 300 caractères")
+    private String autreInstitutionAdresse;
+
     private BigDecimal estimatedLoss;
 
     @JsonProperty("isConfidential")
