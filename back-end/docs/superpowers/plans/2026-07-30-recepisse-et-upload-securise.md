@@ -35,7 +35,7 @@
 | `service/PdfExportService.java` (modified) | Fixes existing footer values; adds `exportRecepisse` |
 | `service/EmailService.java` (modified) | Fixes hardcoded address/hotline in the email footer |
 | `controller/PdfController.java` (modified) | Adds `GET /api/v1/pdf/recepisse/{id}` |
-| `db/changelog/migrations/011-fix-portal-config-hotline.sql` (new) | Corrects the seeded `hotline_number` value |
+| `db/changelog/migrations/012-fix-portal-config-hotline.sql` (new) | Corrects the seeded `hotline_number` value |
 | `shared/utils/DossierAccessGuard.java` (modified) | Adds `checkAttachmentUploadAccess` |
 | `service/AttachmentStorageService.java` (modified) | Calls the new guard method before writing any file |
 
@@ -47,7 +47,7 @@
 - Create: `src/main/java/gov/bf/ascelc/univers_audits/shared/utils/AsceLcInstitutionalInfo.java`
 - Modify: `src/main/java/gov/bf/ascelc/univers_audits/service/PdfExportService.java:390-394` (existing `addFooter` method)
 - Modify: `src/main/java/gov/bf/ascelc/univers_audits/service/EmailService.java:309-319` (`FOOTER` constant)
-- Create: `src/main/resources/db/changelog/migrations/011-fix-portal-config-hotline.sql`
+- Create: `src/main/resources/db/changelog/migrations/012-fix-portal-config-hotline.sql`
 
 **Interfaces:**
 - Produces: `AsceLcInstitutionalInfo.{ADDRESS, PHONE, EMAIL_INFO, EMAIL_CONTACT, WEBSITE, NUMERO_VERT, SLOGAN}` (all `public static final String`), consumed by Task 2's `exportRecepisse`.
@@ -157,11 +157,11 @@ with:
 
 - [ ] **Step 4: Write the migration**
 
-Create `src/main/resources/db/changelog/migrations/011-fix-portal-config-hotline.sql`:
+Create `src/main/resources/db/changelog/migrations/012-fix-portal-config-hotline.sql`:
 
 ```sql
 --liquibase formatted sql
---changeset dev:011-fix-portal-config-hotline
+--changeset dev:012-fix-portal-config-hotline
 
 -- La valeur seedée en 006-create-portal-config.sql ('80 00 11 11') est
 -- incorrecte. La vraie valeur, confirmée sur le formulaire papier officiel,
@@ -182,7 +182,7 @@ Then check no stale wrong value remains in source (should return nothing):
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/java/gov/bf/ascelc/univers_audits/shared/utils/AsceLcInstitutionalInfo.java src/main/java/gov/bf/ascelc/univers_audits/service/PdfExportService.java src/main/java/gov/bf/ascelc/univers_audits/service/EmailService.java src/main/resources/db/changelog/migrations/011-fix-portal-config-hotline.sql
+git add src/main/java/gov/bf/ascelc/univers_audits/shared/utils/AsceLcInstitutionalInfo.java src/main/java/gov/bf/ascelc/univers_audits/service/PdfExportService.java src/main/java/gov/bf/ascelc/univers_audits/service/EmailService.java src/main/resources/db/changelog/migrations/012-fix-portal-config-hotline.sql
 git commit -m "fix: correct institutional contact details, centralize as shared constants"
 ```
 
