@@ -10,23 +10,45 @@ import org.mapstruct.*;
 )
 public interface DossierDetailsMapper {
 
-    @Mapping(target = "displayName", ignore = true)
-    TargetedPartyResponse toResponse(TargetedParty targetedParty);
+    // NOTE — bug MapStruct/Lombok confirme (voir DeclarantMapper/DossierMapper) :
+    // @AfterMapping n'est jamais invoque quand la cible est un @Builder Lombok.
+    // Tous les DTO de ce mapper sont des @Builder, donc chaque toResponse(...)
+    // ci-dessous enveloppe sa methode generee par MapStruct (renommee mapToResponse
+    // en cas de surcharge) dans une methode default qui appelle explicitement le
+    // hook. C'est particulierement critique pour fillWitness : sans ce correctif,
+    // le masquage d'identite d'un temoin anonyme ne s'appliquait jamais.
 
-    @AfterMapping
-    default void fillTargetedParty(
-            TargetedParty party,
-            @MappingTarget TargetedPartyResponse response) {
-        response.setDisplayName(party.getDisplayName());
+    default TargetedPartyResponse toResponse(TargetedParty targetedParty) {
+        TargetedPartyResponse response = mapToResponse(targetedParty);
+        if (response != null) {
+            fillTargetedParty(targetedParty, response);
+        }
+        return response;
     }
 
     @Mapping(target = "displayName", ignore = true)
-    WitnessResponse toResponse(Witness witness);
+    TargetedPartyResponse mapToResponse(TargetedParty targetedParty);
 
-    @AfterMapping
+    default void fillTargetedParty(
+            TargetedParty party,
+            TargetedPartyResponse response) {
+        response.setDisplayName(party.getDisplayName());
+    }
+
+    default WitnessResponse toResponse(Witness witness) {
+        WitnessResponse response = mapToResponse(witness);
+        if (response != null) {
+            fillWitness(witness, response);
+        }
+        return response;
+    }
+
+    @Mapping(target = "displayName", ignore = true)
+    WitnessResponse mapToResponse(Witness witness);
+
     default void fillWitness(
             Witness witness,
-            @MappingTarget WitnessResponse response) {
+            WitnessResponse response) {
         response.setDisplayName(witness.getDisplayName());
         if (witness.isAnonymous()) {
             response.setFirstName(null);
@@ -44,27 +66,41 @@ public interface DossierDetailsMapper {
     @Mapping(target = "thumbnailUrl", ignore = true)
     AttachmentResponse toResponse(Attachment attachment);
 
-    @Mapping(target = "overdue", ignore = true)
-    NotificationResponse toResponse(Notification notification);
+    default NotificationResponse toResponse(Notification notification) {
+        NotificationResponse response = mapToResponse(notification);
+        if (response != null) {
+            fillNotification(notification, response);
+        }
+        return response;
+    }
 
-    @AfterMapping
+    @Mapping(target = "overdue", ignore = true)
+    NotificationResponse mapToResponse(Notification notification);
+
     default void fillNotification(
             Notification notification,
-            @MappingTarget NotificationResponse response) {
+            NotificationResponse response) {
         response.setOverdue(notification.isOverdue());
     }
 
     StatusHistoryResponse toResponse(StatusHistory statusHistory);
 
+    default AuditionResponse toResponse(Audition audition) {
+        AuditionResponse response = mapToResponse(audition);
+        if (response != null) {
+            fillAudition(audition, response);
+        }
+        return response;
+    }
+
     @Mapping(target = "investigationId", source = "investigation.id")
     @Mapping(target = "intervieweeDisplayName", ignore = true)
     @Mapping(target = "conductedByName", source = "conductedBy.nomComplet")
-    AuditionResponse toResponse(Audition audition);
+    AuditionResponse mapToResponse(Audition audition);
 
-    @AfterMapping
     default void fillAudition(
             Audition audition,
-            @MappingTarget AuditionResponse response) {
+            AuditionResponse response) {
         response.setIntervieweeDisplayName(audition.getIntervieweeDisplayName());
     }
 
@@ -72,15 +108,22 @@ public interface DossierDetailsMapper {
     @Mapping(target = "draftedByName", source = "draftedBy.nomComplet")
     PvAuditionResponse toResponse(PVAudition pvAudition);
 
+    default DemandeDocumentsResponse toResponse(DemandeDocuments demandeDocuments) {
+        DemandeDocumentsResponse response = mapToResponse(demandeDocuments);
+        if (response != null) {
+            fillDemandeDocuments(demandeDocuments, response);
+        }
+        return response;
+    }
+
     @Mapping(target = "investigationId", source = "investigation.id")
     @Mapping(target = "requestedByName", source = "requestedBy.nomComplet")
     @Mapping(target = "overdue", ignore = true)
-    DemandeDocumentsResponse toResponse(DemandeDocuments demandeDocuments);
+    DemandeDocumentsResponse mapToResponse(DemandeDocuments demandeDocuments);
 
-    @AfterMapping
     default void fillDemandeDocuments(
             DemandeDocuments demandeDocuments,
-            @MappingTarget DemandeDocumentsResponse response) {
+            DemandeDocumentsResponse response) {
         response.setOverdue(demandeDocuments.isOverdue());
     }
 }

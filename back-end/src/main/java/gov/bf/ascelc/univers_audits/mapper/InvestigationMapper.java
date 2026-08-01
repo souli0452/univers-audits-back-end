@@ -20,6 +20,21 @@ import java.util.List;
 )
 public interface InvestigationMapper {
 
+    // NOTE — bug MapStruct/Lombok confirme (voir DeclarantMapper/DossierMapper/
+    // DossierDetailsMapper) : @AfterMapping n'est jamais invoque quand la cible
+    // est un @Builder Lombok, ce qui est le cas des deux DTO ci-dessous. Sans ce
+    // correctif, overdue/remainingDays/memberCount/members restaient toujours
+    // vides — appele directement comme reponse finale dans une dizaine
+    // d'endroits de InvestigationServiceImpl.
+
+    default InvestigationResponse toResponse(Investigation investigation) {
+        InvestigationResponse response = mapToResponse(investigation);
+        if (response != null) {
+            fillCalculated(investigation, response);
+        }
+        return response;
+    }
+
     @Mapping(target = "dossierId",     source = "dossier.id")
     @Mapping(target = "dossierNumber", source = "dossier.number")
     @Mapping(target = "dossierObject", source = "dossier.object")
@@ -27,17 +42,24 @@ public interface InvestigationMapper {
     @Mapping(target = "remainingDays", ignore = true)
     @Mapping(target = "memberCount",   ignore = true)
     @Mapping(target = "members",       ignore = true)
-    InvestigationResponse toResponse(Investigation investigation);
+    InvestigationResponse mapToResponse(Investigation investigation);
+
+    default InvestigationSummaryResponse toSummaryResponse(Investigation investigation) {
+        InvestigationSummaryResponse response = mapToSummaryResponse(investigation);
+        if (response != null) {
+            fillSummary(investigation, response);
+        }
+        return response;
+    }
 
     @Mapping(target = "overdue",       ignore = true)
     @Mapping(target = "remainingDays", ignore = true)
     @Mapping(target = "memberCount",   ignore = true)
-    InvestigationSummaryResponse toSummaryResponse(Investigation investigation);
+    InvestigationSummaryResponse mapToSummaryResponse(Investigation investigation);
 
-    @AfterMapping
     default void fillSummary(
             Investigation inv,
-            @MappingTarget InvestigationSummaryResponse response) {
+            InvestigationSummaryResponse response) {
 
         response.setOverdue(inv.isOverdue());
         response.setRemainingDays(inv.getRemainingDays());
@@ -50,10 +72,9 @@ public interface InvestigationMapper {
                         : 0
         );
     }
-    @AfterMapping
     default void fillCalculated(
             Investigation inv,
-            @MappingTarget InvestigationResponse response) {
+            InvestigationResponse response) {
 
         response.setOverdue(inv.isOverdue());
         response.setRemainingDays(inv.getRemainingDays());
