@@ -441,8 +441,14 @@ public class PdfExportService {
                     (declarant.getLastName() != null
                             ? declarant.getLastName() : "")).trim();
 
-            if (!nom.isEmpty()) {
-                addInfoCell(table, "Nom complet", nom, fontBold, fontNormal);
+            // Un lanceur d'alerte protégé (masqué par
+            // DossierServiceImpl.maskSensitiveData) a prénom/nom vides mais un
+            // displayName standard ("Lanceur d'alerte protégé...") — on
+            // l'affiche plutôt que d'omettre silencieusement la ligne.
+            String nomAffiche = !nom.isEmpty() ? nom : declarant.getDisplayName();
+
+            if (nomAffiche != null && !nomAffiche.isBlank()) {
+                addInfoCell(table, "Nom complet", nomAffiche, fontBold, fontNormal);
             }
             if (declarant.getEmail() != null) {
                 addInfoCell(table, "Email", declarant.getEmail(), fontBold, fontNormal);
