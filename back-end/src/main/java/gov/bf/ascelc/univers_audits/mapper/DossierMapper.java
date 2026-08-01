@@ -16,6 +16,23 @@ import org.mapstruct.*;
 )
 public interface DossierMapper {
 
+    // DossierResponse est construit via un builder Lombok (@Builder) : dans
+    // cette configuration MapStruct/Lombok, le hook @AfterMapping n'est
+    // jamais invoqué par le code généré (il retourne directement
+    // builder.build() sans appeler la méthode de callback) — problème connu
+    // de MapStruct avec les cibles de type builder, déjà rencontré et corrigé
+    // de la même façon sur DeclarantMapper. On enveloppe donc la méthode
+    // générée par MapStruct dans une méthode default qui appelle
+    // fillCalculatedFields nous-mêmes, pour garantir que
+    // acknowledgmentOverdue/daysSinceReception sont réellement calculés.
+    default DossierResponse toResponse(Dossier dossier) {
+        DossierResponse response = mapToResponse(dossier);
+        if (response != null) {
+            fillCalculatedFields(dossier, response);
+        }
+        return response;
+    }
+
     // Les collections *-to-many ne sont mappées que pour la vue détail d'un
     // dossier (voir DossierServiceImpl.enrichAndMaskDetail) — les inclure ici
     // déclenche un N+1 sur chaque dossier d'une page paginée (findAll/findByStatus...).
@@ -26,12 +43,11 @@ public interface DossierMapper {
     @Mapping(target = "observations", ignore = true)
     @Mapping(target = "attachments", ignore = true)
     @Mapping(target = "notifications", ignore = true)
-    DossierResponse toResponse(Dossier dossier);
+    DossierResponse mapToResponse(Dossier dossier);
 
-    @AfterMapping
     default void fillCalculatedFields(
             Dossier dossier,
-            @MappingTarget DossierResponse response) {
+            DossierResponse response) {
         response.setAcknowledgmentOverdue(dossier.isAcknowledgmentOverdue());
         response.setDaysSinceReception(dossier.getDaysSinceReception());
     }
