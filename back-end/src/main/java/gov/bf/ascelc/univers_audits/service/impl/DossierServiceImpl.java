@@ -170,6 +170,7 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
         dossier.setType(natureSaisine);
+        dossier.setAnonymous(anonymousRequested);
         if (natureSaisine == TypeSaisine.SIGNALEMENT
                 || natureSaisine == TypeSaisine.AUTO_SAISINE) {
             // La qualité (victime/représentant/témoin) n'a de sens que pour

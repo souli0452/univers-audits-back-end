@@ -1,6 +1,8 @@
 package gov.bf.ascelc.univers_audits.mapper;
 
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
+import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import org.junit.jupiter.api.Test;
@@ -43,5 +45,56 @@ class DossierMapperTest {
 
         assertThat(response.getAcknowledgmentOverdue()).isFalse();
         assertThat(response.getDaysSinceReception()).isEqualTo(0L);
+    }
+
+    // Couvre le champ anonymous de DossierCreateRequest#toEntity. Voir
+    // DossierServiceImpl#submit, qui applique dossier.setAnonymous(anonymousRequested)
+    // juste après l'appel à toEntity() pour couvrir le cas request.anonymous == null
+    // (le mapper seul, testé isolément ici, ne fait aucune coalescence).
+
+    @Test
+    void toEntity_anonymousTrue_isCopiedToEntity() {
+        DossierCreateRequest request = DossierCreateRequest.builder()
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .object("Objet du dossier")
+                .anonymous(true)
+                .build();
+
+        Dossier dossier = mapper.toEntity(request);
+
+        assertThat(dossier.getAnonymous()).isTrue();
+    }
+
+    @Test
+    void toEntity_anonymousFalse_isCopiedToEntity() {
+        DossierCreateRequest request = DossierCreateRequest.builder()
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .object("Objet du dossier")
+                .anonymous(false)
+                .build();
+
+        Dossier dossier = mapper.toEntity(request);
+
+        assertThat(dossier.getAnonymous()).isFalse();
+    }
+
+    @Test
+    void toEntity_anonymousNull_producesNullOnEntity_mapperAloneDoesNotDefault() {
+        // Documente le comportement réel, non protégé, du mapper seul : à la
+        // différence de isConfidential (qui a un getter défensif dans
+        // DossierCreateRequest), request.getAnonymous() == null est recopié
+        // tel quel par MapStruct, ce qui écrase le @Builder.Default(false) de
+        // l'entité. C'est exactement le bug de la Finding 1 : le garde-fou
+        // vit dans DossierServiceImpl#submit (dossier.setAnonymous(anonymousRequested)),
+        // pas dans le mapper.
+        DossierCreateRequest request = DossierCreateRequest.builder()
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .object("Objet du dossier")
+                .anonymous(null)
+                .build();
+
+        Dossier dossier = mapper.toEntity(request);
+
+        assertThat(dossier.getAnonymous()).isNull();
     }
 }
