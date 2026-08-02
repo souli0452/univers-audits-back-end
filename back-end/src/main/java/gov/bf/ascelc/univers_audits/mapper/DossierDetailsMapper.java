@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.mapper;
 
+import gov.bf.ascelc.univers_audits.model.dto.request.*;
 import gov.bf.ascelc.univers_audits.model.dto.response.*;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import org.mapstruct.*;
@@ -126,4 +127,36 @@ public interface DossierDetailsMapper {
             DemandeDocumentsResponse response) {
         response.setOverdue(demandeDocuments.isOverdue());
     }
+
+    default EtudeOpportuniteResponse toResponse(EtudeOpportunite etude) {
+        EtudeOpportuniteResponse response = mapToResponse(etude);
+        if (response != null) {
+            fillEtudeOpportunite(etude, response);
+        }
+        return response;
+    }
+
+    @Mapping(target = "typeInfractionId", ignore = true)
+    @Mapping(target = "typeInfractionLibelle", ignore = true)
+    EtudeOpportuniteResponse mapToResponse(EtudeOpportunite etude);
+
+    default void fillEtudeOpportunite(
+            EtudeOpportunite etude,
+            EtudeOpportuniteResponse response) {
+        if (etude.getTypeInfraction() != null) {
+            response.setTypeInfractionId(etude.getTypeInfraction().getId());
+            response.setTypeInfractionLibelle(etude.getTypeInfraction().getLibelle());
+        }
+    }
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "version", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "createdById", ignore = true)
+    @Mapping(target = "updatedById", ignore = true)
+    @Mapping(target = "dossier", ignore = true)
+    @Mapping(target = "typeInfraction", ignore = true)
+    void updateEntity(EtudeOpportuniteRequest request, @MappingTarget EtudeOpportunite etude);
 }
