@@ -212,7 +212,7 @@ public class PdfExportService {
         String deposantLabel;
         if (declarant == null) {
             deposantLabel = "—";
-        } else if (Boolean.TRUE.equals(declarant.getAnonymous())) {
+        } else if (Boolean.TRUE.equals(dossier.getAnonymous())) {
             deposantLabel = "Anonyme";
         } else {
             String nomComplet = ((declarant.getFirstName() != null ? declarant.getFirstName() : "")
@@ -421,7 +421,7 @@ public class PdfExportService {
                 .setWidth(UnitValue.createPercentValue(100))
                 .setMarginBottom(16);
 
-        if (Boolean.TRUE.equals(declarant.getAnonymous())) {
+        if (Boolean.TRUE.equals(dossier.getAnonymous())) {
 
             Cell cell = new Cell(1, 4)
                     .setBorder(Border.NO_BORDER)

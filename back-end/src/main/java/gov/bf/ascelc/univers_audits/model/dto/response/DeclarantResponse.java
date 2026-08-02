@@ -26,7 +26,6 @@ public class DeclarantResponse {
     private String localite;
     private String profession;
     private String displayName;
-    private Boolean anonymous;
     private Boolean protectionRequested;
     private Boolean notificationsAccepted;
 }

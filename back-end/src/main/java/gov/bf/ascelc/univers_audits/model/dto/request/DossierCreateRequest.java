@@ -23,6 +23,8 @@ public class DossierCreateRequest {
 
     private QualiteDeclarant quality;
 
+    private Boolean anonymous;
+
     @NotNull(message = "Le mode de soumission est obligatoire")
     private SubmissionMode submissionMode;
 

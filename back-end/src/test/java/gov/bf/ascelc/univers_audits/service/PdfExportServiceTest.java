@@ -40,13 +40,13 @@ class PdfExportServiceTest {
                 .accessCode("ABCD1234")
                 .type(TypeSaisine.DENONCIATION)
                 .quality(QualiteDeclarant.TEMOIN)
+                .anonymous(false)
                 .submissionMode(SubmissionMode.IN_PERSON)
                 .object("Marché public suspect")
                 .receptionDate(Instant.now())
                 .declarant(DeclarantResponse.builder()
                         .firstName("Awa")
                         .lastName("Ouedraogo")
-                        .anonymous(false)
                         .build())
                 .build();
 
@@ -58,19 +58,18 @@ class PdfExportServiceTest {
     }
 
     @Test
-    void exportRecepisse_producesNonEmptyPdfForAnonymousDeclarant() {
+    void exportRecepisse_producesNonEmptyPdfForAnonymousDeclarant() throws Exception {
         UUID dossierId = UUID.randomUUID();
         DossierResponse dossier = DossierResponse.builder()
                 .number("ASCE-2026-000043")
                 .accessCode("EFGH5678")
                 .type(TypeSaisine.DENONCIATION)
                 .quality(QualiteDeclarant.TEMOIN)
+                .anonymous(true)
                 .submissionMode(SubmissionMode.WEB_FORM)
                 .object("Détournement présumé")
                 .receptionDate(Instant.now())
-                .declarant(DeclarantResponse.builder()
-                        .anonymous(true)
-                        .build())
+                .declarant(DeclarantResponse.builder().build())
                 .build();
 
         when(dossierService.findById(dossierId)).thenReturn(dossier);
@@ -78,6 +77,12 @@ class PdfExportServiceTest {
         byte[] pdf = service.exportRecepisse(dossierId);
 
         assertThat(pdf).isNotEmpty();
+
+        String text;
+        try (PdfDocument pdfDoc = new PdfDocument(new PdfReader(new ByteArrayInputStream(pdf)))) {
+            text = PdfTextExtractor.getTextFromPage(pdfDoc.getFirstPage());
+        }
+        assertThat(text).contains("Anonyme");
     }
 
     @Test
@@ -88,13 +93,13 @@ class PdfExportServiceTest {
                 .accessCode("IJKL9012")
                 .type(TypeSaisine.DENONCIATION)
                 .quality(QualiteDeclarant.TEMOIN)
+                .anonymous(false)
                 .submissionMode(SubmissionMode.IN_PERSON)
                 .object("Marché public suspect")
                 .receptionDate(Instant.now())
                 .declarant(DeclarantResponse.builder()
                         .firstName("Awa")
                         .lastName("Ouedraogo")
-                        .anonymous(false)
                         .build())
                 .build();
 

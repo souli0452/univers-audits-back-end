@@ -986,7 +986,7 @@ public class DossierServiceImpl implements DossierService {
         }
 
         if (response.getDeclarant() != null
-                && Boolean.TRUE.equals(response.getDeclarant().getAnonymous())) {
+                && Boolean.TRUE.equals(response.getAnonymous())) {
             response.getDeclarant().setFirstName(null);
             response.getDeclarant().setLastName(null);
             response.getDeclarant().setEmail(null);

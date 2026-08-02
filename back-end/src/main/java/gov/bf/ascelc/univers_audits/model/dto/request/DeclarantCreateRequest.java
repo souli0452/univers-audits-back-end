@@ -58,7 +58,6 @@ public class DeclarantCreateRequest {
     @Size(max = 30)
     private String idDocumentType;
 
-    private Boolean anonymous;
     private Boolean dataProcessingConsent;
     private Boolean notificationsAccepted;
 

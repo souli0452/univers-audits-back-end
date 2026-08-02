@@ -27,6 +27,7 @@ public class DossierResponse {
     private DossierStatus              status;
     private TypeSaisine                type;
     private QualiteDeclarant           quality;
+    private Boolean                    anonymous;
     private SubmissionMode             submissionMode;
     private SocialPlatform             socialPlatform;
     private AutoReferralSource         autoReferralSource;

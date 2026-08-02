@@ -80,7 +80,6 @@ class DossierServiceImplTest {
     private DossierCreateRequest buildRequest(QualiteDeclarant quality) {
         DeclarantCreateRequest declarantData = DeclarantCreateRequest.builder()
                 .typeDeclarant(TypeDeclarant.CITIZEN)
-                .anonymous(false)
                 .firstName("Awa")
                 .lastName("Ouedraogo")
                 .build();
@@ -119,7 +118,6 @@ class DossierServiceImplTest {
     void submit_nullsQualityForSignalement() {
         DeclarantCreateRequest declarantData = DeclarantCreateRequest.builder()
                 .typeDeclarant(TypeDeclarant.PUBLIC_AUTHORITY)
-                .anonymous(false)
                 .firstName("Awa")
                 .lastName("Ouedraogo")
                 .build();
