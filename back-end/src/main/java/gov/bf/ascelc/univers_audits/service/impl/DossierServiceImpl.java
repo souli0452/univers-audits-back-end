@@ -162,9 +162,10 @@ public class DossierServiceImpl implements DossierService {
                     "Le déclarant est requis pour déterminer la nature de la saisine.");
         }
 
+        boolean anonymousRequested = Boolean.TRUE.equals(request.getAnonymous());
         TypeSaisine natureSaisine = natureSaisineResolver.resolve(
                 declarant.getTypeDeclarant(), request.getQuality(),
-                declarant.isAnonymous());
+                anonymousRequested);
 
         Dossier dossier = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
@@ -996,6 +997,7 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setProvince(null);
             response.getDeclarant().setCellulaire(null);
             response.getDeclarant().setLocalite(null);
+            response.getDeclarant().setDisplayName("Déclarant anonyme");
         }
 
         if (response.getWitnesses() != null) {

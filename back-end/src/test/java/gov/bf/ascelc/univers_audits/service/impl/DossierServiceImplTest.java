@@ -11,6 +11,7 @@ import gov.bf.ascelc.univers_audits.mapper.DossierMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.DeclarantCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,6 +80,10 @@ class DossierServiceImplTest {
     private DossierServiceImpl service;
 
     private DossierCreateRequest buildRequest(QualiteDeclarant quality) {
+        return buildRequest(quality, false);
+    }
+
+    private DossierCreateRequest buildRequest(QualiteDeclarant quality, boolean anonymous) {
         DeclarantCreateRequest declarantData = DeclarantCreateRequest.builder()
                 .typeDeclarant(TypeDeclarant.CITIZEN)
                 .firstName("Awa")
@@ -87,6 +93,7 @@ class DossierServiceImplTest {
                 .submissionMode(SubmissionMode.WEB_FORM)
                 .object("Marché public suspect")
                 .quality(quality)
+                .anonymous(anonymous)
                 .declarantData(declarantData)
                 .build();
     }
@@ -164,7 +171,7 @@ class DossierServiceImplTest {
 
     @Test
     void submit_propagatesBusinessExceptionFromResolverWithoutSaving() {
-        DossierCreateRequest request = buildRequest(QualiteDeclarant.VICTIME);
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.VICTIME, true);
         Declarant declarant = Declarant.builder()
                 .typeDeclarant(TypeDeclarant.ANONYMOUS)
                 .build();
@@ -342,5 +349,83 @@ class DossierServiceImplTest {
 
         verify(habilitationService).grant(dossier, agent, HabilitationSource.AGENT_IN_CHARGE,
                 agent, "Agent en charge du dossier (enregistrement BRPD)");
+    }
+
+    @Test
+    void submit_derivesAnonymityFromCurrentRequestAcrossReusedDeclarant() {
+        // Le meme Declarant (meme instance = meme ligne reutilisee par
+        // resolveDeclarant) est soumis deux fois avec des demandes d'anonymat
+        // opposees. Avant ce correctif, natureSaisineResolver recevait
+        // declarant.isAnonymous() — un etat de l'entite qui ne change pas entre
+        // les deux appels ici — au lieu de l'anonymat de CHAQUE soumission.
+        Declarant reusedDeclarant = Declarant.builder()
+                .typeDeclarant(TypeDeclarant.CITIZEN)
+                .build();
+        UUID declarantId = UUID.randomUUID();
+
+        DossierCreateRequest anonymousRequest = DossierCreateRequest.builder()
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .object("Premier signalement")
+                .quality(QualiteDeclarant.TEMOIN)
+                .anonymous(true)
+                .declarantId(declarantId)
+                .build();
+        when(declarantRepository.findById(declarantId)).thenReturn(Optional.of(reusedDeclarant));
+        when(natureSaisineResolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, true))
+                .thenReturn(TypeSaisine.DENONCIATION);
+        when(dossierMapper.toEntity(anonymousRequest))
+                .thenReturn(Dossier.builder().anonymous(true).build());
+        when(accessCodeGenerator.generate()).thenReturn("ABCD1234");
+        when(dossierRepository.existsByAccessCode("ABCD1234")).thenReturn(false);
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.submit(anonymousRequest, "127.0.0.1");
+
+        verify(natureSaisineResolver).resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, true);
+
+        DossierCreateRequest namedRequest = DossierCreateRequest.builder()
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .object("Deuxième plainte, identité révélée")
+                .quality(QualiteDeclarant.VICTIME)
+                .anonymous(false)
+                .declarantId(declarantId)
+                .build();
+        when(declarantRepository.findById(declarantId)).thenReturn(Optional.of(reusedDeclarant));
+        when(natureSaisineResolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.VICTIME, false))
+                .thenReturn(TypeSaisine.PLAINTE);
+        when(dossierMapper.toEntity(namedRequest))
+                .thenReturn(Dossier.builder().anonymous(false).build());
+
+        service.submit(namedRequest, "127.0.0.1");
+
+        verify(natureSaisineResolver).resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.VICTIME, false);
+    }
+
+    @Test
+    void findById_masksIdentityWhenDossierAnonymous() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        DeclarantResponse declarantResponse = DeclarantResponse.builder()
+                .firstName("Awa")
+                .lastName("Ouedraogo")
+                .email("awa@example.com")
+                .phoneNumber("70000000")
+                .build();
+        DossierResponse response = DossierResponse.builder()
+                .anonymous(true)
+                .declarant(declarantResponse)
+                .build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(response);
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        DossierResponse result = service.findById(dossierId);
+
+        assertThat(result.getDeclarant().getFirstName()).isNull();
+        assertThat(result.getDeclarant().getLastName()).isNull();
+        assertThat(result.getDeclarant().getEmail()).isNull();
+        assertThat(result.getDeclarant().getPhoneNumber()).isNull();
+        assertThat(result.getDeclarant().getDisplayName()).isEqualTo("Déclarant anonyme");
     }
 }
