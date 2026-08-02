@@ -83,7 +83,9 @@ public class DossierServiceImpl implements DossierService {
                 .findByAccessCode(accessCode)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Dossier introuvable avec ce code d'accès"));
-        return enrichAndMaskDetail(dossier);
+        DossierResponse response = enrichAndMaskDetail(dossier);
+        response.setEtudeOpportunite(null);
+        return response;
     }
 
     @Override

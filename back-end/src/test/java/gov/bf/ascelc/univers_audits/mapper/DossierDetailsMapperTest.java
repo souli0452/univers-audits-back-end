@@ -1,6 +1,8 @@
 package gov.bf.ascelc.univers_audits.mapper;
 
+import gov.bf.ascelc.univers_audits.model.dto.request.EtudeOpportuniteRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
+import gov.bf.ascelc.univers_audits.model.entity.EtudeOpportunite;
 import gov.bf.ascelc.univers_audits.model.entity.Witness;
 import org.junit.jupiter.api.Test;
 
@@ -48,5 +50,23 @@ class DossierDetailsMapperTest {
         assertThat(response.getLastName()).isEqualTo("Kabore");
         assertThat(response.getPhoneNumber()).isEqualTo("70000000");
         assertThat(response.getDisplayName()).isEqualTo("Jean Kabore");
+    }
+
+    @Test
+    void updateEntity_ignoresNullFieldsAndPreservesExistingValues() {
+        EtudeOpportunite existing = EtudeOpportunite.builder()
+                .preoccupationReelle(true)
+                .avisGeneral("Avis initial du conseiller")
+                .build();
+
+        EtudeOpportuniteRequest request = EtudeOpportuniteRequest.builder()
+                .preuvesSuffisantes(false)
+                .build();
+
+        mapper.updateEntity(request, existing);
+
+        assertThat(existing.getPreoccupationReelle()).isTrue();
+        assertThat(existing.getAvisGeneral()).isEqualTo("Avis initial du conseiller");
+        assertThat(existing.getPreuvesSuffisantes()).isFalse();
     }
 }

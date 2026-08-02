@@ -15,6 +15,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.EtudeOpportuniteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
@@ -503,5 +504,24 @@ class DossierServiceImplTest {
         service.submitToCtadp(dossierId, request, "127.0.0.1");
 
         verify(dossierRepository).save(argThat(d -> d.getStatus() == DossierStatus.EN_REVUE_CTADP));
+    }
+
+    @Test
+    void findByAccessCode_neverExposesEtudeOpportunite() {
+        String accessCode = "ABCD1234";
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).accessCode(accessCode).build();
+        DossierResponse response = DossierResponse.builder()
+                .etudeOpportunite(EtudeOpportuniteResponse.builder()
+                        .avisGeneral("Analyse interne confidentielle")
+                        .build())
+                .build();
+
+        when(dossierRepository.findByAccessCode(accessCode)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(response);
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        DossierResponse result = service.findByAccessCode(accessCode);
+
+        assertThat(result.getEtudeOpportunite()).isNull();
     }
 }
