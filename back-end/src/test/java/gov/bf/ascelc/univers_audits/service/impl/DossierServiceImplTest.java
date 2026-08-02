@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
+import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
@@ -21,6 +22,7 @@ import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DeclarantRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierHabilitationRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.repository.EtudeOpportuniteRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
@@ -76,6 +78,7 @@ class DossierServiceImplTest {
     @Mock private DossierAccessGuard accessGuard;
     @Mock private DossierHabilitationService habilitationService;
     @Mock private PortalConfigService portalConfigService;
+    @Mock private EtudeOpportuniteRepository etudeOpportuniteRepository;
 
     @InjectMocks
     private DossierServiceImpl service;
@@ -322,7 +325,8 @@ class DossierServiceImplTest {
                 dossierRepository, declarantRepository, notificationRepository, observationRepository,
                 dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
                 notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
-                natureSaisineResolver, realGuard, habilitationService, portalConfigService);
+                natureSaisineResolver, realGuard, habilitationService, portalConfigService,
+                etudeOpportuniteRepository);
 
         assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
                 .doesNotThrowAnyException();
@@ -465,5 +469,39 @@ class DossierServiceImplTest {
                 .isInstanceOf(BusinessException.class);
 
         verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void submitToCtadp_rejectsWhenNoEtudeOpportuniteExists() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_ETUDE_OPPORTUNITE).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder().build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(etudeOpportuniteRepository.existsByDossierId(dossierId)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.submitToCtadp(dossierId, request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void submitToCtadp_succeedsWhenEtudeOpportuniteExists() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_ETUDE_OPPORTUNITE).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder().build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(etudeOpportuniteRepository.existsByDossierId(dossierId)).thenReturn(true);
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        service.submitToCtadp(dossierId, request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getStatus() == DossierStatus.EN_REVUE_CTADP));
     }
 }

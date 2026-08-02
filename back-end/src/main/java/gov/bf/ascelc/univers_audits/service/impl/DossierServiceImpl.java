@@ -62,6 +62,7 @@ public class DossierServiceImpl implements DossierService {
     private final DossierAccessGuard            accessGuard;
     private final DossierHabilitationService    habilitationService;
     private final PortalConfigService           portalConfigService;
+    private final EtudeOpportuniteRepository    etudeOpportuniteRepository;
 
 
     // ════════════════════════════════════════════════════════════
@@ -439,6 +440,12 @@ public class DossierServiceImpl implements DossierService {
         validateTransition(dossier, DossierStatus.EN_REVUE_CTADP);
         Agent agent = agentContextResolver.getCurrentAgent();
 
+        if (!etudeOpportuniteRepository.existsByDossierId(dossierId)) {
+            throw new BusinessException(
+                    "Impossible de soumettre au CTADP sans étude d'opportunité "
+                            + "préalable");
+        }
+
         dossier.setStatus(DossierStatus.EN_REVUE_CTADP);
 
         auditRecorder.addObservation(dossier,
@@ -812,6 +819,10 @@ public class DossierServiceImpl implements DossierService {
 
         response.setWitnesses(dossier.getWitnesses().stream()
                 .map(dossierDetailsMapper::toResponse).toList());
+        response.setEtudeOpportunite(
+                etudeOpportuniteRepository.findByDossierId(dossier.getId())
+                        .map(dossierDetailsMapper::toResponse)
+                        .orElse(null));
         response.setTargetedParties(dossier.getTargetedParties().stream()
                 .map(dossierDetailsMapper::toResponse).toList());
         response.setObservations(dossier.getObservations().stream()
@@ -960,6 +971,7 @@ public class DossierServiceImpl implements DossierService {
             response.setEstimatedLoss(null);
             response.setObservations(null);
             response.setWitnesses(null);
+            response.setEtudeOpportunite(null);
             response.setTargetedParties(null);
             response.setComplementMotif(null);
             response.setAttachments(null);

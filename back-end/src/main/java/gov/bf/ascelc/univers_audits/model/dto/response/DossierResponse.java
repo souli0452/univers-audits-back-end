@@ -71,6 +71,7 @@ public class DossierResponse {
     private AgentSummaryResponse       agentInCharge;
     private List<TargetedPartyResponse>  targetedParties;
     private List<WitnessResponse>        witnesses;
+    private EtudeOpportuniteResponse     etudeOpportunite;
     private List<ObservationResponse>    observations;
     private List<AttachmentResponse>     attachments;
     private List<NotificationResponse>   notifications;
