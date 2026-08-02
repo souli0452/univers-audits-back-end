@@ -54,9 +54,6 @@ public interface DeclarantMapper {
     @Mapping(target = "createdById", ignore = true)
     @Mapping(target = "updatedById", ignore = true)
     @Mapping(target = "cases", ignore = true)
-    @Mapping(target = "anonymous",
-            source = "anonymous",
-            defaultValue = "false")
     @Mapping(target = "protectionRequested",
             source = "protectionRequested",
             defaultValue = "false")

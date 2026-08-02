@@ -58,6 +58,10 @@ public class Dossier extends AuditEntity {
     @Column(name = "quality", length = 30)
     private QualiteDeclarant quality;
 
+    @Column(name = "anonymous", nullable = false)
+    @Builder.Default
+    private Boolean anonymous = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "submission_mode", length = 25)
     private SubmissionMode submissionMode;

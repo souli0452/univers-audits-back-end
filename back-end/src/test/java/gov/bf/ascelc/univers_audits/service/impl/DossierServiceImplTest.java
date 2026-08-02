@@ -97,7 +97,6 @@ class DossierServiceImplTest {
         DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
         Declarant declarant = Declarant.builder()
                 .typeDeclarant(TypeDeclarant.CITIZEN)
-                .anonymous(false)
                 .build();
 
         when(declarantMapper.toEntity(request.getDeclarantData())).thenReturn(declarant);
@@ -132,7 +131,6 @@ class DossierServiceImplTest {
                 .build();
         Declarant declarant = Declarant.builder()
                 .typeDeclarant(TypeDeclarant.PUBLIC_AUTHORITY)
-                .anonymous(false)
                 .build();
 
         when(declarantMapper.toEntity(request.getDeclarantData())).thenReturn(declarant);
@@ -171,7 +169,6 @@ class DossierServiceImplTest {
         DossierCreateRequest request = buildRequest(QualiteDeclarant.VICTIME);
         Declarant declarant = Declarant.builder()
                 .typeDeclarant(TypeDeclarant.ANONYMOUS)
-                .anonymous(true)
                 .build();
 
         when(declarantMapper.toEntity(request.getDeclarantData())).thenReturn(declarant);

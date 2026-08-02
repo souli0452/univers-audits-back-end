@@ -72,11 +72,6 @@ public class Declarant extends AuditEntity {
     @Column(name = "id_document_type", length = 30)
     private String idDocumentType;
 
-
-    @Column(name = "anonymous", nullable = false)
-    @Builder.Default
-    private Boolean anonymous = false;
-
     @Column(name = "protection_requested", nullable = false)
     @Builder.Default
     private Boolean protectionRequested = false;
@@ -95,7 +90,7 @@ public class Declarant extends AuditEntity {
 
 
     public String getDisplayName() {
-        if (Boolean.TRUE.equals(anonymous)) {
+        if (TypeDeclarant.ANONYMOUS.equals(typeDeclarant)) {
             return "Anonymous";
         }
         if (TypeDeclarant.ASCE_SELF_REFERRAL.equals(typeDeclarant)) {
@@ -112,8 +107,7 @@ public class Declarant extends AuditEntity {
 
 
     public boolean isAnonymous() {
-        return Boolean.TRUE.equals(anonymous)
-                || TypeDeclarant.ANONYMOUS.equals(typeDeclarant);
+        return TypeDeclarant.ANONYMOUS.equals(typeDeclarant);
     }
 
 
@@ -122,8 +116,6 @@ public class Declarant extends AuditEntity {
     }
     @PrePersist
     protected void onPrePersist() {
-        if (anonymous == null)
-            anonymous = false;
         if (protectionRequested == null)
             protectionRequested = false;
         if (dataProcessingConsent == null)
@@ -132,7 +124,5 @@ public class Declarant extends AuditEntity {
             notificationsAccepted = true;
         if (typeDeclarant == null)
             typeDeclarant = TypeDeclarant.CITIZEN;
-        if (TypeDeclarant.ANONYMOUS.equals(typeDeclarant))
-            anonymous = true;
     }
 }

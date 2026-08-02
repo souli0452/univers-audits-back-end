@@ -14,8 +14,7 @@ class DeclarantMapperTest {
     @Test
     void toResponse_masksCellulaireAndLocaliteForAnonymousDeclarant() {
         Declarant declarant = Declarant.builder()
-                .typeDeclarant(TypeDeclarant.CITIZEN)
-                .anonymous(true)
+                .typeDeclarant(TypeDeclarant.ANONYMOUS)
                 .cellulaire("70000000")
                 .localite("Tampouy")
                 .build();
@@ -30,7 +29,6 @@ class DeclarantMapperTest {
     void toResponse_keepsCellulaireAndLocaliteForNamedDeclarant() {
         Declarant declarant = Declarant.builder()
                 .typeDeclarant(TypeDeclarant.CITIZEN)
-                .anonymous(false)
                 .firstName("Awa")
                 .lastName("Ouedraogo")
                 .cellulaire("70000000")
