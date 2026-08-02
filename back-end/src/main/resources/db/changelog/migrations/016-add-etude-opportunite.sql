@@ -1,10 +1,10 @@
 --liquibase formatted sql
 --changeset dev:016-add-etude-opportunite
 
-CREATE TABLE IF NOT EXISTS etude_opportunite (
+CREATE TABLE etude_opportunite (
     id                                              UUID PRIMARY KEY,
     version                                         BIGINT NOT NULL DEFAULT 0,
-    created_at                                       TIMESTAMP,
+    created_at                                       TIMESTAMP NOT NULL,
     updated_at                                       TIMESTAMP,
     created_by_id                                    VARCHAR(100),
     updated_by_id                                    VARCHAR(100),
