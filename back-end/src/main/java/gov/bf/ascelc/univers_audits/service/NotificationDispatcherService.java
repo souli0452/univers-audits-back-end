@@ -22,7 +22,7 @@ public class NotificationDispatcherService {
         }
 
         String accessCode    = dossier.getAccessCode();
-        String declarantName = resolveDisplayName(declarant);
+        String declarantName = resolveDisplayName(dossier);
 
         if (declarant.getEmail() != null && !declarant.getEmail().isBlank()) {
             emailService.sendAccessCode(
@@ -59,7 +59,7 @@ public class NotificationDispatcherService {
         }
 
         String accessCode    = dossier.getAccessCode();
-        String declarantName = resolveDisplayName(declarant);
+        String declarantName = resolveDisplayName(dossier);
 
         String[] content         = EmailService.getStatusEmailContent(statusLabel);
         String   statusLabelText = content[0];
@@ -91,7 +91,7 @@ public class NotificationDispatcherService {
         if (declarant == null) return;
 
         String accessCode    = dossier.getAccessCode();
-        String declarantName = resolveDisplayName(declarant);
+        String declarantName = resolveDisplayName(dossier);
 
         if (declarant.getEmail() != null && !declarant.getEmail().isBlank()) {
             emailService.sendComplementRequest(
@@ -114,7 +114,7 @@ public class NotificationDispatcherService {
         if (declarant == null) return;
 
         String accessCode    = dossier.getAccessCode();
-        String declarantName = resolveDisplayName(declarant);
+        String declarantName = resolveDisplayName(dossier);
 
         if (declarant.getEmail() != null && !declarant.getEmail().isBlank()) {
             emailService.sendTransferExternal(
@@ -132,8 +132,9 @@ public class NotificationDispatcherService {
     }
 
 
-    private String resolveDisplayName(Declarant declarant) {
-        if (declarant.isAnonymous()
+    private String resolveDisplayName(Dossier dossier) {
+        Declarant declarant = dossier.getDeclarant();
+        if (Boolean.TRUE.equals(dossier.getAnonymous())
                 || Boolean.TRUE.equals(declarant.getProtectionRequested())) {
             return null;
         }
