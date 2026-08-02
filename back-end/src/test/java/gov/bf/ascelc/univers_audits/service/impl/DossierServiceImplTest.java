@@ -10,6 +10,7 @@ import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.mapper.DossierMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.DeclarantCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
@@ -427,5 +428,42 @@ class DossierServiceImplTest {
         assertThat(result.getDeclarant().getEmail()).isNull();
         assertThat(result.getDeclarant().getPhoneNumber()).isNull();
         assertThat(result.getDeclarant().getDisplayName()).isEqualTo("Déclarant anonyme");
+    }
+
+    @Test
+    void update_succeedsWhenAgentIsHabilitated() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        DossierUpdateRequest request = DossierUpdateRequest.builder()
+                .object("Objet corrigé")
+                .build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        assertThatCode(() -> service.update(dossierId, request)).doesNotThrowAnyException();
+
+        verify(accessGuard).checkReadAccess(dossier);
+        verify(dossierRepository).save(dossier);
+    }
+
+    @Test
+    void update_propagatesGuardRejectionWithoutSaving() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        DossierUpdateRequest request = DossierUpdateRequest.builder()
+                .object("Tentative de modification")
+                .build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        doThrow(new BusinessException("Accès refusé — ce dossier ne vous est pas assigné"))
+                .when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.update(dossierId, request))
+                .isInstanceOf(BusinessException.class);
+
+        verify(dossierRepository, never()).save(any());
     }
 }

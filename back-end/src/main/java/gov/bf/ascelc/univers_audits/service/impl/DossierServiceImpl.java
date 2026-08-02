@@ -605,6 +605,7 @@ public class DossierServiceImpl implements DossierService {
     @Transactional
     public DossierResponse update(UUID dossierId, DossierUpdateRequest request) {
         Dossier dossier = getDossierOrThrow(dossierId);
+        accessGuard.checkReadAccess(dossier);
 
         if (dossier.isClosed()) {
             throw new BusinessException(
