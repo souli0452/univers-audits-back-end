@@ -107,6 +107,24 @@ class SeanceCtadpServiceImplTest {
     }
 
     @Test
+    void addDossier_rejectsWhenSeanceNotPlanifiee() {
+        UUID seanceId = UUID.randomUUID();
+        UUID dossierId = UUID.randomUUID();
+        SeanceCTADP seance = SeanceCTADP.builder().id(seanceId)
+                .statut(StatutSeanceCtadp.TENUE).build();
+        AddDossierToSeanceRequest request = AddDossierToSeanceRequest.builder()
+                .dossierId(dossierId).build();
+
+        when(seanceCtadpRepository.findById(seanceId)).thenReturn(Optional.of(seance));
+
+        assertThatThrownBy(() -> service.addDossier(seanceId, request))
+                .isInstanceOf(gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException.class);
+
+        verify(seanceCtadpRepository, never()).save(any());
+        verifyNoInteractions(dossierRepository);
+    }
+
+    @Test
     void recordRecommandation_updatesEntryAndReturnsFullSeance() {
         UUID seanceId = UUID.randomUUID();
         UUID dossierId = UUID.randomUUID();
