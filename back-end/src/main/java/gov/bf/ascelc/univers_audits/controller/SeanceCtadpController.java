@@ -71,7 +71,7 @@ public class SeanceCtadpController {
     @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
     public ResponseEntity<SeanceCtadpResponse> tenir(
             @PathVariable UUID id,
-            @RequestBody TenirSeanceRequest request) {
+            @Valid @RequestBody TenirSeanceRequest request) {
         return ResponseEntity.ok(seanceCtadpService.tenir(id, request));
     }
 }
