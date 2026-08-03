@@ -19,10 +19,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -37,6 +43,22 @@ class SeanceCtadpServiceImplTest {
 
     @InjectMocks
     private SeanceCtadpServiceImpl service;
+
+    @Test
+    void findAll_doesNotPopulateDossiersToAvoidLazyLoading() {
+        Pageable pageable = PageRequest.of(0, 20);
+        SeanceCTADP seance = SeanceCTADP.builder().id(UUID.randomUUID())
+                .statut(StatutSeanceCtadp.PLANIFIEE).build();
+        Page<SeanceCTADP> page = new PageImpl<>(List.of(seance));
+
+        when(seanceCtadpRepository.findAll(pageable)).thenReturn(page);
+        when(mapper.mapToResponse(seance)).thenReturn(SeanceCtadpResponse.builder().build());
+
+        Page<SeanceCtadpResponse> result = service.findAll(pageable);
+
+        assertThat(result.getContent().get(0).getDossiers()).isEmpty();
+        verify(mapper, never()).toResponse(any(SeanceCTADP.class));
+    }
 
     @Test
     void addDossier_succeedsWhenDossierEligibleAndSeancePlanifiee() {

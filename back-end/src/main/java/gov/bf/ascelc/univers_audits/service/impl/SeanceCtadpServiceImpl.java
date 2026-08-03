@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -57,7 +58,17 @@ public class SeanceCtadpServiceImpl implements SeanceCtadpService {
 
     @Override
     public Page<SeanceCtadpResponse> findAll(Pageable pageable) {
-        return seanceCtadpRepository.findAll(pageable).map(mapper::toResponse);
+        // Vue liste : on évite volontairement toResponse (qui remplit la
+        // collection lazy "dossiers" via fillDossiers) pour ne pas déclencher
+        // un N+1 sur chaque séance de la page. mapToResponse ignore déjà
+        // "dossiers" (@Mapping(target = "dossiers", ignore = true)) — on la
+        // force explicitement à une liste vide pour un contrat DTO stable.
+        return seanceCtadpRepository.findAll(pageable)
+                .map(mapper::mapToResponse)
+                .map(response -> {
+                    response.setDossiers(List.of());
+                    return response;
+                });
     }
 
     @Override
