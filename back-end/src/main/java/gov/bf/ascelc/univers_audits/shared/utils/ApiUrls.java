@@ -21,6 +21,10 @@ public final class ApiUrls {
 
     public static final String INVESTIGATIONS            = BASE + "/investigations";
 
+    // ── Séances CTADP ─────────────────────────────────────────
+
+    public static final String SEANCES_CTADP = BASE + "/seances-ctadp";
+
     // ── Notifications ─────────────────────────────────────────
 
     public static final String NOTIFICATIONS            = BASE + "/notifications";
