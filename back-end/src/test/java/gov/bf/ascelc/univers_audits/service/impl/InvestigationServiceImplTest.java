@@ -78,7 +78,7 @@ class InvestigationServiceImplTest {
                 .thenReturn(InvestigationResponse.builder().build());
 
         AddMemberRequest request = AddMemberRequest.builder()
-                .agentId(agent.getId()).teamRole(TeamRole.MEMBER).build();
+                .agentId(agent.getId()).teamRole(TeamRole.INVESTIGATEUR).build();
 
         service.addMember(investigation.getId(), request, "127.0.0.1");
 
@@ -95,7 +95,7 @@ class InvestigationServiceImplTest {
 
         InvestigationMember member = InvestigationMember.builder()
                 .investigation(investigation).agent(agent)
-                .teamRole(TeamRole.MEMBER).active(true).build();
+                .teamRole(TeamRole.INVESTIGATEUR).active(true).build();
         investigation.getMembers().add(member);
 
         when(investigationRepository.findById(investigation.getId()))
@@ -130,7 +130,7 @@ class InvestigationServiceImplTest {
 
         InvestigationMember existingInactiveMember = InvestigationMember.builder()
                 .investigation(investigation).agent(agent)
-                .teamRole(TeamRole.MEMBER).active(false).build();
+                .teamRole(TeamRole.INVESTIGATEUR).active(false).build();
 
         when(investigationRepository.findById(investigation.getId()))
                 .thenReturn(Optional.of(investigation));
@@ -149,7 +149,7 @@ class InvestigationServiceImplTest {
                 .thenReturn(InvestigationResponse.builder().build());
 
         AddMemberRequest request = AddMemberRequest.builder()
-                .agentId(agent.getId()).teamRole(TeamRole.MEMBER).build();
+                .agentId(agent.getId()).teamRole(TeamRole.INVESTIGATEUR).build();
 
         service.addMember(investigation.getId(), request, "127.0.0.1");
 

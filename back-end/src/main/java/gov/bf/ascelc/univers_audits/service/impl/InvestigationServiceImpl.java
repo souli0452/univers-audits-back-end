@@ -607,7 +607,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         Dossier dossier       = inv.getDossier();
         String  dossierNumber = dossier.getNumber() != null
                 ? dossier.getNumber() : "(en attente de numéro)";
-        String  roleLabel     = TeamRole.TEAM_LEADER.equals(teamRole)
+        String  roleLabel     = TeamRole.CHEF_MISSION.equals(teamRole)
                 ? "Chef de mission" : "Investigateur";
 
         String linkDossier       = frontendUrl + "/#/app/dossiers/"

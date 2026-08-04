@@ -47,13 +47,13 @@ class InvestigationMapperTest {
         InvestigationMember activeMember = InvestigationMember.builder()
                 .investigation(investigation)
                 .agent(agent)
-                .teamRole(TeamRole.MEMBER)
+                .teamRole(TeamRole.INVESTIGATEUR)
                 .active(true)
                 .build();
         InvestigationMember inactiveMember = InvestigationMember.builder()
                 .investigation(investigation)
                 .agent(agent)
-                .teamRole(TeamRole.MEMBER)
+                .teamRole(TeamRole.INVESTIGATEUR)
                 .active(false)
                 .build();
         List<InvestigationMember> members = new ArrayList<>();

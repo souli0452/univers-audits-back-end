@@ -30,7 +30,7 @@ public class InvestigationMember extends AuditEntity {
     private Agent agent;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "team_role", nullable = false, length = 15)
+    @Column(name = "team_role", nullable = false, length = 20)
     private TeamRole teamRole;
 
 
