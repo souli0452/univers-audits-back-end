@@ -7,7 +7,9 @@ import gov.bf.ascelc.univers_audits.mapper.InvestigationMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.*;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationMemberResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
+import gov.bf.ascelc.univers_audits.model.entity.Mandat;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
@@ -52,6 +54,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final ParametreDelaiService parametreDelaiService;
     private final DossierHabilitationService habilitationService;
     private final PortalConfigService portalConfigService;
+    private final MandatRepository               mandatRepository;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -200,13 +203,11 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
 
-        long memberCount = memberRepository
-                .countByInvestigationIdAndActiveTrue(investigationId);
+        validateTeamComposition(investigationId);
 
-        if (memberCount == 0) {
+        if (mandatRepository.findByInvestigationId(investigationId).isEmpty()) {
             throw new BusinessException(
-                    "L'équipe d'investigation doit avoir "
-                            + "au moins un membre avant le démarrage");
+                    "Aucun mandat n'a été délivré par le CGE pour cette investigation.");
         }
 
         inv.start();
@@ -581,6 +582,44 @@ public class InvestigationServiceImpl implements InvestigationService {
         return buildResponseWithFreshMembers(inv, investigationId);
     }
 
+    @Override
+    @Transactional
+    public MandatResponse deliverMandat(UUID investigationId, String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (mandatRepository.findByInvestigationId(investigationId).isPresent()) {
+            throw new BusinessException(
+                    "Un mandat a déjà été délivré pour cette investigation.");
+        }
+
+        validateTeamComposition(investigationId);
+
+        Agent cge = agentContextResolver.getCurrentAgent();
+        Mandat mandat = Mandat.builder()
+                .investigation(inv)
+                .dateDelivrance(Instant.now())
+                .agentCGE(cge)
+                .build();
+        Mandat saved = mandatRepository.save(mandat);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Mandat délivré par le CGE — signataire : " + cge.getNomComplet(),
+                true, cge);
+
+        log.info("Mandat délivré — investigation: {}", investigationId);
+        return toMandatResponse(saved);
+    }
+
+    @Override
+    public MandatResponse getMandat(UUID investigationId) {
+        Mandat mandat = mandatRepository.findByInvestigationId(investigationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Aucun mandat pour cette investigation : " + investigationId));
+        return toMandatResponse(mandat);
+    }
+
 
     private InvestigationResponse buildResponseWithFreshMembers(
             Investigation inv, UUID investigationId) {
@@ -607,8 +646,12 @@ public class InvestigationServiceImpl implements InvestigationService {
         Dossier dossier       = inv.getDossier();
         String  dossierNumber = dossier.getNumber() != null
                 ? dossier.getNumber() : "(en attente de numéro)";
-        String  roleLabel     = TeamRole.CHEF_MISSION.equals(teamRole)
-                ? "Chef de mission" : "Investigateur";
+        String roleLabel = switch (teamRole) {
+            case CHEF_MISSION -> "Chef de mission";
+            case INVESTIGATEUR -> "Investigateur";
+            case PERSONNE_RESSOURCE -> "Personne ressource";
+            case CONSEIL_JURIDIQUE -> "Conseil juridique";
+        };
 
         String linkDossier       = frontendUrl + "/#/app/dossiers/"
                 + dossier.getId().toString();
@@ -666,6 +709,42 @@ public class InvestigationServiceImpl implements InvestigationService {
     // ════════════════════════════════════════════════════════════
     //  MÉTHODES PRIVÉES
     // ════════════════════════════════════════════════════════════
+
+    private void validateTeamComposition(UUID investigationId) {
+        long chefMission = memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigationId, TeamRole.CHEF_MISSION);
+        if (chefMission != 1) {
+            throw new BusinessException(
+                    "L'équipe doit compter exactement un chef de mission (trouvé : "
+                            + chefMission + ").");
+        }
+
+        long investigateurs = memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigationId, TeamRole.INVESTIGATEUR);
+        if (investigateurs < 2) {
+            throw new BusinessException(
+                    "L'équipe doit compter au moins deux investigateurs (trouvé : "
+                            + investigateurs + ").");
+        }
+
+        long conseilJuridique = memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigationId, TeamRole.CONSEIL_JURIDIQUE);
+        if (conseilJuridique != 1) {
+            throw new BusinessException(
+                    "L'équipe doit compter exactement un conseil juridique (trouvé : "
+                            + conseilJuridique + ").");
+        }
+    }
+
+    private MandatResponse toMandatResponse(Mandat mandat) {
+        return MandatResponse.builder()
+                .id(mandat.getId())
+                .investigationId(mandat.getInvestigation().getId())
+                .dateDelivrance(mandat.getDateDelivrance())
+                .agentCGEId(mandat.getAgentCGE().getId())
+                .agentCGENom(mandat.getAgentCGE().getNomComplet())
+                .build();
+    }
 
     private Investigation getInvestigationOrThrow(UUID id) {
         return investigationRepository.findById(id)

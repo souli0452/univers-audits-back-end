@@ -29,6 +29,9 @@ public interface InvestigationMemberRepository
 
     long countByInvestigationIdAndActiveTrue(UUID investigationId);
 
+    long countByInvestigationIdAndTeamRoleAndActiveTrue(
+            UUID investigationId, TeamRole teamRole);
+
     Optional<InvestigationMember> findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(
             UUID investigationId, UUID agentId);
 

@@ -5,15 +5,19 @@ import gov.bf.ascelc.univers_audits.enums.TeamRole;
 import gov.bf.ascelc.univers_audits.mapper.InvestigationMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.AddMemberRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.InvestigationMember;
+import gov.bf.ascelc.univers_audits.model.entity.Mandat;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.repository.MandatRepository;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -28,6 +32,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -47,6 +52,7 @@ class InvestigationServiceImplTest {
     @Mock private ParametreDelaiService         parametreDelaiService;
     @Mock private DossierHabilitationService    habilitationService;
     @Mock private PortalConfigService           portalConfigService;
+    @Mock private MandatRepository               mandatRepository;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -156,5 +162,170 @@ class InvestigationServiceImplTest {
         assertThat(existingInactiveMember.getActive()).isTrue();
         verify(habilitationService).grant(dossier, agent, HabilitationSource.INVESTIGATION_TEAM,
                 currentAgent, "Membre de l'équipe d'investigation");
+    }
+
+    @Test
+    void start_rejectsWhenNoChefDeMission() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(0L);
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("chef de mission");
+    }
+
+    @Test
+    void start_rejectsWhenOnlyOneInvestigateur() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(1L);
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("investigateurs");
+    }
+
+    @Test
+    void start_rejectsWhenNoConseilJuridique() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(0L);
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("conseil juridique");
+    }
+
+    @Test
+    void start_rejectsWhenCompositionValidButNoMandat() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("mandat");
+    }
+
+    @Test
+    void start_succeedsWithFullCompositionAndMandat() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        investigation.setPlannedDurationDays(30);
+        Agent cge = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
+                        .investigation(investigation).agentCGE(cge)
+                        .dateDelivrance(java.time.Instant.now()).build()));
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(agentContextResolver.getCurrentAgent()).thenReturn(cge);
+
+        service.start(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getStatus())
+                .isEqualTo(gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void deliverMandat_rejectsWhenAlreadyDelivered() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID()).build()));
+
+        assertThatThrownBy(() -> service.deliverMandat(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà été délivré");
+    }
+
+    @Test
+    void deliverMandat_rejectsWhenCompositionIncomplete() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(0L);
+
+        assertThatThrownBy(() -> service.deliverMandat(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("chef de mission");
+    }
+
+    @Test
+    void deliverMandat_succeedsWithFullComposition() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent cge = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(agentContextResolver.getCurrentAgent()).thenReturn(cge);
+        when(mandatRepository.save(any(Mandat.class)))
+                .thenAnswer(inv -> {
+                    Mandat m = inv.getArgument(0);
+                    m.setId(UUID.randomUUID());
+                    return m;
+                });
+
+        MandatResponse response = service.deliverMandat(investigation.getId(), "127.0.0.1");
+
+        assertThat(response.getAgentCGEId()).isEqualTo(cge.getId());
+        assertThat(response.getInvestigationId()).isEqualTo(investigation.getId());
     }
 }

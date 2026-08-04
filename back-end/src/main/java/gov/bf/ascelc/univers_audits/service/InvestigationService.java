@@ -5,6 +5,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest
 import gov.bf.ascelc.univers_audits.model.dto.request.ExtendDeadlineRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.AddMemberRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -65,4 +66,8 @@ public interface InvestigationService {
     InvestigationResponse removeMember(UUID investigationId,
                                        UUID agentId,
                                        String ipAddress);
+
+    MandatResponse deliverMandat(UUID investigationId, String ipAddress);
+
+    MandatResponse getMandat(UUID investigationId);
 }
