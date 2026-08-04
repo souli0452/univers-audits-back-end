@@ -584,4 +584,75 @@ class DossierServiceImplTest {
 
         verify(dossierRepository, never()).save(any());
     }
+
+    @Test
+    void declareAdmissible_recordsDecisionCGEWithValidationInvestigation() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_REVUE_CTADP).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder()
+                .reason("Preuves suffisantes").build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(decisionCGERepository.findByDossierId(dossierId)).thenReturn(Optional.empty());
+        when(decisionCGERepository.save(any(DecisionCGE.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        service.declareAdmissible(dossierId, request, "127.0.0.1");
+
+        verify(decisionCGERepository).save(argThat(dc ->
+                dc.getDecision() == RecommandationCtadp.VALIDATION_INVESTIGATION
+                        && dc.getDossier() == dossier));
+    }
+
+    @Test
+    void declareInadmissible_recordsDecisionCGEWithClassement() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_REVUE_CTADP).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder()
+                .reason("Faits non constitutifs d'infraction").build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(decisionCGERepository.findByDossierId(dossierId)).thenReturn(Optional.empty());
+        when(decisionCGERepository.save(any(DecisionCGE.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        service.declareInadmissible(dossierId, request, "127.0.0.1");
+
+        verify(decisionCGERepository).save(argThat(dc ->
+                dc.getDecision() == RecommandationCtadp.CLASSEMENT
+                        && dc.getDossier() == dossier));
+    }
+
+    @Test
+    void transfer_recordsDecisionCGEWithTransmissionInstitutionPartenaire() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_REVUE_CTADP).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder()
+                .reason("Compétence d'une autre institution")
+                .transferInstitution("Autorité de régulation de la commande publique")
+                .build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(decisionCGERepository.findByDossierId(dossierId)).thenReturn(Optional.empty());
+        when(decisionCGERepository.save(any(DecisionCGE.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        service.transfer(dossierId, request, "127.0.0.1");
+
+        verify(decisionCGERepository).save(argThat(dc ->
+                dc.getDecision() == RecommandationCtadp.TRANSMISSION_INSTITUTION_PARTENAIRE
+                        && dc.getDossier() == dossier));
+    }
 }

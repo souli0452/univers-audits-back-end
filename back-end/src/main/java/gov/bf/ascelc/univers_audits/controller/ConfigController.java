@@ -91,6 +91,7 @@ public class ConfigController {
                         "SOUMIS", "RECU", "EN_ETUDE_OPPORTUNITE",
                         "EN_ATTENTE_COMPLEMENT", "EN_REVUE_CTADP",
                         "RECEVABLE", "IRRECEVABLE", "TRANSFERE",
+                        "ORIENTEE_ADMINISTRATIF",
                         "EN_INVESTIGATION", "RAPPORT_PRODUIT",
                         "DECISION_RENDUE", "CLOS", "CLASSE"
                 )

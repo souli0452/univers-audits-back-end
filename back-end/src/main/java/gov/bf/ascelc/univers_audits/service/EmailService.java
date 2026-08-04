@@ -851,6 +851,13 @@ public class EmailService {
                             + "traitement. Vous recevrez un message complémentaire avec "
                             + "les coordonnées de cette institution."
             };
+            case "ORIENTEE_ADMINISTRATIF" -> new String[]{
+                    "Dossier orienté vers l'autorité hiérarchique",
+                    "Après analyse, votre dossier relève d'une irrégularité de nature "
+                            + "administrative et a été orienté vers l'autorité hiérarchique "
+                            + "compétente pour traitement, conformément aux procédures en "
+                            + "vigueur à l'ASCE-LC."
+            };
             default -> new String[]{
                     "Mise à jour de votre dossier",
                     "Une mise à jour a été effectuée sur votre dossier. "

@@ -87,7 +87,8 @@ public interface DossierRepository
                 gov.bf.ascelc.univers_audits.enums.DossierStatus.CLOS,
                 gov.bf.ascelc.univers_audits.enums.DossierStatus.CLASSE,
                 gov.bf.ascelc.univers_audits.enums.DossierStatus.IRRECEVABLE,
-                gov.bf.ascelc.univers_audits.enums.DossierStatus.TRANSFERE
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.TRANSFERE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.ORIENTEE_ADMINISTRATIF
             )
             ORDER BY d.acknowledgmentDeadline ASC
             """)
@@ -100,7 +101,8 @@ public interface DossierRepository
                 gov.bf.ascelc.univers_audits.enums.DossierStatus.CLOS,
                 gov.bf.ascelc.univers_audits.enums.DossierStatus.CLASSE,
                 gov.bf.ascelc.univers_audits.enums.DossierStatus.IRRECEVABLE,
-                gov.bf.ascelc.univers_audits.enums.DossierStatus.TRANSFERE
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.TRANSFERE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.ORIENTEE_ADMINISTRATIF
             )
             """)
     long countOverdueAcknowledgments(@Param("now") Instant now);
