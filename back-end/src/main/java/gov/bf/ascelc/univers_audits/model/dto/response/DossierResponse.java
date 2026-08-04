@@ -72,6 +72,7 @@ public class DossierResponse {
     private List<TargetedPartyResponse>  targetedParties;
     private List<WitnessResponse>        witnesses;
     private EtudeOpportuniteResponse     etudeOpportunite;
+    private DecisionCGEResponse          decisionCGE;
     private List<ObservationResponse>    observations;
     private List<AttachmentResponse>     attachments;
     private List<NotificationResponse>   notifications;

@@ -61,6 +61,10 @@ public interface DossierService {
                              StatusTransitionRequest request,
                              String ipAddress);
 
+    DossierResponse orientAdministratif(UUID dossierId,
+                                        StatusTransitionRequest request,
+                                        String ipAddress);
+
     DossierResponse close(UUID dossierId,
                           StatusTransitionRequest request,
                           String ipAddress);

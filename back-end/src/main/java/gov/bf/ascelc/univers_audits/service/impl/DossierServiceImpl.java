@@ -63,6 +63,7 @@ public class DossierServiceImpl implements DossierService {
     private final DossierHabilitationService    habilitationService;
     private final PortalConfigService           portalConfigService;
     private final EtudeOpportuniteRepository    etudeOpportuniteRepository;
+    private final DecisionCGERepository         decisionCGERepository;
 
 
     // ════════════════════════════════════════════════════════════
@@ -85,6 +86,7 @@ public class DossierServiceImpl implements DossierService {
                         "Dossier introuvable avec ce code d'accès"));
         DossierResponse response = enrichAndMaskDetail(dossier);
         response.setEtudeOpportunite(null);
+        response.setDecisionCGE(null);
         return response;
     }
 
@@ -485,6 +487,9 @@ public class DossierServiceImpl implements DossierService {
                         + (request.getReason() != null ? request.getReason() : ""),
                 true, agent);
 
+        recordDecisionCGE(dossier, RecommandationCtadp.VALIDATION_INVESTIGATION,
+                request.getReason(), agent);
+
         Dossier saved = dossierRepository.save(dossier);
 
         notificationDispatcher.dispatchStatusUpdate(saved, "RECEVABLE", request.getReason());
@@ -519,6 +524,9 @@ public class DossierServiceImpl implements DossierService {
                 ObservationType.CGE_DECISION,
                 "Dossier déclaré IRRECEVABLE. Motif : " + request.getReason(),
                 true, agent);
+
+        recordDecisionCGE(dossier, RecommandationCtadp.CLASSEMENT,
+                request.getReason(), agent);
 
         Dossier saved = dossierRepository.save(dossier);
 
@@ -559,12 +567,54 @@ public class DossierServiceImpl implements DossierService {
                         + ". Motif : " + request.getReason(),
                 false, agent);
 
+        recordDecisionCGE(dossier, RecommandationCtadp.TRANSMISSION_INSTITUTION_PARTENAIRE,
+                request.getReason(), agent);
+
         Dossier saved = dossierRepository.save(dossier);
 
         notificationDispatcher.dispatchTransferExternal(saved, request.getTransferInstitution());
 
         auditRecorder.recordStatusChange(saved,
                 DossierStatus.EN_REVUE_CTADP, DossierStatus.TRANSFERE,
+                request.getReason(), agent, ipAddress);
+
+        return enrichAndMaskDetail(saved);
+    }
+
+    @Override
+    @Transactional
+    public DossierResponse orientAdministratif(
+            UUID dossierId,
+            StatusTransitionRequest request,
+            String ipAddress) {
+
+        Dossier dossier = getDossierOrThrow(dossierId);
+        validateTransition(dossier, DossierStatus.ORIENTEE_ADMINISTRATIF);
+        Agent agent = agentContextResolver.getCurrentAgent();
+
+        if (request.getReason() == null || request.getReason().isBlank()) {
+            throw new BusinessException(
+                    "Le motif d'orientation administrative est obligatoire");
+        }
+
+        dossier.setStatus(DossierStatus.ORIENTEE_ADMINISTRATIF);
+        dossier.setEligibilityDecisionDate(Instant.now());
+
+        auditRecorder.addObservation(dossier,
+                ObservationType.CGE_DECISION,
+                "Dossier orienté vers l'autorité hiérarchique (irrégularité). Motif : "
+                        + request.getReason(),
+                true, agent);
+
+        recordDecisionCGE(dossier, RecommandationCtadp.ORIENTATION_ADMINISTRATIVE,
+                request.getReason(), agent);
+
+        Dossier saved = dossierRepository.save(dossier);
+
+        notificationDispatcher.dispatchStatusUpdate(saved, "ORIENTEE_ADMINISTRATIF", request.getReason());
+
+        auditRecorder.recordStatusChange(saved,
+                DossierStatus.EN_REVUE_CTADP, DossierStatus.ORIENTEE_ADMINISTRATIF,
                 request.getReason(), agent, ipAddress);
 
         return enrichAndMaskDetail(saved);
@@ -825,6 +875,10 @@ public class DossierServiceImpl implements DossierService {
                 etudeOpportuniteRepository.findByDossierId(dossier.getId())
                         .map(dossierDetailsMapper::toResponse)
                         .orElse(null));
+        response.setDecisionCGE(
+                decisionCGERepository.findByDossierId(dossier.getId())
+                        .map(dossierDetailsMapper::toResponse)
+                        .orElse(null));
         response.setTargetedParties(dossier.getTargetedParties().stream()
                 .map(dossierDetailsMapper::toResponse).toList());
         response.setObservations(dossier.getObservations().stream()
@@ -862,7 +916,7 @@ public class DossierServiceImpl implements DossierService {
                     dossier.getStatus() == DossierStatus.EN_ETUDE_OPPORTUNITE;
             case EN_REVUE_CTADP ->
                     dossier.getStatus() == DossierStatus.EN_ETUDE_OPPORTUNITE;
-            case RECEVABLE, IRRECEVABLE, TRANSFERE ->
+            case RECEVABLE, IRRECEVABLE, TRANSFERE, ORIENTEE_ADMINISTRATIF ->
                     dossier.getStatus() == DossierStatus.EN_REVUE_CTADP;
             case EN_INVESTIGATION ->
                     dossier.getStatus() == DossierStatus.RECEVABLE;
@@ -874,7 +928,8 @@ public class DossierServiceImpl implements DossierService {
                     dossier.getStatus() == DossierStatus.DECISION_RENDUE;
             case CLASSE ->
                     dossier.getStatus() == DossierStatus.IRRECEVABLE
-                            || dossier.getStatus() == DossierStatus.TRANSFERE;
+                            || dossier.getStatus() == DossierStatus.TRANSFERE
+                            || dossier.getStatus() == DossierStatus.ORIENTEE_ADMINISTRATIF;
             default -> false;
         };
 
@@ -883,6 +938,19 @@ public class DossierServiceImpl implements DossierService {
                     "Transition invalide : "
                             + dossier.getStatus() + " → " + target);
         }
+    }
+
+    private void recordDecisionCGE(Dossier dossier,
+                                   RecommandationCtadp decision,
+                                   String motif,
+                                   Agent agent) {
+        DecisionCGE record = decisionCGERepository.findByDossierId(dossier.getId())
+                .orElseGet(() -> DecisionCGE.builder().dossier(dossier).build());
+        record.setDecision(decision);
+        record.setMotif(motif);
+        record.setDateDecision(Instant.now());
+        record.setAgentCGE(agent);
+        decisionCGERepository.save(record);
     }
 
     private Declarant resolveDeclarant(DossierCreateRequest request) {
@@ -974,6 +1042,7 @@ public class DossierServiceImpl implements DossierService {
             response.setObservations(null);
             response.setWitnesses(null);
             response.setEtudeOpportunite(null);
+            response.setDecisionCGE(null);
             response.setTargetedParties(null);
             response.setComplementMotif(null);
             response.setAttachments(null);

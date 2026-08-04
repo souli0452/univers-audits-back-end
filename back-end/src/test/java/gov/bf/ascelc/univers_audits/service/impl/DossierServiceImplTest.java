@@ -3,6 +3,7 @@ package gov.bf.ascelc.univers_audits.service.impl;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
+import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeDeclarant;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
@@ -18,9 +19,11 @@ import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.EtudeOpportuniteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
+import gov.bf.ascelc.univers_audits.model.entity.DecisionCGE;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DeclarantRepository;
+import gov.bf.ascelc.univers_audits.repository.DecisionCGERepository;
 import gov.bf.ascelc.univers_audits.repository.DossierHabilitationRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.EtudeOpportuniteRepository;
@@ -80,6 +83,7 @@ class DossierServiceImplTest {
     @Mock private DossierHabilitationService habilitationService;
     @Mock private PortalConfigService portalConfigService;
     @Mock private EtudeOpportuniteRepository etudeOpportuniteRepository;
+    @Mock private DecisionCGERepository decisionCGERepository;
 
     @InjectMocks
     private DossierServiceImpl service;
@@ -327,7 +331,7 @@ class DossierServiceImplTest {
                 dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
                 notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
                 natureSaisineResolver, realGuard, habilitationService, portalConfigService,
-                etudeOpportuniteRepository);
+                etudeOpportuniteRepository, decisionCGERepository);
 
         assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
                 .doesNotThrowAnyException();
@@ -523,5 +527,61 @@ class DossierServiceImplTest {
         DossierResponse result = service.findByAccessCode(accessCode);
 
         assertThat(result.getEtudeOpportunite()).isNull();
+    }
+
+    @Test
+    void orientAdministratif_succeedsWithReason() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_REVUE_CTADP).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder()
+                .reason("Irrégularité administrative, hors compétence pénale").build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(decisionCGERepository.findByDossierId(dossierId)).thenReturn(Optional.empty());
+        when(decisionCGERepository.save(any(DecisionCGE.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        service.orientAdministratif(dossierId, request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d ->
+                d.getStatus() == DossierStatus.ORIENTEE_ADMINISTRATIF));
+        verify(decisionCGERepository).save(argThat(dc ->
+                dc.getDecision() == RecommandationCtadp.ORIENTATION_ADMINISTRATIVE
+                        && dc.getDossier() == dossier));
+    }
+
+    @Test
+    void orientAdministratif_rejectsWhenReasonMissing() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_REVUE_CTADP).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder().build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+
+        assertThatThrownBy(() -> service.orientAdministratif(dossierId, request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void orientAdministratif_rejectsWhenDossierNotInCorrectStatus() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.RECU).build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder()
+                .reason("Motif").build();
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+
+        assertThatThrownBy(() -> service.orientAdministratif(dossierId, request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+
+        verify(dossierRepository, never()).save(any());
     }
 }
