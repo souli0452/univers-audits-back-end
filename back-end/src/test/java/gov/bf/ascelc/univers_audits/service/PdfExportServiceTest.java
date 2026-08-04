@@ -224,4 +224,17 @@ class PdfExportServiceTest {
         assertThatThrownBy(() -> service.exportReponseMotivee(dossierId))
                 .isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    void exportReponseMotivee_rejectsWhenNoDecisionYet() {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000055")
+                .build();
+
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        assertThatThrownBy(() -> service.exportReponseMotivee(dossierId))
+                .isInstanceOf(BusinessException.class);
+    }
 }
