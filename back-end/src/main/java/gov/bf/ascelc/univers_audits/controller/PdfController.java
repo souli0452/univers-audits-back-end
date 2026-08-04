@@ -48,4 +48,34 @@ public class PdfController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }
+
+    @GetMapping("/accuse-reception/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> exportAccuseReception(
+            @PathVariable UUID id) {
+
+        log.info("Export accusé de réception dossier {}", id);
+        byte[] pdf = pdfExportService.exportAccuseReception(id);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"accuse-reception-" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    @GetMapping("/reponse-motivee/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> exportReponseMotivee(
+            @PathVariable UUID id) {
+
+        log.info("Export réponse motivée dossier {}", id);
+        byte[] pdf = pdfExportService.exportReponseMotivee(id);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"reponse-motivee-" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
 }
