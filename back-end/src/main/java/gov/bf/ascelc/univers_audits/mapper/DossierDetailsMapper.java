@@ -149,6 +149,27 @@ public interface DossierDetailsMapper {
         }
     }
 
+    default DecisionCGEResponse toResponse(DecisionCGE decision) {
+        DecisionCGEResponse response = mapToResponse(decision);
+        if (response != null) {
+            fillDecisionCGE(decision, response);
+        }
+        return response;
+    }
+
+    @Mapping(target = "agentCGEId",  ignore = true)
+    @Mapping(target = "agentCGENom", ignore = true)
+    DecisionCGEResponse mapToResponse(DecisionCGE decision);
+
+    default void fillDecisionCGE(
+            DecisionCGE decisionCge,
+            DecisionCGEResponse response) {
+        if (decisionCge.getAgentCGE() != null) {
+            response.setAgentCGEId(decisionCge.getAgentCGE().getId());
+            response.setAgentCGENom(decisionCge.getAgentCGE().getNomComplet());
+        }
+    }
+
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "version", ignore = true)
