@@ -13,10 +13,12 @@ import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
+import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.entity.StatusHistory;
 import gov.bf.ascelc.univers_audits.repository.StatusHistoryRepository;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AsceLcInstitutionalInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -129,6 +131,89 @@ public class PdfExportService {
         }
     }
 
+    public byte[] exportAccuseReception(UUID dossierId) {
+
+        // findById applique le contrôle d'affectation/rôle et le masquage de
+        // confidentialité — même garde que exportRecepisse/exportDossier.
+        DossierResponse dossier = dossierService.findById(dossierId);
+
+        if (dossier.getDecisionCGE() == null) {
+            throw new BusinessException(
+                    "Aucune décision CGE n'a encore été rendue pour ce dossier");
+        }
+        RecommandationCtadp decision = dossier.getDecisionCGE().getDecision();
+        if (decision == RecommandationCtadp.CLASSEMENT) {
+            throw new BusinessException(
+                    "Ce dossier a été classé — utilisez l'export de la réponse motivée, "
+                            + "pas l'accusé de réception");
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            PdfWriter   writer = new PdfWriter(baos);
+            PdfDocument pdf    = new PdfDocument(writer);
+            Document    doc    = new Document(pdf, PageSize.A4);
+            doc.setMargins(40, 40, 40, 40);
+
+            PdfFont fontBold   = PdfFontFactory.createFont("Helvetica-Bold");
+            PdfFont fontNormal = PdfFontFactory.createFont("Helvetica");
+
+            addDecisionHeader(doc, dossier, fontBold, fontNormal,
+                    "ACCUSÉ DE RÉCEPTION — SUITES À DONNER");
+            addAccuseReceptionBody(doc, dossier, fontBold, fontNormal);
+            addRecepisseFooter(doc, fontBold, fontNormal);
+
+            doc.close();
+            return baos.toByteArray();
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Erreur export accusé de réception dossier {}: {}", dossierId, e.getMessage());
+            throw new RuntimeException("Erreur génération accusé de réception: " + e.getMessage());
+        }
+    }
+
+    public byte[] exportReponseMotivee(UUID dossierId) {
+
+        DossierResponse dossier = dossierService.findById(dossierId);
+
+        if (dossier.getDecisionCGE() == null) {
+            throw new BusinessException(
+                    "Aucune décision CGE n'a encore été rendue pour ce dossier");
+        }
+        if (dossier.getDecisionCGE().getDecision() != RecommandationCtadp.CLASSEMENT) {
+            throw new BusinessException(
+                    "Ce dossier n'a pas été classé — utilisez l'export de l'accusé de "
+                            + "réception, pas la réponse motivée");
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            PdfWriter   writer = new PdfWriter(baos);
+            PdfDocument pdf    = new PdfDocument(writer);
+            Document    doc    = new Document(pdf, PageSize.A4);
+            doc.setMargins(40, 40, 40, 40);
+
+            PdfFont fontBold   = PdfFontFactory.createFont("Helvetica-Bold");
+            PdfFont fontNormal = PdfFontFactory.createFont("Helvetica");
+
+            addDecisionHeader(doc, dossier, fontBold, fontNormal,
+                    "RÉPONSE MOTIVÉE");
+            addReponseMotiveeBody(doc, dossier, fontBold, fontNormal);
+            addRecepisseFooter(doc, fontBold, fontNormal);
+
+            doc.close();
+            return baos.toByteArray();
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Erreur export réponse motivée dossier {}: {}", dossierId, e.getMessage());
+            throw new RuntimeException("Erreur génération réponse motivée: " + e.getMessage());
+        }
+    }
+
     private void addRecepisseHeader(Document doc, DossierResponse dossier,
                                     PdfFont fontBold, PdfFont fontNormal) {
 
@@ -175,6 +260,152 @@ public class PdfExportService {
         }
         header.addCell(rightCell);
         doc.add(header);
+    }
+
+    private void addDecisionHeader(Document doc, DossierResponse dossier,
+                                   PdfFont fontBold, PdfFont fontNormal,
+                                   String titre) {
+
+        Table topBar = new Table(UnitValue.createPercentArray(new float[]{1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setHeight(6)
+                .setBackgroundColor(OR_ASCE)
+                .setBorder(Border.NO_BORDER)
+                .setMarginBottom(0);
+        topBar.addCell(new Cell().setBorder(Border.NO_BORDER).add(new Paragraph("")));
+        doc.add(topBar);
+
+        Table header = new Table(UnitValue.createPercentArray(new float[]{2, 1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setBackgroundColor(VERT_ASCE)
+                .setBorder(Border.NO_BORDER)
+                .setMarginBottom(20);
+
+        Cell leftCell = new Cell().setBorder(Border.NO_BORDER).setPadding(20);
+        leftCell.add(new Paragraph("ASCE-LC")
+                .setFont(fontBold).setFontSize(22)
+                .setFontColor(ColorConstants.WHITE).setMarginBottom(4));
+        leftCell.add(new Paragraph("Autorité Supérieure de Contrôle d'État")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(2));
+        leftCell.add(new Paragraph("et de Lutte contre la Corruption")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(8));
+        leftCell.add(new Paragraph(titre)
+                .setFont(fontBold).setFontSize(14).setFontColor(OR_ASCE));
+        header.addCell(leftCell);
+
+        Cell rightCell = new Cell()
+                .setBorder(Border.NO_BORDER).setPadding(20)
+                .setTextAlignment(TextAlignment.RIGHT);
+        String number = dossier.getNumber() != null ? dossier.getNumber() : "En attente";
+        rightCell.add(new Paragraph(number)
+                .setFont(fontBold).setFontSize(16)
+                .setFontColor(ColorConstants.WHITE).setMarginBottom(8));
+        if (dossier.getAccessCode() != null) {
+            rightCell.add(new Paragraph("Code de suivi : " + dossier.getAccessCode())
+                    .setFont(fontNormal).setFontSize(9)
+                    .setFontColor(new DeviceRgb(180, 220, 195)));
+        }
+        header.addCell(rightCell);
+        doc.add(header);
+    }
+
+    private void addAccuseReceptionBody(Document doc, DossierResponse dossier,
+                                        PdfFont fontBold, PdfFont fontNormal) {
+
+        doc.add(new Paragraph("CONFIDENTIEL")
+                .setFont(fontBold).setFontSize(10)
+                .setFontColor(new DeviceRgb(180, 30, 30))
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(16));
+
+        Table table = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setMarginBottom(16);
+
+        addInfoCell(table, "Numéro d'enregistrement",
+                dossier.getNumber() != null ? dossier.getNumber() : "—",
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Date de la décision",
+                dossier.getDecisionCGE().getDateDecision() != null
+                        ? FMT_DATE.format(dossier.getDecisionCGE().getDateDecision()) : "—",
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Décision",
+                getStatusLabel(dossier.getStatus() != null ? dossier.getStatus().name() : ""),
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Code de suivi",
+                dossier.getAccessCode() != null ? dossier.getAccessCode() : "—",
+                fontBold, fontNormal);
+
+        doc.add(table);
+
+        doc.add(new Paragraph(
+                "L'ASCE-LC accuse réception de votre dossier et vous informe que la suite "
+                        + "suivante lui a été donnée par le Contrôleur Général d'État. "
+                        + "Conservez le code de suivi ci-dessus pour toute correspondance "
+                        + "ultérieure.")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(40, 40, 40))
+                .setMarginTop(8).setMarginBottom(12));
+
+        String motif = dossier.getDecisionCGE().getMotif();
+        if (motif != null && !motif.isBlank()) {
+            doc.add(new Paragraph("Observations")
+                    .setFont(fontBold).setFontSize(11)
+                    .setFontColor(VERT_ASCE).setMarginBottom(4));
+            doc.add(new Paragraph(motif)
+                    .setFont(fontNormal).setFontSize(10)
+                    .setFontColor(new DeviceRgb(40, 40, 40)));
+        }
+    }
+
+    private void addReponseMotiveeBody(Document doc, DossierResponse dossier,
+                                       PdfFont fontBold, PdfFont fontNormal) {
+
+        doc.add(new Paragraph("CONFIDENTIEL")
+                .setFont(fontBold).setFontSize(10)
+                .setFontColor(new DeviceRgb(180, 30, 30))
+                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginBottom(16));
+
+        Table table = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setMarginBottom(16);
+
+        addInfoCell(table, "Numéro d'enregistrement",
+                dossier.getNumber() != null ? dossier.getNumber() : "—",
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Date de la décision",
+                dossier.getDecisionCGE().getDateDecision() != null
+                        ? FMT_DATE.format(dossier.getDecisionCGE().getDateDecision()) : "—",
+                fontBold, fontNormal);
+
+        addInfoCell(table, "Code de suivi",
+                dossier.getAccessCode() != null ? dossier.getAccessCode() : "—",
+                fontBold, fontNormal);
+
+        doc.add(table);
+
+        doc.add(new Paragraph(
+                "Après examen, l'ASCE-LC vous informe que votre dossier a été classé sans "
+                        + "suite, pour les motifs exposés ci-dessous.")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(40, 40, 40))
+                .setMarginTop(8).setMarginBottom(12));
+
+        doc.add(new Paragraph("Motifs du classement")
+                .setFont(fontBold).setFontSize(11)
+                .setFontColor(VERT_ASCE).setMarginBottom(4));
+
+        String motif = dossier.getDecisionCGE().getMotif();
+        doc.add(new Paragraph(motif != null && !motif.isBlank() ? motif : "—")
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(40, 40, 40)));
     }
 
     private void addRecepisseBody(Document doc, DossierResponse dossier,
@@ -653,6 +884,7 @@ public class PdfExportService {
             case "RECEVABLE"             -> "Recevable";
             case "IRRECEVABLE"           -> "Irrecevable";
             case "TRANSFERE"             -> "Transféré";
+            case "ORIENTEE_ADMINISTRATIF" -> "Orienté (autorité hiérarchique)";
             case "EN_INVESTIGATION"      -> "Investigation";
             case "RAPPORT_PRODUIT"       -> "Rapport produit";
             case "DECISION_RENDUE"       -> "Décision rendue";

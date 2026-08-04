@@ -3,12 +3,16 @@ package gov.bf.ascelc.univers_audits.service;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfReader;
 import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor;
+import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
+import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
 import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DecisionCGEResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.repository.StatusHistoryRepository;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AsceLcInstitutionalInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +25,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -114,5 +119,109 @@ class PdfExportServiceTest {
 
         assertThat(text).contains(AsceLcInstitutionalInfo.NUMERO_VERT);
         assertThat(text).contains("Ouagadougou");
+    }
+
+    @Test
+    void exportAccuseReception_producesNonEmptyPdfForValidationInvestigation() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000050")
+                .accessCode("MNOP3456")
+                .status(DossierStatus.RECEVABLE)
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .decisionCGE(DecisionCGEResponse.builder()
+                        .decision(RecommandationCtadp.VALIDATION_INVESTIGATION)
+                        .dateDecision(Instant.now())
+                        .motif("Preuves suffisantes pour ouvrir une investigation")
+                        .build())
+                .build();
+
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        byte[] pdf = service.exportAccuseReception(dossierId);
+
+        assertThat(pdf).isNotEmpty();
+
+        String text;
+        try (PdfDocument pdfDoc = new PdfDocument(new PdfReader(new ByteArrayInputStream(pdf)))) {
+            text = PdfTextExtractor.getTextFromPage(pdfDoc.getFirstPage());
+        }
+        assertThat(text).contains("ACCUSÉ DE RÉCEPTION");
+        assertThat(text).contains("Preuves suffisantes");
+    }
+
+    @Test
+    void exportAccuseReception_rejectsWhenDecisionIsClassement() {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000051")
+                .decisionCGE(DecisionCGEResponse.builder()
+                        .decision(RecommandationCtadp.CLASSEMENT)
+                        .dateDecision(Instant.now())
+                        .build())
+                .build();
+
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        assertThatThrownBy(() -> service.exportAccuseReception(dossierId))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void exportAccuseReception_rejectsWhenNoDecisionYet() {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000052")
+                .build();
+
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        assertThatThrownBy(() -> service.exportAccuseReception(dossierId))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void exportReponseMotivee_producesNonEmptyPdfWithMotifForClassement() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000053")
+                .accessCode("QRST7890")
+                .status(DossierStatus.IRRECEVABLE)
+                .decisionCGE(DecisionCGEResponse.builder()
+                        .decision(RecommandationCtadp.CLASSEMENT)
+                        .dateDecision(Instant.now())
+                        .motif("Faits non constitutifs d'infraction")
+                        .build())
+                .build();
+
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        byte[] pdf = service.exportReponseMotivee(dossierId);
+
+        assertThat(pdf).isNotEmpty();
+
+        String text;
+        try (PdfDocument pdfDoc = new PdfDocument(new PdfReader(new ByteArrayInputStream(pdf)))) {
+            text = PdfTextExtractor.getTextFromPage(pdfDoc.getFirstPage());
+        }
+        assertThat(text).contains("RÉPONSE MOTIVÉE");
+        assertThat(text).contains("Faits non constitutifs d'infraction");
+    }
+
+    @Test
+    void exportReponseMotivee_rejectsWhenDecisionIsNotClassement() {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000054")
+                .decisionCGE(DecisionCGEResponse.builder()
+                        .decision(RecommandationCtadp.TRANSMISSION_INSTITUTION_PARTENAIRE)
+                        .dateDecision(Instant.now())
+                        .build())
+                .build();
+
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        assertThatThrownBy(() -> service.exportReponseMotivee(dossierId))
+                .isInstanceOf(BusinessException.class);
     }
 }
