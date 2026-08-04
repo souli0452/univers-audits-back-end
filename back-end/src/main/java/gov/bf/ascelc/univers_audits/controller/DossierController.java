@@ -274,6 +274,26 @@ public class DossierController {
         return ResponseEntity.ok(result);
     }
 
+    @PatchMapping("/{id}/orient-administratif")
+    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    public ResponseEntity<DossierResponse> orientAdministratif(
+            @PathVariable UUID id,
+            @Valid @RequestBody StatusTransitionRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("CGE oriente dossier {} vers l'autorité hiérarchique (irrégularité)", id);
+        DossierResponse result = dossierService.orientAdministratif(
+                id, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                agentId(jwt), agentName(jwt), agentRole(jwt),
+                "ORIENTER_ADMINISTRATIF", "DOSSIER", id.toString(),
+                "Dossier orienté vers l'autorité hiérarchique", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
     @PatchMapping("/{id}/transfer")
     @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
     public ResponseEntity<DossierResponse> transfer(
