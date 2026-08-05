@@ -8,6 +8,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.*;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationMemberResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
@@ -54,6 +55,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final DossierHabilitationService habilitationService;
     private final PortalConfigService portalConfigService;
     private final MandatRepository               mandatRepository;
+    private final EngagementConfidentialiteRepository engagementConfidentialiteRepository;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -499,6 +501,19 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Cet agent est déjà membre actif de cette investigation");
         }
 
+        EngagementConfidentialite engagement = engagementConfidentialiteRepository
+                .findByInvestigationIdAndAgentId(investigationId, request.getAgentId())
+                .orElseThrow(() -> new BusinessException(
+                        "L'agent doit d'abord déclarer l'absence de conflit d'intérêts et "
+                                + "signer l'engagement de confidentialité avant d'être affecté "
+                                + "à l'équipe."));
+
+        if (Boolean.TRUE.equals(engagement.getHasConflictOfInterest())) {
+            throw new BusinessException(
+                    "Cet agent a déclaré un conflit d'intérêts et ne peut pas être affecté "
+                            + "à cette investigation.");
+        }
+
         Agent agent = agentRepository.findById(request.getAgentId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Agent introuvable : " + request.getAgentId()));
@@ -579,6 +594,63 @@ public class InvestigationServiceImpl implements InvestigationService {
                 member.getAgent().getMatricule(), investigationId);
 
         return buildResponseWithFreshMembers(inv, investigationId);
+    }
+
+    @Override
+    @Transactional
+    public EngagementConfidentialiteResponse declareEngagementPrealable(
+            UUID investigationId,
+            EngagementConfidentialiteRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        Agent agent = agentContextResolver.getCurrentAgent();
+
+        if (Boolean.TRUE.equals(request.getHasConflictOfInterest())
+                && (request.getConflictDetails() == null
+                        || request.getConflictDetails().isBlank())) {
+            throw new BusinessException(
+                    "Veuillez préciser la nature du conflit d'intérêts déclaré.");
+        }
+
+        if (engagementConfidentialiteRepository
+                .findByInvestigationIdAndAgentId(investigationId, agent.getId())
+                .isPresent()) {
+            throw new BusinessException(
+                    "Une déclaration a déjà été soumise pour cet agent sur cette investigation.");
+        }
+
+        EngagementConfidentialite engagement = EngagementConfidentialite.builder()
+                .investigation(inv)
+                .agent(agent)
+                .hasConflictOfInterest(request.getHasConflictOfInterest())
+                .conflictDetails(request.getConflictDetails())
+                .signedAt(Instant.now())
+                .build();
+        EngagementConfidentialite saved = engagementConfidentialiteRepository.save(engagement);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Engagement de confidentialité signé par " + agent.getNomComplet()
+                        + (Boolean.TRUE.equals(saved.getHasConflictOfInterest())
+                                ? " — conflit d'intérêts déclaré"
+                                : " — aucun conflit déclaré"),
+                true, agent);
+
+        log.info("Engagement de confidentialité signé — investigation: {}, agent: {}",
+                investigationId, agent.getId());
+        return toEngagementConfidentialiteResponse(saved);
+    }
+
+    @Override
+    public EngagementConfidentialiteResponse getEngagementPrealable(
+            UUID investigationId, UUID agentId) {
+        EngagementConfidentialite engagement = engagementConfidentialiteRepository
+                .findByInvestigationIdAndAgentId(investigationId, agentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Aucun engagement de confidentialité pour cet agent sur cette "
+                                + "investigation."));
+        return toEngagementConfidentialiteResponse(engagement);
     }
 
     @Override
@@ -742,6 +814,19 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .dateDelivrance(mandat.getDateDelivrance())
                 .agentCGEId(mandat.getAgentCGE().getId())
                 .agentCGENom(mandat.getAgentCGE().getNomComplet())
+                .build();
+    }
+
+    private EngagementConfidentialiteResponse toEngagementConfidentialiteResponse(
+            EngagementConfidentialite engagement) {
+        return EngagementConfidentialiteResponse.builder()
+                .id(engagement.getId())
+                .investigationId(engagement.getInvestigation().getId())
+                .agentId(engagement.getAgent().getId())
+                .agentNom(engagement.getAgent().getNomComplet())
+                .hasConflictOfInterest(engagement.getHasConflictOfInterest())
+                .conflictDetails(engagement.getConflictDetails())
+                .signedAt(engagement.getSignedAt())
                 .build();
     }
 

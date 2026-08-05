@@ -4,10 +4,13 @@ import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.TeamRole;
 import gov.bf.ascelc.univers_audits.mapper.InvestigationMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.AddMemberRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.EngagementConfidentialiteRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.EngagementConfidentialite;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.InvestigationMember;
 import gov.bf.ascelc.univers_audits.model.entity.Mandat;
@@ -54,6 +57,7 @@ class InvestigationServiceImplTest {
     @Mock private DossierHabilitationService    habilitationService;
     @Mock private PortalConfigService           portalConfigService;
     @Mock private MandatRepository               mandatRepository;
+    @Mock private EngagementConfidentialiteRepository engagementConfidentialiteRepository;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -74,6 +78,10 @@ class InvestigationServiceImplTest {
         when(memberRepository.existsByInvestigationIdAndAgentIdAndActiveTrue(
                 investigation.getId(), agent.getId())).thenReturn(false);
         when(agentRepository.findById(agent.getId())).thenReturn(Optional.of(agent));
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigation.getId(), agent.getId()))
+                .thenReturn(Optional.of(EngagementConfidentialite.builder()
+                        .hasConflictOfInterest(false).build()));
         when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
         when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(
                 investigation.getId(), agent.getId())).thenReturn(Optional.empty());
@@ -144,6 +152,10 @@ class InvestigationServiceImplTest {
         when(memberRepository.existsByInvestigationIdAndAgentIdAndActiveTrue(
                 investigation.getId(), agent.getId())).thenReturn(false);
         when(agentRepository.findById(agent.getId())).thenReturn(Optional.of(agent));
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigation.getId(), agent.getId()))
+                .thenReturn(Optional.of(EngagementConfidentialite.builder()
+                        .hasConflictOfInterest(false).build()));
         when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
         when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(
                 investigation.getId(), agent.getId()))
@@ -401,5 +413,155 @@ class InvestigationServiceImplTest {
                 .isEqualTo(gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS);
         verify(memberRepository, never()).countByInvestigationIdAndTeamRoleAndActiveTrue(
                 investigation.getId(), TeamRole.PERSONNE_RESSOURCE);
+    }
+
+    @Test
+    void addMember_rejectsWhenNoEngagementDeclared() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.existsByInvestigationIdAndAgentIdAndActiveTrue(
+                investigation.getId(), agent.getId())).thenReturn(false);
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigation.getId(), agent.getId())).thenReturn(Optional.empty());
+
+        AddMemberRequest request = AddMemberRequest.builder()
+                .agentId(agent.getId()).teamRole(TeamRole.INVESTIGATEUR).build();
+
+        assertThatThrownBy(() -> service.addMember(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("engagement");
+    }
+
+    @Test
+    void addMember_rejectsWhenConflictOfInterestDeclared() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.existsByInvestigationIdAndAgentIdAndActiveTrue(
+                investigation.getId(), agent.getId())).thenReturn(false);
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigation.getId(), agent.getId()))
+                .thenReturn(Optional.of(EngagementConfidentialite.builder()
+                        .hasConflictOfInterest(true).build()));
+
+        AddMemberRequest request = AddMemberRequest.builder()
+                .agentId(agent.getId()).teamRole(TeamRole.INVESTIGATEUR).build();
+
+        assertThatThrownBy(() -> service.addMember(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("conflit d'intérêts");
+    }
+
+    @Test
+    void declareEngagementPrealable_succeedsWithoutConflict() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigation.getId(), currentAgent.getId())).thenReturn(Optional.empty());
+        when(engagementConfidentialiteRepository.save(any(EngagementConfidentialite.class)))
+                .thenAnswer(inv -> {
+                    EngagementConfidentialite e = inv.getArgument(0);
+                    e.setId(UUID.randomUUID());
+                    return e;
+                });
+
+        EngagementConfidentialiteRequest request = EngagementConfidentialiteRequest.builder()
+                .hasConflictOfInterest(false).build();
+
+        EngagementConfidentialiteResponse response =
+                service.declareEngagementPrealable(investigation.getId(), request, "127.0.0.1");
+
+        assertThat(response.getAgentId()).isEqualTo(currentAgent.getId());
+        assertThat(response.getHasConflictOfInterest()).isFalse();
+    }
+
+    @Test
+    void declareEngagementPrealable_rejectsWhenConflictDetailsMissing() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        EngagementConfidentialiteRequest request = EngagementConfidentialiteRequest.builder()
+                .hasConflictOfInterest(true).build();
+
+        assertThatThrownBy(() -> service.declareEngagementPrealable(
+                investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("préciser");
+    }
+
+    @Test
+    void declareEngagementPrealable_rejectsWhenAlreadyDeclared() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigation.getId(), currentAgent.getId()))
+                .thenReturn(Optional.of(EngagementConfidentialite.builder()
+                        .hasConflictOfInterest(false).build()));
+
+        EngagementConfidentialiteRequest request = EngagementConfidentialiteRequest.builder()
+                .hasConflictOfInterest(false).build();
+
+        assertThatThrownBy(() -> service.declareEngagementPrealable(
+                investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà été soumise");
+    }
+
+    @Test
+    void getEngagementPrealable_returnsResponseWhenExists() {
+        UUID investigationId = UUID.randomUUID();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(
+                Dossier.builder().id(UUID.randomUUID()).build());
+        EngagementConfidentialite engagement = EngagementConfidentialite.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .agent(agent)
+                .hasConflictOfInterest(false)
+                .signedAt(java.time.Instant.now())
+                .build();
+
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigationId, agent.getId())).thenReturn(Optional.of(engagement));
+
+        EngagementConfidentialiteResponse response =
+                service.getEngagementPrealable(investigationId, agent.getId());
+
+        assertThat(response.getAgentId()).isEqualTo(agent.getId());
+        assertThat(response.getHasConflictOfInterest()).isFalse();
+    }
+
+    @Test
+    void getEngagementPrealable_throwsWhenNotFound() {
+        UUID investigationId = UUID.randomUUID();
+        UUID agentId = UUID.randomUUID();
+
+        when(engagementConfidentialiteRepository.findByInvestigationIdAndAgentId(
+                investigationId, agentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getEngagementPrealable(investigationId, agentId))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 }

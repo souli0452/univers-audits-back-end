@@ -4,8 +4,10 @@ import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationCreateRequest
 import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.ExtendDeadlineRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.AddMemberRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.EngagementConfidentialiteRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -70,4 +72,12 @@ public interface InvestigationService {
     MandatResponse deliverMandat(UUID investigationId, String ipAddress);
 
     MandatResponse getMandat(UUID investigationId);
+
+    EngagementConfidentialiteResponse declareEngagementPrealable(
+            UUID investigationId,
+            EngagementConfidentialiteRequest request,
+            String ipAddress);
+
+    EngagementConfidentialiteResponse getEngagementPrealable(
+            UUID investigationId, UUID agentId);
 }
