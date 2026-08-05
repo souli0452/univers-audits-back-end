@@ -1232,4 +1232,42 @@ class InvestigationServiceImplTest {
         assertThat(mesures).hasSize(1);
         verify(accessGuard).checkReadAccess(dossier);
     }
+
+    @Test
+    void getProcedures_returnsEmptyWhenConfidentialAndCannotSeeConfidential() {
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .isConfidential(true)
+                .build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        List<ProcedureUrgenceResponse> procedures = service.getProcedures(investigation.getId());
+
+        assertThat(procedures).isEmpty();
+        verify(procedureUrgenceRepository, never())
+                .findByInvestigationIdOrderByRequestedAtDesc(any());
+    }
+
+    @Test
+    void getMesures_returnsEmptyWhenConfidentialAndCannotSeeConfidential() {
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .isConfidential(true)
+                .build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        List<MesureConservatoireResponse> mesures = service.getMesures(investigation.getId());
+
+        assertThat(mesures).isEmpty();
+        verify(mesureConservatoireRepository, never())
+                .findByInvestigationIdOrderByTakenAtDesc(any());
+    }
 }

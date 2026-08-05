@@ -922,6 +922,8 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Procédure d'urgence demandée par " + currentAgent.getNomComplet(),
                 true, currentAgent);
 
+        notifyCgeOfProcedureUrgence(inv, currentAgent, request.getJustification());
+
         log.info("Procédure d'urgence demandée — investigation: {}", investigationId);
         return toProcedureUrgenceResponse(saved);
     }
@@ -1293,6 +1295,38 @@ public class InvestigationServiceImpl implements InvestigationService {
                                 + "investigation: {}", inv.getId());
                     } catch (Exception e) {
                         log.error("[declareIncident] Échec notification CGE — "
+                                + "investigation: {} : {}", inv.getId(), e.getMessage());
+                    }
+                });
+    }
+
+    private void notifyCgeOfProcedureUrgence(Investigation inv, Agent requester,
+            String justification) {
+        mandatRepository.findByInvestigationId(inv.getId())
+                .map(Mandat::getAgentCGE)
+                .ifPresent(cge -> {
+                    try {
+                        Dossier dossier = inv.getDossier();
+                        String dossierNumber = dossier.getNumber() != null
+                                ? dossier.getNumber() : "(en attente de numéro)";
+                        Notification notif = Notification.builder()
+                                .dossier(dossier)
+                                .type(NotificationType.INTERNAL_ALERT)
+                                .channel(NotificationChannel.PORTAL)
+                                .recipient(cge.getKeycloakId())
+                                .subject("Demande de procédure d'urgence — dossier "
+                                        + dossierNumber)
+                                .content("Une procédure d'urgence a été demandée par "
+                                        + requester.getNomComplet() + " sur le dossier "
+                                        + dossierNumber + ". Justification : "
+                                        + justification)
+                                .scheduledAt(Instant.now())
+                                .build();
+                        notificationRepository.save(notif);
+                        log.info("[demanderProcedureUrgence] Notification CGE créée — "
+                                + "investigation: {}", inv.getId());
+                    } catch (Exception e) {
+                        log.error("[demanderProcedureUrgence] Échec notification CGE — "
                                 + "investigation: {} : {}", inv.getId(), e.getMessage());
                     }
                 });

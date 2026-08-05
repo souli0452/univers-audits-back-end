@@ -546,7 +546,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "APPROUVER_PROCEDURE_URGENCE", "INVESTIGATION", id.toString(),
-                "Approbation de la procédure d'urgence",
+                "Approbation de la procédure d'urgence " + procedureId,
                 AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
@@ -569,7 +569,7 @@ public class InvestigationController {
         auditService.logAction(
                 id(jwt), name(jwt), role(jwt),
                 "REJETER_PROCEDURE_URGENCE", "INVESTIGATION", id.toString(),
-                "Rejet de la procédure d'urgence",
+                "Rejet de la procédure d'urgence " + procedureId,
                 AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
