@@ -12,6 +12,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationSubmitReq
 import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationRevisionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.IncidentObjectiviteRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.IncidentObjectiviteResponse;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -467,5 +469,35 @@ public class InvestigationController {
     public ResponseEntity<List<RevisionPlanResponse>> getPlanRevisions(
             @PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getPlanRevisions(id));
+    }
+
+    // ── Incident d'objectivité ───────────────────────────────
+
+    @PostMapping("/{id}/incidents-objectivite")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    public ResponseEntity<IncidentObjectiviteResponse> declareIncident(
+            @PathVariable UUID id,
+            @Valid @RequestBody IncidentObjectiviteRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Déclaration incident d'objectivité — investigation {}", id);
+        IncidentObjectiviteResponse result = investigationService.declareIncident(
+                id, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "DECLARER_INCIDENT_OBJECTIVITE", "INVESTIGATION", id.toString(),
+                "Déclaration d'un incident d'objectivité",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @GetMapping("/{id}/incidents-objectivite")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    public ResponseEntity<List<IncidentObjectiviteResponse>> getIncidents(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(investigationService.getIncidents(id));
     }
 }
