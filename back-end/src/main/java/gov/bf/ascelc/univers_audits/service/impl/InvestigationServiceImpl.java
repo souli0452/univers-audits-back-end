@@ -880,6 +880,11 @@ public class InvestigationServiceImpl implements InvestigationService {
         Investigation inv = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(inv.getDossier());
 
+        if (Boolean.TRUE.equals(inv.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            return List.of();
+        }
+
         return incidentObjectiviteRepository
                 .findByInvestigationIdOrderByDeclaredAtDesc(investigationId)
                 .stream()

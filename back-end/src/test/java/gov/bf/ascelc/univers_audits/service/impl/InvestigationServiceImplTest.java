@@ -21,7 +21,6 @@ import gov.bf.ascelc.univers_audits.model.entity.IncidentObjectivite;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.InvestigationMember;
 import gov.bf.ascelc.univers_audits.model.entity.Mandat;
-import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.model.entity.PlanInvestigation;
 import gov.bf.ascelc.univers_audits.model.entity.RevisionPlan;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
@@ -913,6 +912,7 @@ class InvestigationServiceImplTest {
         assertThat(response.getDescription())
                 .isEqualTo("Lien personnel découvert avec une partie visée");
         verify(accessGuard).checkReadAccess(dossier);
+        verify(notificationRepository, never()).save(any());
     }
 
     @Test
