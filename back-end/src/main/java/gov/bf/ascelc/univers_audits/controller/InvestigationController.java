@@ -14,6 +14,11 @@ import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse
 import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
 import gov.bf.ascelc.univers_audits.model.dto.request.IncidentObjectiviteRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.IncidentObjectiviteResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceDecisionRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.MesureConservatoireRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.ProcedureUrgenceResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MesureConservatoireResponse;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -499,5 +504,111 @@ public class InvestigationController {
     public ResponseEntity<List<IncidentObjectiviteResponse>> getIncidents(
             @PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getIncidents(id));
+    }
+
+    // ── Procédure d'urgence ───────────────────────────────────
+
+    @PostMapping("/{id}/procedures-urgence")
+    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    public ResponseEntity<ProcedureUrgenceResponse> demanderProcedureUrgence(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProcedureUrgenceRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Demande procédure d'urgence — investigation {}", id);
+        ProcedureUrgenceResponse result = investigationService.demanderProcedureUrgence(
+                id, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "DEMANDER_PROCEDURE_URGENCE", "INVESTIGATION", id.toString(),
+                "Demande de procédure d'urgence",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @PatchMapping("/{id}/procedures-urgence/{procedureId}/approuver")
+    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    public ResponseEntity<ProcedureUrgenceResponse> approuverProcedureUrgence(
+            @PathVariable UUID id,
+            @PathVariable UUID procedureId,
+            @RequestBody ProcedureUrgenceDecisionRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Approbation procédure d'urgence — investigation {}, procédure {}",
+                id, procedureId);
+        ProcedureUrgenceResponse result = investigationService.approuverProcedureUrgence(
+                id, procedureId, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "APPROUVER_PROCEDURE_URGENCE", "INVESTIGATION", id.toString(),
+                "Approbation de la procédure d'urgence",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PatchMapping("/{id}/procedures-urgence/{procedureId}/rejeter")
+    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    public ResponseEntity<ProcedureUrgenceResponse> rejeterProcedureUrgence(
+            @PathVariable UUID id,
+            @PathVariable UUID procedureId,
+            @RequestBody ProcedureUrgenceDecisionRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Rejet procédure d'urgence — investigation {}, procédure {}",
+                id, procedureId);
+        ProcedureUrgenceResponse result = investigationService.rejeterProcedureUrgence(
+                id, procedureId, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "REJETER_PROCEDURE_URGENCE", "INVESTIGATION", id.toString(),
+                "Rejet de la procédure d'urgence",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{id}/procedures-urgence")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    public ResponseEntity<List<ProcedureUrgenceResponse>> getProcedures(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(investigationService.getProcedures(id));
+    }
+
+    // ── Mesures conservatoires ────────────────────────────────
+
+    @PostMapping("/{id}/mesures-conservatoires")
+    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')")
+    public ResponseEntity<MesureConservatoireResponse> declarerMesureConservatoire(
+            @PathVariable UUID id,
+            @Valid @RequestBody MesureConservatoireRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Déclaration mesure conservatoire — investigation {}", id);
+        MesureConservatoireResponse result = investigationService.declarerMesureConservatoire(
+                id, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "DECLARER_MESURE_CONSERVATOIRE", "INVESTIGATION", id.toString(),
+                "Déclaration d'une mesure conservatoire",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @GetMapping("/{id}/mesures-conservatoires")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    public ResponseEntity<List<MesureConservatoireResponse>> getMesures(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(investigationService.getMesures(id));
     }
 }
