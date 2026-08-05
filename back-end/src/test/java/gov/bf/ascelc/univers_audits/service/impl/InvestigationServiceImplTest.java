@@ -737,6 +737,23 @@ class InvestigationServiceImplTest {
         assertThat(response.getObjectifs()).isEqualTo("Objectifs révisés");
         verify(revisionPlanRepository).save(argThat(r ->
                 r.getVersionNumber() == 1 && r.getObjectifs().equals("Objectifs initiaux")));
+        assertThat(response.getSubmittedAt()).isEqualTo(existingPlan.getSubmittedAt());
+        assertThat(response.getSubmittedById()).isEqualTo(currentAgent.getId());
+    }
+
+    @Test
+    void validatePlan_rejectsWhenNoPlanExists() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Aucun plan");
     }
 
     @Test

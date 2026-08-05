@@ -980,13 +980,20 @@ public class InvestigationServiceImpl implements InvestigationService {
     private PlanInvestigationResponse toPlanInvestigationResponse(PlanInvestigation plan) {
         UUID investigationId = plan.getInvestigation().getId();
 
-        Instant validationDeadline = mandatRepository
+        Instant validationDeadline = null;
+        Optional<Instant> dateDelivrance = mandatRepository
                 .findByInvestigationId(investigationId)
-                .map(Mandat::getDateDelivrance)
-                .map(delivrance -> delivrance.plusSeconds(
-                        (long) parametreDelaiService.resolveDelaiJours(
-                                "VALIDATION_PLAN_INVESTIGATION_DEI") * 24 * 3600))
-                .orElse(null);
+                .map(Mandat::getDateDelivrance);
+        if (dateDelivrance.isPresent()) {
+            try {
+                int delaiJours = parametreDelaiService.resolveDelaiJours(
+                        "VALIDATION_PLAN_INVESTIGATION_DEI");
+                validationDeadline = dateDelivrance.get().plusSeconds((long) delaiJours * 24 * 3600);
+            } catch (ResourceNotFoundException e) {
+                log.warn("Délai VALIDATION_PLAN_INVESTIGATION_DEI indisponible — "
+                        + "échéance de validation non calculée : {}", e.getMessage());
+            }
+        }
 
         boolean overdue = validationDeadline != null
                 && plan.getValidatedAt() == null
