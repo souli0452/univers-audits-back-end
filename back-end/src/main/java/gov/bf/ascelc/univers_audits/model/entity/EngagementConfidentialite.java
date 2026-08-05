@@ -13,10 +13,7 @@ import java.time.Instant;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "engagement_confidentialite", indexes = {
-        @Index(name = "idx_engagement_confidentialite_investigation",
-                columnList = "investigation_id")
-})
+@Table(name = "engagement_confidentialite")
 public class EngagementConfidentialite extends AuditEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

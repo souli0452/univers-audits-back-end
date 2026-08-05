@@ -501,6 +501,10 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Cet agent est déjà membre actif de cette investigation");
         }
 
+        Agent agent = agentRepository.findById(request.getAgentId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Agent introuvable : " + request.getAgentId()));
+
         EngagementConfidentialite engagement = engagementConfidentialiteRepository
                 .findByInvestigationIdAndAgentId(investigationId, request.getAgentId())
                 .orElseThrow(() -> new BusinessException(
@@ -513,10 +517,6 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Cet agent a déclaré un conflit d'intérêts et ne peut pas être affecté "
                             + "à cette investigation.");
         }
-
-        Agent agent = agentRepository.findById(request.getAgentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Agent introuvable : " + request.getAgentId()));
 
         Agent currentAgent = agentContextResolver.getCurrentAgent();
 
@@ -629,20 +629,13 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .build();
         EngagementConfidentialite saved = engagementConfidentialiteRepository.save(engagement);
 
-        auditRecorder.addObservation(inv.getDossier(),
-                ObservationType.INTERNAL_NOTE,
-                "Engagement de confidentialité signé par " + agent.getNomComplet()
-                        + (Boolean.TRUE.equals(saved.getHasConflictOfInterest())
-                                ? " — conflit d'intérêts déclaré"
-                                : " — aucun conflit déclaré"),
-                true, agent);
-
         log.info("Engagement de confidentialité signé — investigation: {}, agent: {}",
                 investigationId, agent.getId());
         return toEngagementConfidentialiteResponse(saved);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public EngagementConfidentialiteResponse getEngagementPrealable(
             UUID investigationId, UUID agentId) {
         EngagementConfidentialite engagement = engagementConfidentialiteRepository

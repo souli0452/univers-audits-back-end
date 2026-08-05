@@ -17,7 +17,4 @@ CREATE TABLE engagement_confidentialite (
         UNIQUE (investigation_id, agent_id)
 );
 
-CREATE INDEX idx_engagement_confidentialite_investigation
-    ON engagement_confidentialite (investigation_id);
-
 COMMENT ON TABLE engagement_confidentialite IS 'Declaration de conflit d interets + signature de l engagement de confidentialite par un agent, prealable a son affectation a une equipe d investigation (Lot 3, plan de travail S8.1/S8.4/S11) - une par couple (investigation, agent), jamais reemise';
