@@ -277,6 +277,59 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void start_rejectsWhenNoPlanExists() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent cge = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
+                        .investigation(investigation).agentCGE(cge)
+                        .dateDelivrance(java.time.Instant.now()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("plan d'investigation");
+    }
+
+    @Test
+    void start_rejectsWhenPlanNotValidated() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent cge = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
+                        .investigation(investigation).agentCGE(cge)
+                        .dateDelivrance(java.time.Instant.now()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(PlanInvestigation.builder().id(UUID.randomUUID())
+                        .validatedAt(null).build()));
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("validé");
+    }
+
+    @Test
     void start_succeedsWithFullCompositionAndMandat() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = buildInvestigation(dossier);
@@ -295,6 +348,9 @@ class InvestigationServiceImplTest {
                 .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
                         .investigation(investigation).agentCGE(cge)
                         .dateDelivrance(java.time.Instant.now()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(PlanInvestigation.builder().id(UUID.randomUUID())
+                        .validatedAt(java.time.Instant.now()).build()));
         when(investigationRepository.save(any(Investigation.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         when(investigationMapper.toResponse(investigation))
@@ -428,6 +484,9 @@ class InvestigationServiceImplTest {
                 .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
                         .investigation(investigation).agentCGE(cge)
                         .dateDelivrance(Instant.now()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(PlanInvestigation.builder().id(UUID.randomUUID())
+                        .validatedAt(Instant.now()).build()));
         when(investigationRepository.save(any(Investigation.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         when(investigationMapper.toResponse(investigation))

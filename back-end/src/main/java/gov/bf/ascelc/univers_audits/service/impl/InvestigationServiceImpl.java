@@ -223,6 +223,16 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Aucun mandat n'a été délivré par le CGE pour cette investigation.");
         }
 
+        PlanInvestigation plan = planInvestigationRepository
+                .findByInvestigationId(investigationId)
+                .orElseThrow(() -> new BusinessException(
+                        "Aucun plan d'investigation n'a été soumis pour cette investigation."));
+
+        if (plan.getValidatedAt() == null) {
+            throw new BusinessException(
+                    "Le plan d'investigation n'a pas encore été validé par le DEI.");
+        }
+
         inv.start();
         Investigation saved = investigationRepository.save(inv);
 
