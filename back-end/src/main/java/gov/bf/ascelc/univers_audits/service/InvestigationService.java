@@ -8,10 +8,15 @@ import gov.bf.ascelc.univers_audits.model.dto.request.EngagementConfidentialiteR
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationSubmitRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationRevisionRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public interface InvestigationService {
@@ -80,4 +85,20 @@ public interface InvestigationService {
 
     EngagementConfidentialiteResponse getEngagementPrealable(
             UUID investigationId, UUID agentId);
+
+    PlanInvestigationResponse submitPlan(
+            UUID investigationId,
+            PlanInvestigationSubmitRequest request,
+            String ipAddress);
+
+    PlanInvestigationResponse revisePlan(
+            UUID investigationId,
+            PlanInvestigationRevisionRequest request,
+            String ipAddress);
+
+    PlanInvestigationResponse validatePlan(UUID investigationId, String ipAddress);
+
+    PlanInvestigationResponse getPlan(UUID investigationId);
+
+    List<RevisionPlanResponse> getPlanRevisions(UUID investigationId);
 }

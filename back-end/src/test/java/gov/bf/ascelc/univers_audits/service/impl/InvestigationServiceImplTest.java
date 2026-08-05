@@ -5,15 +5,21 @@ import gov.bf.ascelc.univers_audits.enums.TeamRole;
 import gov.bf.ascelc.univers_audits.mapper.InvestigationMapper;
 import gov.bf.ascelc.univers_audits.model.dto.request.AddMemberRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.EngagementConfidentialiteRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationSubmitRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationRevisionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.EngagementConfidentialite;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.InvestigationMember;
 import gov.bf.ascelc.univers_audits.model.entity.Mandat;
+import gov.bf.ascelc.univers_audits.model.entity.PlanInvestigation;
+import gov.bf.ascelc.univers_audits.model.entity.RevisionPlan;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
@@ -58,6 +64,8 @@ class InvestigationServiceImplTest {
     @Mock private PortalConfigService           portalConfigService;
     @Mock private MandatRepository               mandatRepository;
     @Mock private EngagementConfidentialiteRepository engagementConfidentialiteRepository;
+    @Mock private PlanInvestigationRepository     planInvestigationRepository;
+    @Mock private RevisionPlanRepository          revisionPlanRepository;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -598,5 +606,256 @@ class InvestigationServiceImplTest {
 
         assertThatThrownBy(() -> service.getEngagementPrealable(investigationId, agentId))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void submitPlan_rejectsWhenNoMandat() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+
+        PlanInvestigationSubmitRequest request = PlanInvestigationSubmitRequest.builder()
+                .objectifs("Établir les faits").methodologie("Auditions et documents")
+                .build();
+
+        assertThatThrownBy(() -> service.submitPlan(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("mandat");
+    }
+
+    @Test
+    void submitPlan_rejectsWhenPlanAlreadyExists() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(PlanInvestigation.builder().id(UUID.randomUUID()).build()));
+
+        PlanInvestigationSubmitRequest request = PlanInvestigationSubmitRequest.builder()
+                .objectifs("Établir les faits").methodologie("Auditions et documents")
+                .build();
+
+        assertThatThrownBy(() -> service.submitPlan(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("existe déjà");
+    }
+
+    @Test
+    void submitPlan_succeeds() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(planInvestigationRepository.save(any(PlanInvestigation.class)))
+                .thenAnswer(inv -> {
+                    PlanInvestigation p = inv.getArgument(0);
+                    p.setId(UUID.randomUUID());
+                    return p;
+                });
+
+        PlanInvestigationSubmitRequest request = PlanInvestigationSubmitRequest.builder()
+                .objectifs("Établir les faits").methodologie("Auditions et documents")
+                .build();
+
+        PlanInvestigationResponse response =
+                service.submitPlan(investigation.getId(), request, "127.0.0.1");
+
+        assertThat(response.getPlanVersion()).isEqualTo(1);
+        assertThat(response.getValidatedAt()).isNull();
+    }
+
+    @Test
+    void revisePlan_rejectsWhenNoPlanExists() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+
+        PlanInvestigationRevisionRequest request = PlanInvestigationRevisionRequest.builder()
+                .objectifs("Établir les faits").methodologie("Auditions et documents")
+                .motifRevision("Ajustement du périmètre").build();
+
+        assertThatThrownBy(() -> service.revisePlan(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Aucun plan");
+    }
+
+    @Test
+    void revisePlan_succeedsAndResetsValidation() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+        PlanInvestigation existingPlan = PlanInvestigation.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .objectifs("Objectifs initiaux")
+                .methodologie("Méthodologie initiale")
+                .planVersion(1)
+                .submittedAt(Instant.now())
+                .submittedBy(currentAgent)
+                .validatedAt(Instant.now())
+                .validatedBy(currentAgent)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(existingPlan));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(planInvestigationRepository.save(any(PlanInvestigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        PlanInvestigationRevisionRequest request = PlanInvestigationRevisionRequest.builder()
+                .objectifs("Objectifs révisés").methodologie("Méthodologie révisée")
+                .motifRevision("Ajustement du périmètre").build();
+
+        PlanInvestigationResponse response =
+                service.revisePlan(investigation.getId(), request, "127.0.0.1");
+
+        assertThat(response.getPlanVersion()).isEqualTo(2);
+        assertThat(response.getValidatedAt()).isNull();
+        assertThat(response.getObjectifs()).isEqualTo("Objectifs révisés");
+        verify(revisionPlanRepository).save(argThat(r ->
+                r.getVersionNumber() == 1 && r.getObjectifs().equals("Objectifs initiaux")));
+    }
+
+    @Test
+    void validatePlan_rejectsWhenAlreadyValidated() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        PlanInvestigation existingPlan = PlanInvestigation.builder()
+                .id(UUID.randomUUID())
+                .validatedAt(Instant.now())
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(existingPlan));
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà été validé");
+    }
+
+    @Test
+    void validatePlan_succeeds() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+        PlanInvestigation existingPlan = PlanInvestigation.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .submittedBy(currentAgent)
+                .validatedAt(null)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(existingPlan));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(planInvestigationRepository.save(any(PlanInvestigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        PlanInvestigationResponse response =
+                service.validatePlan(investigation.getId(), "127.0.0.1");
+
+        assertThat(response.getValidatedAt()).isNotNull();
+        assertThat(response.getValidatedById()).isEqualTo(currentAgent.getId());
+    }
+
+    @Test
+    void getPlan_computesOverdueFromMandatDate() {
+        UUID investigationId = UUID.randomUUID();
+        Investigation investigation = Investigation.builder()
+                .id(investigationId)
+                .dossier(Dossier.builder().id(UUID.randomUUID()).build())
+                .build();
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID()).build();
+        PlanInvestigation plan = PlanInvestigation.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .submittedBy(currentAgent)
+                .validatedAt(null)
+                .build();
+        Mandat mandat = Mandat.builder()
+                .dateDelivrance(Instant.now().minusSeconds(30L * 24 * 3600))
+                .build();
+
+        when(planInvestigationRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.of(plan));
+        when(mandatRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.of(mandat));
+        when(parametreDelaiService.resolveDelaiJours("VALIDATION_PLAN_INVESTIGATION_DEI"))
+                .thenReturn(8);
+
+        PlanInvestigationResponse response = service.getPlan(investigationId);
+
+        assertThat(response.isOverdue()).isTrue();
+        assertThat(response.getValidationDeadline()).isNotNull();
+    }
+
+    @Test
+    void getPlan_throwsWhenNotFound() {
+        UUID investigationId = UUID.randomUUID();
+
+        when(planInvestigationRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getPlan(investigationId))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getPlanRevisions_returnsOrderedHistory() {
+        UUID investigationId = UUID.randomUUID();
+        Investigation investigation = buildInvestigation(
+                Dossier.builder().id(UUID.randomUUID()).build());
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID()).build();
+        PlanInvestigation plan = PlanInvestigation.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .build();
+        RevisionPlan revision = RevisionPlan.builder()
+                .id(UUID.randomUUID())
+                .versionNumber(1)
+                .objectifs("Objectifs initiaux")
+                .methodologie("Méthodologie initiale")
+                .revisedAt(Instant.now())
+                .revisedBy(currentAgent)
+                .motifRevision("Ajustement du périmètre")
+                .build();
+
+        when(planInvestigationRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.of(plan));
+        when(revisionPlanRepository.findByPlanInvestigationIdOrderByVersionNumberDesc(
+                plan.getId())).thenReturn(List.of(revision));
+
+        List<RevisionPlanResponse> revisions = service.getPlanRevisions(investigationId);
+
+        assertThat(revisions).hasSize(1);
+        assertThat(revisions.get(0).getMotifRevision()).isEqualTo("Ajustement du périmètre");
     }
 }

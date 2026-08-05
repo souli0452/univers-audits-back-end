@@ -9,6 +9,8 @@ import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationMemberResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
@@ -56,6 +58,8 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final PortalConfigService portalConfigService;
     private final MandatRepository               mandatRepository;
     private final EngagementConfidentialiteRepository engagementConfidentialiteRepository;
+    private final PlanInvestigationRepository     planInvestigationRepository;
+    private final RevisionPlanRepository          revisionPlanRepository;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -684,6 +688,156 @@ public class InvestigationServiceImpl implements InvestigationService {
         return toMandatResponse(mandat);
     }
 
+    @Override
+    @Transactional
+    public PlanInvestigationResponse submitPlan(
+            UUID investigationId,
+            PlanInvestigationSubmitRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (mandatRepository.findByInvestigationId(investigationId).isEmpty()) {
+            throw new BusinessException(
+                    "Aucun mandat n'a été délivré par le CGE pour cette investigation.");
+        }
+
+        if (planInvestigationRepository.findByInvestigationId(investigationId).isPresent()) {
+            throw new BusinessException(
+                    "Un plan d'investigation existe déjà pour cette investigation. "
+                            + "Utilisez la révision pour le modifier.");
+        }
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+
+        PlanInvestigation plan = PlanInvestigation.builder()
+                .investigation(inv)
+                .objectifs(request.getObjectifs())
+                .methodologie(request.getMethodologie())
+                .moyensMobilises(request.getMoyensMobilises())
+                .planningProcedures(request.getPlanningProcedures())
+                .planVersion(1)
+                .submittedAt(Instant.now())
+                .submittedBy(currentAgent)
+                .build();
+        PlanInvestigation saved = planInvestigationRepository.save(plan);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Plan d'investigation soumis par " + currentAgent.getNomComplet(),
+                true, currentAgent);
+
+        log.info("Plan d'investigation soumis — investigation: {}", investigationId);
+        return toPlanInvestigationResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public PlanInvestigationResponse revisePlan(
+            UUID investigationId,
+            PlanInvestigationRevisionRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        PlanInvestigation plan = planInvestigationRepository
+                .findByInvestigationId(investigationId)
+                .orElseThrow(() -> new BusinessException(
+                        "Aucun plan d'investigation n'existe pour cette investigation. "
+                                + "Utilisez la soumission initiale."));
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+
+        RevisionPlan revision = RevisionPlan.builder()
+                .planInvestigation(plan)
+                .versionNumber(plan.getPlanVersion())
+                .objectifs(plan.getObjectifs())
+                .methodologie(plan.getMethodologie())
+                .moyensMobilises(plan.getMoyensMobilises())
+                .planningProcedures(plan.getPlanningProcedures())
+                .revisedAt(Instant.now())
+                .revisedBy(currentAgent)
+                .motifRevision(request.getMotifRevision())
+                .build();
+        revisionPlanRepository.save(revision);
+
+        plan.setObjectifs(request.getObjectifs());
+        plan.setMethodologie(request.getMethodologie());
+        plan.setMoyensMobilises(request.getMoyensMobilises());
+        plan.setPlanningProcedures(request.getPlanningProcedures());
+        plan.setPlanVersion(plan.getPlanVersion() + 1);
+        plan.setValidatedAt(null);
+        plan.setValidatedBy(null);
+        PlanInvestigation saved = planInvestigationRepository.save(plan);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Plan d'investigation révisé par " + currentAgent.getNomComplet()
+                        + " — motif : " + request.getMotifRevision(),
+                true, currentAgent);
+
+        log.info("Plan d'investigation révisé — investigation: {}, nouvelle version: {}",
+                investigationId, saved.getPlanVersion());
+        return toPlanInvestigationResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public PlanInvestigationResponse validatePlan(UUID investigationId, String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        PlanInvestigation plan = planInvestigationRepository
+                .findByInvestigationId(investigationId)
+                .orElseThrow(() -> new BusinessException(
+                        "Aucun plan d'investigation n'existe pour cette investigation."));
+
+        if (plan.getValidatedAt() != null) {
+            throw new BusinessException(
+                    "Ce plan d'investigation a déjà été validé.");
+        }
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+        plan.setValidatedAt(Instant.now());
+        plan.setValidatedBy(currentAgent);
+        PlanInvestigation saved = planInvestigationRepository.save(plan);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Plan d'investigation validé par le DEI — " + currentAgent.getNomComplet(),
+                true, currentAgent);
+
+        log.info("Plan d'investigation validé — investigation: {}", investigationId);
+        return toPlanInvestigationResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlanInvestigationResponse getPlan(UUID investigationId) {
+        PlanInvestigation plan = planInvestigationRepository
+                .findByInvestigationId(investigationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Aucun plan d'investigation pour cette investigation : "
+                                + investigationId));
+        return toPlanInvestigationResponse(plan);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RevisionPlanResponse> getPlanRevisions(UUID investigationId) {
+        PlanInvestigation plan = planInvestigationRepository
+                .findByInvestigationId(investigationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Aucun plan d'investigation pour cette investigation : "
+                                + investigationId));
+
+        return revisionPlanRepository
+                .findByPlanInvestigationIdOrderByVersionNumberDesc(plan.getId())
+                .stream()
+                .map(this::toRevisionPlanResponse)
+                .toList();
+    }
+
 
     private InvestigationResponse buildResponseWithFreshMembers(
             Investigation inv, UUID investigationId) {
@@ -820,6 +974,57 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .hasConflictOfInterest(engagement.getHasConflictOfInterest())
                 .conflictDetails(engagement.getConflictDetails())
                 .signedAt(engagement.getSignedAt())
+                .build();
+    }
+
+    private PlanInvestigationResponse toPlanInvestigationResponse(PlanInvestigation plan) {
+        UUID investigationId = plan.getInvestigation().getId();
+
+        Instant validationDeadline = mandatRepository
+                .findByInvestigationId(investigationId)
+                .map(Mandat::getDateDelivrance)
+                .map(delivrance -> delivrance.plusSeconds(
+                        (long) parametreDelaiService.resolveDelaiJours(
+                                "VALIDATION_PLAN_INVESTIGATION_DEI") * 24 * 3600))
+                .orElse(null);
+
+        boolean overdue = validationDeadline != null
+                && plan.getValidatedAt() == null
+                && Instant.now().isAfter(validationDeadline);
+
+        return PlanInvestigationResponse.builder()
+                .id(plan.getId())
+                .investigationId(investigationId)
+                .planVersion(plan.getPlanVersion())
+                .objectifs(plan.getObjectifs())
+                .methodologie(plan.getMethodologie())
+                .moyensMobilises(plan.getMoyensMobilises())
+                .planningProcedures(plan.getPlanningProcedures())
+                .submittedAt(plan.getSubmittedAt())
+                .submittedById(plan.getSubmittedBy().getId())
+                .submittedByNom(plan.getSubmittedBy().getNomComplet())
+                .validatedAt(plan.getValidatedAt())
+                .validatedById(plan.getValidatedBy() != null
+                        ? plan.getValidatedBy().getId() : null)
+                .validatedByNom(plan.getValidatedBy() != null
+                        ? plan.getValidatedBy().getNomComplet() : null)
+                .validationDeadline(validationDeadline)
+                .overdue(overdue)
+                .build();
+    }
+
+    private RevisionPlanResponse toRevisionPlanResponse(RevisionPlan revision) {
+        return RevisionPlanResponse.builder()
+                .id(revision.getId())
+                .versionNumber(revision.getVersionNumber())
+                .objectifs(revision.getObjectifs())
+                .methodologie(revision.getMethodologie())
+                .moyensMobilises(revision.getMoyensMobilises())
+                .planningProcedures(revision.getPlanningProcedures())
+                .revisedAt(revision.getRevisedAt())
+                .revisedById(revision.getRevisedBy().getId())
+                .revisedByNom(revision.getRevisedBy().getNomComplet())
+                .motifRevision(revision.getMotifRevision())
                 .build();
     }
 
