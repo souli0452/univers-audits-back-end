@@ -24,6 +24,16 @@ import gov.bf.ascelc.univers_audits.model.entity.Mandat;
 import gov.bf.ascelc.univers_audits.model.entity.PlanInvestigation;
 import gov.bf.ascelc.univers_audits.model.entity.RevisionPlan;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
+import gov.bf.ascelc.univers_audits.enums.StatutProcedureUrgence;
+import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceDecisionRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.MesureConservatoireRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.ProcedureUrgenceResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MesureConservatoireResponse;
+import gov.bf.ascelc.univers_audits.model.entity.ProcedureUrgence;
+import gov.bf.ascelc.univers_audits.model.entity.MesureConservatoire;
+import gov.bf.ascelc.univers_audits.repository.ProcedureUrgenceRepository;
+import gov.bf.ascelc.univers_audits.repository.MesureConservatoireRepository;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
@@ -73,6 +83,8 @@ class InvestigationServiceImplTest {
     @Mock private RevisionPlanRepository          revisionPlanRepository;
     @Mock private IncidentObjectiviteRepository   incidentObjectiviteRepository;
     @Mock private DossierAccessGuard              accessGuard;
+    @Mock private ProcedureUrgenceRepository      procedureUrgenceRepository;
+    @Mock private MesureConservatoireRepository   mesureConservatoireRepository;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -987,6 +999,237 @@ class InvestigationServiceImplTest {
 
         assertThat(incidents).hasSize(1);
         assertThat(incidents.get(0).getDeclaredById()).isEqualTo(declarant.getId());
+        verify(accessGuard).checkReadAccess(dossier);
+    }
+
+    @Test
+    void demanderProcedureUrgence_succeeds() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(procedureUrgenceRepository.save(any(ProcedureUrgence.class)))
+                .thenAnswer(inv -> {
+                    ProcedureUrgence p = inv.getArgument(0);
+                    p.setId(UUID.randomUUID());
+                    return p;
+                });
+
+        ProcedureUrgenceRequest request = ProcedureUrgenceRequest.builder()
+                .justification("Risque de destruction de preuves").build();
+
+        ProcedureUrgenceResponse response =
+                service.demanderProcedureUrgence(investigation.getId(), request, "127.0.0.1");
+
+        assertThat(response.getStatus()).isEqualTo(StatutProcedureUrgence.EN_ATTENTE);
+        assertThat(response.getRequestedById()).isEqualTo(currentAgent.getId());
+        verify(accessGuard).checkReadAccess(dossier);
+    }
+
+    @Test
+    void approuverProcedureUrgence_rejectsWhenAlreadyDecided() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        ProcedureUrgence procedure = ProcedureUrgence.builder()
+                .id(UUID.randomUUID())
+                .status(StatutProcedureUrgence.APPROUVEE)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(procedureUrgenceRepository.findByIdAndInvestigationId(
+                procedure.getId(), investigation.getId()))
+                .thenReturn(Optional.of(procedure));
+
+        ProcedureUrgenceDecisionRequest request = ProcedureUrgenceDecisionRequest.builder().build();
+
+        assertThatThrownBy(() -> service.approuverProcedureUrgence(
+                investigation.getId(), procedure.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà été décidée");
+    }
+
+    @Test
+    void approuverProcedureUrgence_succeeds() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+        ProcedureUrgence procedure = ProcedureUrgence.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .status(StatutProcedureUrgence.EN_ATTENTE)
+                .requestedBy(currentAgent)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(procedureUrgenceRepository.findByIdAndInvestigationId(
+                procedure.getId(), investigation.getId()))
+                .thenReturn(Optional.of(procedure));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(procedureUrgenceRepository.save(any(ProcedureUrgence.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        ProcedureUrgenceDecisionRequest request = ProcedureUrgenceDecisionRequest.builder().build();
+
+        ProcedureUrgenceResponse response = service.approuverProcedureUrgence(
+                investigation.getId(), procedure.getId(), request, "127.0.0.1");
+
+        assertThat(response.getStatus()).isEqualTo(StatutProcedureUrgence.APPROUVEE);
+        assertThat(response.getDecidedById()).isEqualTo(currentAgent.getId());
+    }
+
+    @Test
+    void rejeterProcedureUrgence_rejectsWhenMotifMissing() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        ProcedureUrgence procedure = ProcedureUrgence.builder()
+                .id(UUID.randomUUID())
+                .status(StatutProcedureUrgence.EN_ATTENTE)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(procedureUrgenceRepository.findByIdAndInvestigationId(
+                procedure.getId(), investigation.getId()))
+                .thenReturn(Optional.of(procedure));
+
+        ProcedureUrgenceDecisionRequest request = ProcedureUrgenceDecisionRequest.builder().build();
+
+        assertThatThrownBy(() -> service.rejeterProcedureUrgence(
+                investigation.getId(), procedure.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("motif du rejet");
+    }
+
+    @Test
+    void rejeterProcedureUrgence_succeeds() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+        ProcedureUrgence procedure = ProcedureUrgence.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .status(StatutProcedureUrgence.EN_ATTENTE)
+                .requestedBy(currentAgent)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(procedureUrgenceRepository.findByIdAndInvestigationId(
+                procedure.getId(), investigation.getId()))
+                .thenReturn(Optional.of(procedure));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(procedureUrgenceRepository.save(any(ProcedureUrgence.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        ProcedureUrgenceDecisionRequest request = ProcedureUrgenceDecisionRequest.builder()
+                .motifDecision("Situation déjà maîtrisée par les moyens existants").build();
+
+        ProcedureUrgenceResponse response = service.rejeterProcedureUrgence(
+                investigation.getId(), procedure.getId(), request, "127.0.0.1");
+
+        assertThat(response.getStatus()).isEqualTo(StatutProcedureUrgence.REJETEE);
+        assertThat(response.getMotifDecision())
+                .isEqualTo("Situation déjà maîtrisée par les moyens existants");
+    }
+
+    @Test
+    void declarerMesureConservatoire_rejectsWhenNoApprovedProcedure() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(procedureUrgenceRepository.existsByInvestigationIdAndStatus(
+                investigation.getId(), StatutProcedureUrgence.APPROUVEE)).thenReturn(false);
+
+        MesureConservatoireRequest request = MesureConservatoireRequest.builder()
+                .description("Mise sous scellés du serveur").build();
+
+        assertThatThrownBy(() -> service.declarerMesureConservatoire(
+                investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Aucune procédure d'urgence approuvée");
+    }
+
+    @Test
+    void declarerMesureConservatoire_succeedsWhenApprovedProcedureExists() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(procedureUrgenceRepository.existsByInvestigationIdAndStatus(
+                investigation.getId(), StatutProcedureUrgence.APPROUVEE)).thenReturn(true);
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(mesureConservatoireRepository.save(any(MesureConservatoire.class)))
+                .thenAnswer(inv -> {
+                    MesureConservatoire m = inv.getArgument(0);
+                    m.setId(UUID.randomUUID());
+                    return m;
+                });
+
+        MesureConservatoireRequest request = MesureConservatoireRequest.builder()
+                .description("Mise sous scellés du serveur").build();
+
+        MesureConservatoireResponse response = service.declarerMesureConservatoire(
+                investigation.getId(), request, "127.0.0.1");
+
+        assertThat(response.getTakenById()).isEqualTo(currentAgent.getId());
+        assertThat(response.getDescription()).isEqualTo("Mise sous scellés du serveur");
+    }
+
+    @Test
+    void getProcedures_returnsOrderedList() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        ProcedureUrgence procedure = ProcedureUrgence.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .requestedBy(Agent.builder().id(UUID.randomUUID()).build())
+                .status(StatutProcedureUrgence.EN_ATTENTE)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(procedureUrgenceRepository.findByInvestigationIdOrderByRequestedAtDesc(
+                investigation.getId())).thenReturn(List.of(procedure));
+
+        List<ProcedureUrgenceResponse> procedures = service.getProcedures(investigation.getId());
+
+        assertThat(procedures).hasSize(1);
+        verify(accessGuard).checkReadAccess(dossier);
+    }
+
+    @Test
+    void getMesures_returnsOrderedList() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        MesureConservatoire mesure = MesureConservatoire.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .takenBy(Agent.builder().id(UUID.randomUUID()).build())
+                .description("Mise sous scellés")
+                .takenAt(Instant.now())
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(mesureConservatoireRepository.findByInvestigationIdOrderByTakenAtDesc(
+                investigation.getId())).thenReturn(List.of(mesure));
+
+        List<MesureConservatoireResponse> mesures = service.getMesures(investigation.getId());
+
+        assertThat(mesures).hasSize(1);
         verify(accessGuard).checkReadAccess(dossier);
     }
 }

@@ -12,6 +12,8 @@ import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialite
 import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.IncidentObjectiviteResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.ProcedureUrgenceResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MesureConservatoireResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
@@ -64,6 +66,8 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final RevisionPlanRepository          revisionPlanRepository;
     private final IncidentObjectiviteRepository   incidentObjectiviteRepository;
     private final DossierAccessGuard              accessGuard;
+    private final ProcedureUrgenceRepository      procedureUrgenceRepository;
+    private final MesureConservatoireRepository   mesureConservatoireRepository;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -892,6 +896,181 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public ProcedureUrgenceResponse demanderProcedureUrgence(
+            UUID investigationId,
+            ProcedureUrgenceRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+
+        ProcedureUrgence procedure = ProcedureUrgence.builder()
+                .investigation(inv)
+                .justification(request.getJustification())
+                .requestedBy(currentAgent)
+                .requestedAt(Instant.now())
+                .status(StatutProcedureUrgence.EN_ATTENTE)
+                .build();
+        ProcedureUrgence saved = procedureUrgenceRepository.save(procedure);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Procédure d'urgence demandée par " + currentAgent.getNomComplet(),
+                true, currentAgent);
+
+        log.info("Procédure d'urgence demandée — investigation: {}", investigationId);
+        return toProcedureUrgenceResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public ProcedureUrgenceResponse approuverProcedureUrgence(
+            UUID investigationId,
+            UUID procedureId,
+            ProcedureUrgenceDecisionRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+        ProcedureUrgence procedure = getProcedureOrThrow(investigationId, procedureId);
+
+        if (procedure.getStatus() != StatutProcedureUrgence.EN_ATTENTE) {
+            throw new BusinessException(
+                    "Cette procédure d'urgence a déjà été décidée.");
+        }
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+        procedure.setStatus(StatutProcedureUrgence.APPROUVEE);
+        procedure.setDecidedBy(currentAgent);
+        procedure.setDecidedAt(Instant.now());
+        procedure.setMotifDecision(request.getMotifDecision());
+        ProcedureUrgence saved = procedureUrgenceRepository.save(procedure);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Procédure d'urgence approuvée par le CGE — " + currentAgent.getNomComplet(),
+                true, currentAgent);
+
+        log.info("Procédure d'urgence approuvée — investigation: {}, procedure: {}",
+                investigationId, procedureId);
+        return toProcedureUrgenceResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public ProcedureUrgenceResponse rejeterProcedureUrgence(
+            UUID investigationId,
+            UUID procedureId,
+            ProcedureUrgenceDecisionRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+        ProcedureUrgence procedure = getProcedureOrThrow(investigationId, procedureId);
+
+        if (procedure.getStatus() != StatutProcedureUrgence.EN_ATTENTE) {
+            throw new BusinessException(
+                    "Cette procédure d'urgence a déjà été décidée.");
+        }
+
+        if (request.getMotifDecision() == null || request.getMotifDecision().isBlank()) {
+            throw new BusinessException(
+                    "Le motif du rejet est obligatoire.");
+        }
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+        procedure.setStatus(StatutProcedureUrgence.REJETEE);
+        procedure.setDecidedBy(currentAgent);
+        procedure.setDecidedAt(Instant.now());
+        procedure.setMotifDecision(request.getMotifDecision());
+        ProcedureUrgence saved = procedureUrgenceRepository.save(procedure);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Procédure d'urgence rejetée par le CGE — " + currentAgent.getNomComplet()
+                        + " — motif : " + request.getMotifDecision(),
+                true, currentAgent);
+
+        log.info("Procédure d'urgence rejetée — investigation: {}, procedure: {}",
+                investigationId, procedureId);
+        return toProcedureUrgenceResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProcedureUrgenceResponse> getProcedures(UUID investigationId) {
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+
+        if (Boolean.TRUE.equals(inv.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            return List.of();
+        }
+
+        return procedureUrgenceRepository
+                .findByInvestigationIdOrderByRequestedAtDesc(investigationId)
+                .stream()
+                .map(this::toProcedureUrgenceResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public MesureConservatoireResponse declarerMesureConservatoire(
+            UUID investigationId,
+            MesureConservatoireRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+
+        if (!procedureUrgenceRepository.existsByInvestigationIdAndStatus(
+                investigationId, StatutProcedureUrgence.APPROUVEE)) {
+            throw new BusinessException(
+                    "Aucune procédure d'urgence approuvée n'existe pour cette investigation.");
+        }
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+
+        MesureConservatoire mesure = MesureConservatoire.builder()
+                .investigation(inv)
+                .description(request.getDescription())
+                .takenBy(currentAgent)
+                .takenAt(Instant.now())
+                .build();
+        MesureConservatoire saved = mesureConservatoireRepository.save(mesure);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Mesure conservatoire prise par " + currentAgent.getNomComplet(),
+                true, currentAgent);
+
+        log.info("Mesure conservatoire déclarée — investigation: {}", investigationId);
+        return toMesureConservatoireResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MesureConservatoireResponse> getMesures(UUID investigationId) {
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+
+        if (Boolean.TRUE.equals(inv.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            return List.of();
+        }
+
+        return mesureConservatoireRepository
+                .findByInvestigationIdOrderByTakenAtDesc(investigationId)
+                .stream()
+                .map(this::toMesureConservatoireResponse)
+                .toList();
+    }
+
 
     private InvestigationResponse buildResponseWithFreshMembers(
             Investigation inv, UUID investigationId) {
@@ -1128,6 +1307,43 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .declaredByNom(incident.getDeclaredBy().getNomComplet())
                 .description(incident.getDescription())
                 .declaredAt(incident.getDeclaredAt())
+                .build();
+    }
+
+    private ProcedureUrgence getProcedureOrThrow(UUID investigationId, UUID procedureId) {
+        return procedureUrgenceRepository
+                .findByIdAndInvestigationId(procedureId, investigationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Procédure d'urgence introuvable : " + procedureId));
+    }
+
+    private ProcedureUrgenceResponse toProcedureUrgenceResponse(ProcedureUrgence procedure) {
+        return ProcedureUrgenceResponse.builder()
+                .id(procedure.getId())
+                .investigationId(procedure.getInvestigation().getId())
+                .justification(procedure.getJustification())
+                .requestedById(procedure.getRequestedBy().getId())
+                .requestedByNom(procedure.getRequestedBy().getNomComplet())
+                .requestedAt(procedure.getRequestedAt())
+                .status(procedure.getStatus())
+                .decidedById(procedure.getDecidedBy() != null
+                        ? procedure.getDecidedBy().getId() : null)
+                .decidedByNom(procedure.getDecidedBy() != null
+                        ? procedure.getDecidedBy().getNomComplet() : null)
+                .decidedAt(procedure.getDecidedAt())
+                .motifDecision(procedure.getMotifDecision())
+                .build();
+    }
+
+    private MesureConservatoireResponse toMesureConservatoireResponse(
+            MesureConservatoire mesure) {
+        return MesureConservatoireResponse.builder()
+                .id(mesure.getId())
+                .investigationId(mesure.getInvestigation().getId())
+                .description(mesure.getDescription())
+                .takenById(mesure.getTakenBy().getId())
+                .takenByNom(mesure.getTakenBy().getNomComplet())
+                .takenAt(mesure.getTakenAt())
                 .build();
     }
 

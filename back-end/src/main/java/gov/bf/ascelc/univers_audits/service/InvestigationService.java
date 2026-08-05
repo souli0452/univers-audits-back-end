@@ -14,6 +14,11 @@ import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse
 import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
 import gov.bf.ascelc.univers_audits.model.dto.request.IncidentObjectiviteRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.IncidentObjectiviteResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceDecisionRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.MesureConservatoireRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.ProcedureUrgenceResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MesureConservatoireResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -110,4 +115,30 @@ public interface InvestigationService {
             String ipAddress);
 
     List<IncidentObjectiviteResponse> getIncidents(UUID investigationId);
+
+    ProcedureUrgenceResponse demanderProcedureUrgence(
+            UUID investigationId,
+            ProcedureUrgenceRequest request,
+            String ipAddress);
+
+    ProcedureUrgenceResponse approuverProcedureUrgence(
+            UUID investigationId,
+            UUID procedureId,
+            ProcedureUrgenceDecisionRequest request,
+            String ipAddress);
+
+    ProcedureUrgenceResponse rejeterProcedureUrgence(
+            UUID investigationId,
+            UUID procedureId,
+            ProcedureUrgenceDecisionRequest request,
+            String ipAddress);
+
+    List<ProcedureUrgenceResponse> getProcedures(UUID investigationId);
+
+    MesureConservatoireResponse declarerMesureConservatoire(
+            UUID investigationId,
+            MesureConservatoireRequest request,
+            String ipAddress);
+
+    List<MesureConservatoireResponse> getMesures(UUID investigationId);
 }
