@@ -205,6 +205,23 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void start_rejectsWhenNotInitiated() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = Investigation.builder()
+                .id(UUID.randomUUID())
+                .dossier(dossier)
+                .status(gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("initiée");
+    }
+
+    @Test
     void start_rejectsWhenNoChefDeMission() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = buildInvestigation(dossier);
@@ -299,7 +316,7 @@ class InvestigationServiceImplTest {
 
         assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("plan d'investigation");
+                .hasMessageContaining("Aucun plan");
     }
 
     @Test
@@ -361,6 +378,64 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getStatus())
                 .isEqualTo(gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS);
+    }
+
+    /**
+     * Finding 3 (revue finale) : démontre le comportement composé du Lot —
+     * un plan validé puis révisé (via la vraie logique de revisePlan(), pas un
+     * stub construit à la main) laisse start() de nouveau bloqué, preuve que le
+     * garde-fou de start() lit correctement l'état réel post-révision.
+     */
+    @Test
+    void start_rejectsAfterPlanRevisedPostValidation() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        investigation.setPlannedDurationDays(30);
+        Agent cge = Agent.builder().id(UUID.randomUUID()).build();
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+
+        PlanInvestigation validatedPlan = PlanInvestigation.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .objectifs("Objectifs initiaux")
+                .methodologie("Méthodologie initiale")
+                .planVersion(1)
+                .submittedAt(Instant.now())
+                .submittedBy(currentAgent)
+                .validatedAt(Instant.now())
+                .validatedBy(currentAgent)
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(validatedPlan));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(planInvestigationRepository.save(any(PlanInvestigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        PlanInvestigationRevisionRequest revisionRequest = PlanInvestigationRevisionRequest.builder()
+                .objectifs("Objectifs révisés").methodologie("Méthodologie révisée")
+                .motifRevision("Ajustement du périmètre").build();
+
+        service.revisePlan(investigation.getId(), revisionRequest, "127.0.0.1");
+        assertThat(validatedPlan.getValidatedAt()).isNull();
+
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
+                        .investigation(investigation).agentCGE(cge)
+                        .dateDelivrance(Instant.now()).build()));
+
+        assertThatThrownBy(() -> service.start(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("validé");
     }
 
     @Test

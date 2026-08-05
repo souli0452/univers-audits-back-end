@@ -216,6 +216,12 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
 
+        if (inv.getStatus() != InvestigationStatus.INITIATED) {
+            throw new BusinessException(
+                    "Seule une investigation initiée peut être démarrée. Statut actuel : "
+                            + inv.getStatus());
+        }
+
         validateTeamComposition(investigationId);
 
         if (mandatRepository.findByInvestigationId(investigationId).isEmpty()) {
