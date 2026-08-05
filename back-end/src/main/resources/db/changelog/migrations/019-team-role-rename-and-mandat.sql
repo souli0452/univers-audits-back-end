@@ -3,8 +3,20 @@
 
 ALTER TABLE investigation_member ALTER COLUMN team_role TYPE VARCHAR(20);
 
+ALTER TABLE investigation_member
+DROP CONSTRAINT IF EXISTS investigation_member_team_role_check;
+
 UPDATE investigation_member SET team_role = 'CHEF_MISSION' WHERE team_role = 'TEAM_LEADER';
 UPDATE investigation_member SET team_role = 'INVESTIGATEUR' WHERE team_role = 'MEMBER';
+
+ALTER TABLE investigation_member
+ADD CONSTRAINT investigation_member_team_role_check
+CHECK (team_role IN (
+    'CHEF_MISSION',
+    'INVESTIGATEUR',
+    'CONSEIL_JURIDIQUE',
+    'PERSONNE_RESSOURCE'
+));
 
 CREATE TABLE mandat (
     id                UUID PRIMARY KEY,

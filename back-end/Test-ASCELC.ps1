@@ -265,22 +265,66 @@ if ($investigation) {
 }
 
 if ($INVESTIGATION_ID) {
-    Write-Step "6.2" "POST /investigations/:id/members - Ajouter TEAM_LEADER"
+    Write-Step "6.2" "POST /investigations/:id/members - Composer l equipe (regle de composition)"
 
-
-    $memberBody = "{`"agentId`":`"$AGENT_ID`",`"teamRole`":`"TEAM_LEADER`"}"
-
-    $member = Invoke-API -Method POST `
-        -Uri "$BASE_URL/api/v1/investigations/$INVESTIGATION_ID/members" `
-        -Body $memberBody `
+    # La regle de composition exige simultanement : exactement 1 CHEF_MISSION,
+    # au moins 2 INVESTIGATEUR et exactement 1 CONSEIL_JURIDIQUE actifs. Un meme
+    # agent ne peut porter qu un seul role actif a la fois (addMember rejette un
+    # agent deja actif sur l investigation), donc il faut 4 agents distincts.
+    # Ce script ne dispose que d une seule variable $AGENT_ID garantie ; on tente
+    # donc de recuperer des agents actifs supplementaires via /agents/active.
+    $activeAgents = Invoke-API -Method GET `
+        -Uri "$BASE_URL/api/v1/agents/active" `
         -Token $TOKEN
 
-    if ($member) {
-        Write-OK "Membre TEAM_LEADER ajoute"
-        Write-Info "Investigation statut" $member.status
+    $teamAgentIds = @()
+    if ($activeAgents -and $activeAgents.Count -ge 4) {
+        $teamAgentIds = @($activeAgents[0..3] | ForEach-Object { $_.id })
+        Write-OK "4 agents actifs recuperes via /agents/active pour la composition"
     }
     else {
-        Write-WARN "Ajout membre echoue - le start risque d echouer"
+        # Limitation connue du script de smoke test : pas assez d agents actifs
+        # distincts dans l environnement pour composer une equipe complete. On
+        # reutilise $AGENT_ID pour les roles manquants ; comme un agent ne peut
+        # porter qu un seul role actif a la fois, cela fera volontairement
+        # echouer la regle de composition plus loin (attendu, pas un bug script).
+        Write-WARN "Moins de 4 agents actifs disponibles via /agents/active - reutilisation de AGENT_ID pour completer la composition (limitation connue de l environnement de test, le start risque d echouer)"
+        while ($teamAgentIds.Count -lt 4) { $teamAgentIds += $AGENT_ID }
+    }
+
+    $rolesToAssign = @("CHEF_MISSION", "INVESTIGATEUR", "INVESTIGATEUR", "CONSEIL_JURIDIQUE")
+
+    for ($i = 0; $i -lt 4; $i++) {
+        $roleAgentId = $teamAgentIds[$i]
+        $role        = $rolesToAssign[$i]
+        $memberBody  = "{`"agentId`":`"$roleAgentId`",`"teamRole`":`"$role`"}"
+
+        $member = Invoke-API -Method POST `
+            -Uri "$BASE_URL/api/v1/investigations/$INVESTIGATION_ID/members" `
+            -Body $memberBody `
+            -Token $TOKEN
+
+        if ($member) {
+            Write-OK "Membre $role ajoute ($roleAgentId)"
+            Write-Info "Investigation statut" $member.status
+        }
+        else {
+            Write-WARN "Ajout membre $role echoue - le start risque d echouer"
+        }
+    }
+
+    Write-Step "6.2b" "POST /investigations/:id/mandat - Delivrance du mandat CGE"
+
+    $mandat = Invoke-API -Method POST `
+        -Uri "$BASE_URL/api/v1/investigations/$INVESTIGATION_ID/mandat" `
+        -Token $TOKEN
+
+    if ($mandat) {
+        Write-OK "Mandat delivre"
+        Write-Info "Mandat ID" $mandat.id
+    }
+    else {
+        Write-WARN "Delivrance du mandat echouee - le start risque d echouer"
     }
 
     Write-Step "6.3" "PATCH /investigations/:id/start - INITIATED -> IN_PROGRESS"

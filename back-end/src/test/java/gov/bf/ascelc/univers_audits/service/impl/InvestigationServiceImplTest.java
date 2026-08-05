@@ -12,12 +12,12 @@ import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.InvestigationMember;
 import gov.bf.ascelc.univers_audits.model.entity.Mandat;
 import gov.bf.ascelc.univers_audits.repository.*;
-import gov.bf.ascelc.univers_audits.repository.MandatRepository;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -27,6 +27,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -327,5 +328,78 @@ class InvestigationServiceImplTest {
 
         assertThat(response.getAgentCGEId()).isEqualTo(cge.getId());
         assertThat(response.getInvestigationId()).isEqualTo(investigation.getId());
+    }
+
+    @Test
+    void getMandat_returnsResponseWhenMandatExists() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent cge = Agent.builder().id(UUID.randomUUID())
+                .firstName("Jean").lastName("Dupont").build();
+        Instant dateDelivrance = Instant.now();
+        Mandat mandat = Mandat.builder().id(UUID.randomUUID())
+                .investigation(investigation).agentCGE(cge)
+                .dateDelivrance(dateDelivrance).build();
+
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(mandat));
+
+        MandatResponse response = service.getMandat(investigation.getId());
+
+        assertThat(response.getId()).isEqualTo(mandat.getId());
+        assertThat(response.getInvestigationId()).isEqualTo(investigation.getId());
+        assertThat(response.getDateDelivrance()).isEqualTo(dateDelivrance);
+        assertThat(response.getAgentCGEId()).isEqualTo(cge.getId());
+        assertThat(response.getAgentCGENom()).isEqualTo("Jean Dupont");
+    }
+
+    @Test
+    void getMandat_throwsWhenNoMandat() {
+        UUID investigationId = UUID.randomUUID();
+
+        when(mandatRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getMandat(investigationId))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    /**
+     * Finding 6 (revue finale) : PERSONNE_RESSOURCE est volontairement exclu de
+     * validateTeamComposition — nombre libre, jamais compté ni contraint. Ce test
+     * confirme que start() réussit avec la composition standard (sans jamais
+     * interroger le repository pour ce rôle) et documente ce choix explicitement.
+     */
+    @Test
+    void start_succeedsWithExtraPersonneRessource() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        investigation.setPlannedDurationDays(30);
+        Agent cge = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
+                        .investigation(investigation).agentCGE(cge)
+                        .dateDelivrance(Instant.now()).build()));
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(agentContextResolver.getCurrentAgent()).thenReturn(cge);
+
+        service.start(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getStatus())
+                .isEqualTo(gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS);
+        verify(memberRepository, never()).countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.PERSONNE_RESSOURCE);
     }
 }
