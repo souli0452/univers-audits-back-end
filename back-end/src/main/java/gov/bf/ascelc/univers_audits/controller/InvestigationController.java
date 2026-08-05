@@ -5,6 +5,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.ExtendDeadlineRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -324,5 +325,32 @@ public class InvestigationController {
                 "Retrait membre agent " + agentId, AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.ok(result);
+    }
+
+    // ── Mandat ────────────────────────────────────────────────
+
+    @PostMapping("/{id}/mandat")
+    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    public ResponseEntity<MandatResponse> deliverMandat(
+            @PathVariable UUID id,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Délivrance mandat — investigation {}", id);
+        MandatResponse result = investigationService.deliverMandat(
+                id, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "DELIVRER_MANDAT", "INVESTIGATION", id.toString(),
+                "Délivrance du mandat CGE", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @GetMapping("/{id}/mandat")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    public ResponseEntity<MandatResponse> getMandat(@PathVariable UUID id) {
+        return ResponseEntity.ok(investigationService.getMandat(id));
     }
 }
