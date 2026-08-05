@@ -8,6 +8,10 @@ import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.dto.request.EngagementConfidentialiteRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationSubmitRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationRevisionRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -27,6 +31,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -385,5 +390,82 @@ public class InvestigationController {
             @PathVariable UUID id,
             @PathVariable UUID agentId) {
         return ResponseEntity.ok(investigationService.getEngagementPrealable(id, agentId));
+    }
+
+    // ── Plan d'investigation ─────────────────────────────────
+
+    @PostMapping("/{id}/plan-investigation")
+    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')")
+    public ResponseEntity<PlanInvestigationResponse> submitPlan(
+            @PathVariable UUID id,
+            @Valid @RequestBody PlanInvestigationSubmitRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Soumission plan d'investigation — investigation {}", id);
+        PlanInvestigationResponse result = investigationService.submitPlan(
+                id, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "SOUMETTRE_PLAN_INVESTIGATION", "INVESTIGATION", id.toString(),
+                "Soumission du plan d'investigation",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @PutMapping("/{id}/plan-investigation")
+    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')")
+    public ResponseEntity<PlanInvestigationResponse> revisePlan(
+            @PathVariable UUID id,
+            @Valid @RequestBody PlanInvestigationRevisionRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Révision plan d'investigation — investigation {}", id);
+        PlanInvestigationResponse result = investigationService.revisePlan(
+                id, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "REVISER_PLAN_INVESTIGATION", "INVESTIGATION", id.toString(),
+                "Révision du plan d'investigation — motif : " + request.getMotifRevision(),
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PatchMapping("/{id}/plan-investigation/valider")
+    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    public ResponseEntity<PlanInvestigationResponse> validatePlan(
+            @PathVariable UUID id,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Validation DEI plan d'investigation — investigation {}", id);
+        PlanInvestigationResponse result = investigationService.validatePlan(
+                id, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "VALIDER_PLAN_INVESTIGATION", "INVESTIGATION", id.toString(),
+                "Validation DEI du plan d'investigation",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{id}/plan-investigation")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    public ResponseEntity<PlanInvestigationResponse> getPlan(@PathVariable UUID id) {
+        return ResponseEntity.ok(investigationService.getPlan(id));
+    }
+
+    @GetMapping("/{id}/plan-investigation/revisions")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    public ResponseEntity<List<RevisionPlanResponse>> getPlanRevisions(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(investigationService.getPlanRevisions(id));
     }
 }
