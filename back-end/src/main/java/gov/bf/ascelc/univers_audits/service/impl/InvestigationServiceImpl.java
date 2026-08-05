@@ -11,6 +11,7 @@ import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.IncidentObjectiviteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
@@ -20,6 +21,7 @@ import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +62,8 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final EngagementConfidentialiteRepository engagementConfidentialiteRepository;
     private final PlanInvestigationRepository     planInvestigationRepository;
     private final RevisionPlanRepository          revisionPlanRepository;
+    private final IncidentObjectiviteRepository   incidentObjectiviteRepository;
+    private final DossierAccessGuard              accessGuard;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -838,6 +842,51 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public IncidentObjectiviteResponse declareIncident(
+            UUID investigationId,
+            IncidentObjectiviteRequest request,
+            String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+
+        Agent currentAgent = agentContextResolver.getCurrentAgent();
+
+        IncidentObjectivite incident = IncidentObjectivite.builder()
+                .investigation(inv)
+                .declaredBy(currentAgent)
+                .description(request.getDescription())
+                .declaredAt(Instant.now())
+                .build();
+        IncidentObjectivite saved = incidentObjectiviteRepository.save(incident);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Incident d'objectivité déclaré par " + currentAgent.getNomComplet(),
+                true, currentAgent);
+
+        notifyCgeOfIncident(inv, currentAgent);
+
+        log.info("Incident d'objectivité déclaré — investigation: {}, agent: {}",
+                investigationId, currentAgent.getId());
+        return toIncidentObjectiviteResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<IncidentObjectiviteResponse> getIncidents(UUID investigationId) {
+        Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
+
+        return incidentObjectiviteRepository
+                .findByInvestigationIdOrderByDeclaredAtDesc(investigationId)
+                .stream()
+                .map(this::toIncidentObjectiviteResponse)
+                .toList();
+    }
+
 
     private InvestigationResponse buildResponseWithFreshMembers(
             Investigation inv, UUID investigationId) {
@@ -1032,6 +1081,48 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .revisedById(revision.getRevisedBy().getId())
                 .revisedByNom(revision.getRevisedBy().getNomComplet())
                 .motifRevision(revision.getMotifRevision())
+                .build();
+    }
+
+    private void notifyCgeOfIncident(Investigation inv, Agent declarant) {
+        mandatRepository.findByInvestigationId(inv.getId())
+                .map(Mandat::getAgentCGE)
+                .ifPresent(cge -> {
+                    try {
+                        Dossier dossier = inv.getDossier();
+                        String dossierNumber = dossier.getNumber() != null
+                                ? dossier.getNumber() : "(en attente de numéro)";
+                        Notification notif = Notification.builder()
+                                .dossier(dossier)
+                                .type(NotificationType.INTERNAL_ALERT)
+                                .channel(NotificationChannel.PORTAL)
+                                .recipient(cge.getKeycloakId())
+                                .subject("Incident d'objectivité déclaré — dossier "
+                                        + dossierNumber)
+                                .content("Un incident d'objectivité a été déclaré par "
+                                        + declarant.getNomComplet() + " sur le dossier "
+                                        + dossierNumber + ".")
+                                .scheduledAt(Instant.now())
+                                .build();
+                        notificationRepository.save(notif);
+                        log.info("[declareIncident] Notification CGE créée — "
+                                + "investigation: {}", inv.getId());
+                    } catch (Exception e) {
+                        log.error("[declareIncident] Échec notification CGE — "
+                                + "investigation: {} : {}", inv.getId(), e.getMessage());
+                    }
+                });
+    }
+
+    private IncidentObjectiviteResponse toIncidentObjectiviteResponse(
+            IncidentObjectivite incident) {
+        return IncidentObjectiviteResponse.builder()
+                .id(incident.getId())
+                .investigationId(incident.getInvestigation().getId())
+                .declaredById(incident.getDeclaredBy().getId())
+                .declaredByNom(incident.getDeclaredBy().getNomComplet())
+                .description(incident.getDescription())
+                .declaredAt(incident.getDeclaredAt())
                 .build();
     }
 

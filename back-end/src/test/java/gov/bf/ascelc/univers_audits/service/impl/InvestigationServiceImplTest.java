@@ -12,14 +12,19 @@ import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.IncidentObjectiviteRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.IncidentObjectiviteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.EngagementConfidentialite;
+import gov.bf.ascelc.univers_audits.model.entity.IncidentObjectivite;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.InvestigationMember;
 import gov.bf.ascelc.univers_audits.model.entity.Mandat;
+import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.model.entity.PlanInvestigation;
 import gov.bf.ascelc.univers_audits.model.entity.RevisionPlan;
+import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
@@ -29,6 +34,7 @@ import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,6 +72,8 @@ class InvestigationServiceImplTest {
     @Mock private EngagementConfidentialiteRepository engagementConfidentialiteRepository;
     @Mock private PlanInvestigationRepository     planInvestigationRepository;
     @Mock private RevisionPlanRepository          revisionPlanRepository;
+    @Mock private IncidentObjectiviteRepository   incidentObjectiviteRepository;
+    @Mock private DossierAccessGuard              accessGuard;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -874,5 +882,111 @@ class InvestigationServiceImplTest {
 
         assertThat(revisions).hasSize(1);
         assertThat(revisions.get(0).getMotifRevision()).isEqualTo("Ajustement du périmètre");
+    }
+
+    @Test
+    void declareIncident_succeedsAndChecksDossierAccess() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(incidentObjectiviteRepository.save(any(IncidentObjectivite.class)))
+                .thenAnswer(inv -> {
+                    IncidentObjectivite i = inv.getArgument(0);
+                    i.setId(UUID.randomUUID());
+                    return i;
+                });
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+
+        IncidentObjectiviteRequest request = IncidentObjectiviteRequest.builder()
+                .description("Lien personnel découvert avec une partie visée").build();
+
+        IncidentObjectiviteResponse response =
+                service.declareIncident(investigation.getId(), request, "127.0.0.1");
+
+        assertThat(response.getDeclaredById()).isEqualTo(currentAgent.getId());
+        assertThat(response.getDescription())
+                .isEqualTo("Lien personnel découvert avec une partie visée");
+        verify(accessGuard).checkReadAccess(dossier);
+    }
+
+    @Test
+    void declareIncident_propagatesAccessGuardRejection() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé — ce dossier ne vous est pas assigné"))
+                .when(accessGuard).checkReadAccess(dossier);
+
+        IncidentObjectiviteRequest request = IncidentObjectiviteRequest.builder()
+                .description("Incident").build();
+
+        assertThatThrownBy(() -> service.declareIncident(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+
+        verify(incidentObjectiviteRepository, never()).save(any());
+    }
+
+    @Test
+    void declareIncident_notifiesCgeWhenMandatExists() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-current").build();
+        Agent cge = Agent.builder().id(UUID.randomUUID())
+                .keycloakId("kc-cge").build();
+        Mandat mandat = Mandat.builder().agentCGE(cge).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(incidentObjectiviteRepository.save(any(IncidentObjectivite.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(mandat));
+
+        IncidentObjectiviteRequest request = IncidentObjectiviteRequest.builder()
+                .description("Incident").build();
+
+        service.declareIncident(investigation.getId(), request, "127.0.0.1");
+
+        verify(notificationRepository).save(argThat(n ->
+                n.getRecipient().equals("kc-cge")
+                        && n.getType() == NotificationType.INTERNAL_ALERT));
+    }
+
+    @Test
+    void getIncidents_returnsOrderedList() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent declarant = Agent.builder().id(UUID.randomUUID()).build();
+        IncidentObjectivite incident = IncidentObjectivite.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .declaredBy(declarant)
+                .description("Incident")
+                .declaredAt(Instant.now())
+                .build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(incidentObjectiviteRepository
+                .findByInvestigationIdOrderByDeclaredAtDesc(investigation.getId()))
+                .thenReturn(List.of(incident));
+
+        List<IncidentObjectiviteResponse> incidents =
+                service.getIncidents(investigation.getId());
+
+        assertThat(incidents).hasSize(1);
+        assertThat(incidents.get(0).getDeclaredById()).isEqualTo(declarant.getId());
+        verify(accessGuard).checkReadAccess(dossier);
     }
 }

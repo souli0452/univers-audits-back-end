@@ -12,6 +12,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationSubmitReq
 import gov.bf.ascelc.univers_audits.model.dto.request.PlanInvestigationRevisionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.PlanInvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.RevisionPlanResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.IncidentObjectiviteRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.IncidentObjectiviteResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -101,4 +103,11 @@ public interface InvestigationService {
     PlanInvestigationResponse getPlan(UUID investigationId);
 
     List<RevisionPlanResponse> getPlanRevisions(UUID investigationId);
+
+    IncidentObjectiviteResponse declareIncident(
+            UUID investigationId,
+            IncidentObjectiviteRequest request,
+            String ipAddress);
+
+    List<IncidentObjectiviteResponse> getIncidents(UUID investigationId);
 }
