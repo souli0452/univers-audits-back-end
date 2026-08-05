@@ -6,6 +6,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationCreateRequest
 import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MandatResponse;
+import gov.bf.ascelc.univers_audits.model.dto.request.EngagementConfidentialiteRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.EngagementConfidentialiteResponse;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -352,5 +354,36 @@ public class InvestigationController {
     @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
     public ResponseEntity<MandatResponse> getMandat(@PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getMandat(id));
+    }
+
+    // ── Engagement préalable ─────────────────────────────────
+
+    @PostMapping("/{id}/engagement-prealable")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<EngagementConfidentialiteResponse> declareEngagementPrealable(
+            @PathVariable UUID id,
+            @Valid @RequestBody EngagementConfidentialiteRequest request,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Déclaration engagement préalable — investigation {}", id);
+        EngagementConfidentialiteResponse result = investigationService
+                .declareEngagementPrealable(id, request, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "DECLARER_ENGAGEMENT_PREALABLE", "INVESTIGATION", id.toString(),
+                "Déclaration engagement préalable (conflit d'intérêts + confidentialité)",
+                AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @GetMapping("/{id}/engagement-prealable/{agentId}")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    public ResponseEntity<EngagementConfidentialiteResponse> getEngagementPrealable(
+            @PathVariable UUID id,
+            @PathVariable UUID agentId) {
+        return ResponseEntity.ok(investigationService.getEngagementPrealable(id, agentId));
     }
 }
