@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -27,4 +28,8 @@ public class AuditionScheduleRequest {
 
     @Size(max = 300)
     private String location;
+
+    @NotNull(message = "Au moins deux enquêteurs sont requis")
+    @Size(min = 2, message = "Au moins deux enquêteurs sont requis")
+    private List<UUID> investigatorIds;
 }

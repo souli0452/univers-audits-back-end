@@ -15,5 +15,7 @@ public interface AuditionService {
 
     AuditionResponse cancel(UUID auditionId, String reason);
 
+    AuditionResponse markNoShow(UUID auditionId, String note);
+
     List<AuditionResponse> findByInvestigationId(UUID investigationId);
 }

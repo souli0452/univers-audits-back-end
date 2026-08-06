@@ -96,13 +96,17 @@ public interface DossierDetailsMapper {
 
     @Mapping(target = "investigationId", source = "investigation.id")
     @Mapping(target = "intervieweeDisplayName", ignore = true)
-    @Mapping(target = "conductedByName", source = "conductedBy.nomComplet")
+    @Mapping(target = "investigatorNames", ignore = true)
+    @Mapping(target = "orderWarning", ignore = true)
+    @Mapping(target = "secondAuditionWarning", ignore = true)
     AuditionResponse mapToResponse(Audition audition);
 
     default void fillAudition(
             Audition audition,
             AuditionResponse response) {
         response.setIntervieweeDisplayName(audition.getIntervieweeDisplayName());
+        response.setInvestigatorNames(
+                audition.getInvestigators().stream().map(Agent::getNomComplet).toList());
     }
 
     @Mapping(target = "auditionId", source = "audition.id")

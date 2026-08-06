@@ -7,6 +7,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.AuditionConductRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.AuditionScheduleRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.AuditionResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
+import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.AuditionRepository;
 import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.TargetedPartyRepository;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -34,6 +36,7 @@ public class AuditionServiceImpl implements AuditionService {
     private final InvestigationRepository  investigationRepository;
     private final TargetedPartyRepository  targetedPartyRepository;
     private final WitnessRepository        witnessRepository;
+    private final AgentRepository          agentRepository;
     private final DossierDetailsMapper     mapper;
     private final AgentContextResolver     agentContextResolver;
     private final DossierAccessGuard       accessGuard;
@@ -46,32 +49,55 @@ public class AuditionServiceImpl implements AuditionService {
 
         boolean hasTargetedParty = request.getTargetedPartyId() != null;
         boolean hasWitness = request.getWitnessId() != null;
-        if (hasTargetedParty == hasWitness) {
-            throw new BusinessException(
-                    "Il faut renseigner exactement une personne auditionnée (partie visée OU témoin)");
+
+        if (request.getIntervieweeType() == IntervieweeType.DECLARANT) {
+            if (hasTargetedParty || hasWitness) {
+                throw new BusinessException(
+                        "intervieweeType=DECLARANT ne doit référencer ni partie visée ni témoin");
+            }
+            if (investigation.getDossier().getDeclarant() == null) {
+                throw new BusinessException(
+                        "Ce dossier n'a pas de déclarant identifié (dossier anonyme)");
+            }
+        } else {
+            if (hasTargetedParty == hasWitness) {
+                throw new BusinessException(
+                        "Il faut renseigner exactement une personne auditionnée (partie visée OU témoin)");
+            }
+            if (request.getIntervieweeType() == IntervieweeType.TARGETED_PARTY && !hasTargetedParty) {
+                throw new BusinessException(
+                        "intervieweeType=TARGETED_PARTY requiert targetedPartyId");
+            }
+            if (request.getIntervieweeType() == IntervieweeType.WITNESS && !hasWitness) {
+                throw new BusinessException(
+                        "intervieweeType=WITNESS requiert witnessId");
+            }
         }
-        if (request.getIntervieweeType() == IntervieweeType.TARGETED_PARTY && !hasTargetedParty) {
-            throw new BusinessException(
-                    "intervieweeType=TARGETED_PARTY requiert targetedPartyId");
-        }
-        if (request.getIntervieweeType() == IntervieweeType.WITNESS && !hasWitness) {
-            throw new BusinessException(
-                    "intervieweeType=WITNESS requiert witnessId");
-        }
+
+        List<Agent> investigators = resolveInvestigators(request.getInvestigatorIds());
+
+        List<Audition> existingAuditions =
+                auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigationId);
+        boolean secondAudition = request.getIntervieweeType() == IntervieweeType.TARGETED_PARTY
+                && existingAuditions.stream()
+                        .anyMatch(a -> a.getIntervieweeType() == IntervieweeType.TARGETED_PARTY
+                                && a.getTargetedParty() != null
+                                && a.getTargetedParty().getId().equals(request.getTargetedPartyId())
+                                && a.getStatus() == AuditionStatus.CONDUCTED);
 
         Audition.AuditionBuilder<?, ?> builder = Audition.builder()
                 .investigation(investigation)
                 .intervieweeType(request.getIntervieweeType())
                 .scheduledAt(request.getScheduledAt())
                 .location(request.getLocation())
-                .conductedBy(agentContextResolver.getCurrentAgent());
+                .investigators(investigators);
 
         if (hasTargetedParty) {
             TargetedParty targetedParty = targetedPartyRepository.findById(request.getTargetedPartyId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Partie visée introuvable : " + request.getTargetedPartyId()));
             builder.targetedParty(targetedParty);
-        } else {
+        } else if (hasWitness) {
             Witness witness = witnessRepository.findById(request.getWitnessId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Témoin introuvable : " + request.getWitnessId()));
@@ -80,7 +106,13 @@ public class AuditionServiceImpl implements AuditionService {
 
         Audition saved = auditionRepository.save(builder.build());
         log.info("Audition planifiée — investigation: {}, id: {}", investigationId, saved.getId());
-        return mapper.toResponse(saved);
+
+        AuditionResponse response = mapper.toResponse(saved);
+        if (secondAudition) {
+            response.setSecondAuditionWarning(
+                    "Une audition de ce mis en cause a déjà été tenue — une seconde audition est déconseillée");
+        }
+        return response;
     }
 
     @Override
@@ -92,10 +124,16 @@ public class AuditionServiceImpl implements AuditionService {
             throw new BusinessException(
                     "Seule une audition planifiée peut être tenue (statut actuel : " + audition.getStatus() + ")");
         }
+
+        String orderWarning = computeOrderWarning(audition);
+
         audition.conduct(request.getSummary());
         Audition saved = auditionRepository.save(audition);
         log.info("Audition tenue — id: {}", auditionId);
-        return mapper.toResponse(saved);
+
+        AuditionResponse response = mapper.toResponse(saved);
+        response.setOrderWarning(orderWarning);
+        return response;
     }
 
     @Override
@@ -114,6 +152,21 @@ public class AuditionServiceImpl implements AuditionService {
     }
 
     @Override
+    @Transactional
+    public AuditionResponse markNoShow(UUID auditionId, String note) {
+        Audition audition = getAuditionOrThrow(auditionId);
+        accessGuard.checkReadAccess(audition.getInvestigation().getDossier());
+        if (audition.getStatus() != AuditionStatus.SCHEDULED) {
+            throw new BusinessException(
+                    "Seule une audition planifiée peut être marquée absente (statut actuel : " + audition.getStatus() + ")");
+        }
+        audition.markNoShow(note);
+        Audition saved = auditionRepository.save(audition);
+        log.info("Audition — absence constatée — id: {}", auditionId);
+        return mapper.toResponse(saved);
+    }
+
+    @Override
     public List<AuditionResponse> findByInvestigationId(UUID investigationId) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
@@ -127,6 +180,37 @@ public class AuditionServiceImpl implements AuditionService {
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+    }
+
+    private List<Agent> resolveInvestigators(List<UUID> investigatorIds) {
+        return investigatorIds.stream()
+                .map(id -> agentRepository.findById(id)
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Enquêteur introuvable : " + id)))
+                .toList();
+    }
+
+    private String computeOrderWarning(Audition audition) {
+        int rank = orderRank(audition);
+        Optional<Audition> pending = auditionRepository
+                .findByInvestigationIdOrderByScheduledAtAsc(audition.getInvestigation().getId())
+                .stream()
+                .filter(a -> !a.getId().equals(audition.getId()))
+                .filter(a -> a.getStatus() == AuditionStatus.SCHEDULED)
+                .filter(a -> orderRank(a) < rank)
+                .findFirst();
+        return pending
+                .map(a -> "Ordre non respecté : l'audition de " + a.getIntervieweeDisplayName()
+                        + " (rang antérieur dans l'ordre imposé) n'a pas encore été tenue")
+                .orElse(null);
+    }
+
+    private int orderRank(Audition audition) {
+        return switch (audition.getIntervieweeType()) {
+            case DECLARANT -> 0;
+            case WITNESS -> audition.getWitness().isPossiblyImplicated() ? 2 : 1;
+            case TARGETED_PARTY -> 3;
+        };
     }
 
     private Investigation getInvestigationOrThrow(UUID id) {

@@ -66,6 +66,15 @@ public class AuditionController {
         return ResponseEntity.ok(auditionService.cancel(auditionId, reason));
     }
 
+    @PatchMapping("/{auditionId}/no-show")
+    @PreAuthorize(WRITE_ROLES)
+    public ResponseEntity<AuditionResponse> markNoShow(
+            @PathVariable UUID investigationId,
+            @PathVariable UUID auditionId,
+            @RequestParam(required = false) String note) {
+        return ResponseEntity.ok(auditionService.markNoShow(auditionId, note));
+    }
+
     @GetMapping("/{auditionId}/pv")
     @PreAuthorize(READ_ROLES)
     public ResponseEntity<PvAuditionResponse> getPv(

@@ -8,6 +8,8 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -38,9 +40,14 @@ public class Audition extends AuditEntity {
     @JoinColumn(name = "witness_id")
     private Witness witness;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "conducted_by_id", nullable = false)
-    private Agent conductedBy;
+    @ManyToMany
+    @JoinTable(
+            name = "audition_investigator",
+            joinColumns = @JoinColumn(name = "audition_id"),
+            inverseJoinColumns = @JoinColumn(name = "agent_id")
+    )
+    @Builder.Default
+    private List<Agent> investigators = new ArrayList<>();
 
     @Column(name = "location", length = 300)
     private String location;
@@ -62,6 +69,9 @@ public class Audition extends AuditEntity {
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 
+    @Column(name = "no_show_note", columnDefinition = "TEXT")
+    private String noShowNote;
+
     public void conduct(String summary) {
         this.conductedAt = Instant.now();
         this.summary = summary;
@@ -73,12 +83,23 @@ public class Audition extends AuditEntity {
         this.status = AuditionStatus.CANCELLED;
     }
 
+    public void markNoShow(String note) {
+        this.noShowNote = note;
+        this.status = AuditionStatus.NO_SHOW;
+    }
+
     public String getIntervieweeDisplayName() {
         if (IntervieweeType.WITNESS.equals(intervieweeType) && witness != null) {
             return witness.getDisplayName();
         }
         if (IntervieweeType.TARGETED_PARTY.equals(intervieweeType) && targetedParty != null) {
             return targetedParty.getDisplayName();
+        }
+        if (IntervieweeType.DECLARANT.equals(intervieweeType)
+                && investigation != null
+                && investigation.getDossier() != null
+                && investigation.getDossier().getDeclarant() != null) {
+            return investigation.getDossier().getDeclarant().getDisplayName();
         }
         return "Inconnu";
     }

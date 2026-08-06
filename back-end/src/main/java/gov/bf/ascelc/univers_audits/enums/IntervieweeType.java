@@ -7,5 +7,7 @@ public enum IntervieweeType {
     // Partie visée par le dossier
     TARGETED_PARTY,
     // Témoin du dossier
-    WITNESS
+    WITNESS,
+    // Dénonciateur (le déclarant du dossier)
+    DECLARANT
 }
