@@ -109,6 +109,14 @@ public interface DossierDetailsMapper {
     @Mapping(target = "draftedByName", source = "draftedBy.nomComplet")
     PvAuditionResponse toResponse(PVAudition pvAudition);
 
+    @Mapping(target = "investigationId", source = "investigation.id")
+    @Mapping(target = "conductedByName", source = "conductedBy.nomComplet")
+    VisiteTerrainResponse toResponse(VisiteTerrain visiteTerrain);
+
+    @Mapping(target = "visiteTerrainId", source = "visiteTerrain.id")
+    @Mapping(target = "draftedByName", source = "draftedBy.nomComplet")
+    PvConstatResponse toResponse(PVConstat pvConstat);
+
     default DemandeDocumentsResponse toResponse(DemandeDocuments demandeDocuments) {
         DemandeDocumentsResponse response = mapToResponse(demandeDocuments);
         if (response != null) {
