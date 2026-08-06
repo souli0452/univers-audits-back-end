@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.service.impl;
 
 import gov.bf.ascelc.univers_audits.enums.EscalationLevel;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
+import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsAddressErrorRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DemandeDocumentsResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
@@ -154,6 +155,84 @@ class DemandeDocumentsServiceImplTest {
                 .thenReturn(Optional.of(demande));
 
         assertThatThrownBy(() -> service.escalate(demande.getId()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void escalate_reachesSaisineJudiciaireFromSommation() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        DemandeDocuments demande = DemandeDocuments.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .escalationLevel(EscalationLevel.SOMMATION)
+                .received(false)
+                .deadline(Instant.now().minusSeconds(3600))
+                .build();
+
+        when(demandeDocumentsRepository.findById(demande.getId()))
+                .thenReturn(Optional.of(demande));
+        when(parametreDelaiService.resolveDelaiJours("DEMANDE_DOCUMENTS_SAISINE_JUDICIAIRE"))
+                .thenReturn(0);
+        when(demandeDocumentsRepository.save(any(DemandeDocuments.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(DemandeDocuments.class)))
+                .thenReturn(DemandeDocumentsResponse.builder().build());
+
+        service.escalate(demande.getId());
+
+        assertThat(demande.getEscalationLevel()).isEqualTo(EscalationLevel.SAISINE_JUDICIAIRE);
+    }
+
+    @Test
+    void reportAddressError_succeedsAndKeepsEscalationLevel() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        DemandeDocuments demande = DemandeDocuments.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .escalationLevel(EscalationLevel.RELANCE)
+                .recipientLabel("Ancienne adresse")
+                .received(false)
+                .deadline(Instant.now().minusSeconds(3600))
+                .build();
+
+        when(demandeDocumentsRepository.findById(demande.getId()))
+                .thenReturn(Optional.of(demande));
+        when(parametreDelaiService.resolveDelaiJours("DEMANDE_DOCUMENTS_RELANCE"))
+                .thenReturn(7);
+        when(demandeDocumentsRepository.save(any(DemandeDocuments.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(DemandeDocuments.class)))
+                .thenReturn(DemandeDocumentsResponse.builder().build());
+
+        DemandeDocumentsAddressErrorRequest request = DemandeDocumentsAddressErrorRequest.builder()
+                .correctedRecipientLabel("Nouvelle adresse").build();
+
+        service.reportAddressError(demande.getId(), request);
+
+        assertThat(demande.getRecipientLabel()).isEqualTo("Nouvelle adresse");
+        assertThat(demande.getEscalationLevel()).isEqualTo(EscalationLevel.RELANCE);
+    }
+
+    @Test
+    void reportAddressError_rejectsWhenAlreadyReceived() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        DemandeDocuments demande = DemandeDocuments.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .escalationLevel(EscalationLevel.INITIAL)
+                .received(true)
+                .build();
+
+        when(demandeDocumentsRepository.findById(demande.getId()))
+                .thenReturn(Optional.of(demande));
+
+        DemandeDocumentsAddressErrorRequest request = DemandeDocumentsAddressErrorRequest.builder()
+                .correctedRecipientLabel("Nouvelle adresse").build();
+
+        assertThatThrownBy(() -> service.reportAddressError(demande.getId(), request))
                 .isInstanceOf(BusinessException.class);
     }
 

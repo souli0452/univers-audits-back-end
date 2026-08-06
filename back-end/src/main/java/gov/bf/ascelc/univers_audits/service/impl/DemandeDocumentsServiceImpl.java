@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.service.impl;
 
 import gov.bf.ascelc.univers_audits.enums.EscalationLevel;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
+import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsAddressErrorRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DemandeDocumentsResponse;
 import gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments;
@@ -42,7 +43,7 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
 
-        int deadlineDays = parametreDelaiService.resolveDelaiJours("DEMANDE_DOCUMENTS_INITIAL");
+        int deadlineDays = parametreDelaiService.resolveDelaiJours(delaiCodeFor(EscalationLevel.INITIAL));
         Instant sentAt = Instant.now();
 
         DemandeDocuments demande = DemandeDocuments.builder()
@@ -97,6 +98,28 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
     }
 
     @Override
+    @Transactional
+    public DemandeDocumentsResponse reportAddressError(
+            UUID id, DemandeDocumentsAddressErrorRequest request) {
+        DemandeDocuments demande = getOrThrow(id);
+        accessGuard.checkReadAccess(demande.getInvestigation().getDossier());
+
+        if (Boolean.TRUE.equals(demande.getReceived())) {
+            throw new BusinessException(
+                    "Cette demande a déjà été satisfaite, elle ne peut pas être "
+                            + "corrigée pour adresse erronée");
+        }
+
+        int deadlineDays = parametreDelaiService.resolveDelaiJours(
+                delaiCodeFor(demande.getEscalationLevel()));
+        demande.resetForAddressError(request.getCorrectedRecipientLabel(), deadlineDays);
+
+        DemandeDocuments saved = demandeDocumentsRepository.save(demande);
+        log.info("Demande de documents corrigée pour adresse erronée — id: {}", id);
+        return mapper.toResponse(saved);
+    }
+
+    @Override
     public List<DemandeDocumentsResponse> findByInvestigationId(UUID investigationId) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
@@ -114,10 +137,10 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
 
     private String delaiCodeFor(EscalationLevel level) {
         return switch (level) {
+            case INITIAL -> "DEMANDE_DOCUMENTS_INITIAL";
             case RELANCE -> "DEMANDE_DOCUMENTS_RELANCE";
             case SOMMATION -> "DEMANDE_DOCUMENTS_SOMMATION";
-            default -> throw new BusinessException(
-                    "Aucun délai configuré pour le niveau d'escalade : " + level);
+            case SAISINE_JUDICIAIRE -> "DEMANDE_DOCUMENTS_SAISINE_JUDICIAIRE";
         };
     }
 

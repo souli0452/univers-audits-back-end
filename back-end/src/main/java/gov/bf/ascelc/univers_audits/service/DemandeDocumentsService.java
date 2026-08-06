@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsAddressErrorRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DemandeDocumentsResponse;
 
@@ -13,6 +14,8 @@ public interface DemandeDocumentsService {
     DemandeDocumentsResponse markReceived(UUID id);
 
     DemandeDocumentsResponse escalate(UUID id);
+
+    DemandeDocumentsResponse reportAddressError(UUID id, DemandeDocumentsAddressErrorRequest request);
 
     List<DemandeDocumentsResponse> findByInvestigationId(UUID investigationId);
 }

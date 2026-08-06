@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsAddressErrorRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DemandeDocumentsResponse;
 import gov.bf.ascelc.univers_audits.service.DemandeDocumentsService;
@@ -56,5 +57,14 @@ public class DemandeDocumentsController {
             @PathVariable UUID investigationId,
             @PathVariable UUID id) {
         return ResponseEntity.ok(demandeDocumentsService.escalate(id));
+    }
+
+    @PatchMapping("/{id}/adresse-erronee")
+    @PreAuthorize(WRITE_ROLES)
+    public ResponseEntity<DemandeDocumentsResponse> reportAddressError(
+            @PathVariable UUID investigationId,
+            @PathVariable UUID id,
+            @Valid @RequestBody DemandeDocumentsAddressErrorRequest request) {
+        return ResponseEntity.ok(demandeDocumentsService.reportAddressError(id, request));
     }
 }

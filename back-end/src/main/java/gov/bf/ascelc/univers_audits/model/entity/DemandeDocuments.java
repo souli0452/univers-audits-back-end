@@ -64,6 +64,12 @@ public class DemandeDocuments extends AuditEntity {
         this.deadline = sentAt.plusSeconds(deadlineDays * 24L * 3600);
     }
 
+    public void resetForAddressError(String newRecipientLabel, int deadlineDays) {
+        this.recipientLabel = newRecipientLabel;
+        this.sentAt = Instant.now();
+        this.deadline = sentAt.plusSeconds(deadlineDays * 24L * 3600);
+    }
+
     public boolean isOverdue() {
         return !Boolean.TRUE.equals(received)
                 && deadline != null
