@@ -15,7 +15,6 @@ import gov.bf.ascelc.univers_audits.repository.WitnessRepository;
 import gov.bf.ascelc.univers_audits.service.AuditionService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
-import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +37,6 @@ public class AuditionServiceImpl implements AuditionService {
     private final WitnessRepository        witnessRepository;
     private final AgentRepository          agentRepository;
     private final DossierDetailsMapper     mapper;
-    private final AgentContextResolver     agentContextResolver;
     private final DossierAccessGuard       accessGuard;
 
     @Override
@@ -208,7 +206,7 @@ public class AuditionServiceImpl implements AuditionService {
     private int orderRank(Audition audition) {
         return switch (audition.getIntervieweeType()) {
             case DECLARANT -> 0;
-            case WITNESS -> audition.getWitness().isPossiblyImplicated() ? 2 : 1;
+            case WITNESS -> audition.getWitness() != null && audition.getWitness().isPossiblyImplicated() ? 2 : 1;
             case TARGETED_PARTY -> 3;
         };
     }

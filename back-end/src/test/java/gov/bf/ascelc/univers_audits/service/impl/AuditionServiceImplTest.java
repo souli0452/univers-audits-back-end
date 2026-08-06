@@ -14,7 +14,6 @@ import gov.bf.ascelc.univers_audits.repository.TargetedPartyRepository;
 import gov.bf.ascelc.univers_audits.repository.WitnessRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
-import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,7 +40,6 @@ class AuditionServiceImplTest {
     @Mock private WitnessRepository witnessRepository;
     @Mock private AgentRepository agentRepository;
     @Mock private DossierDetailsMapper mapper;
-    @Mock private AgentContextResolver agentContextResolver;
     @Mock private DossierAccessGuard accessGuard;
 
     @InjectMocks
@@ -317,6 +315,43 @@ class AuditionServiceImplTest {
         AuditionResponse response = service.conduct(audition.getId(),
                 AuditionConductRequest.builder().summary("Compte-rendu").build());
 
+        assertThat(response.getOrderWarning()).isNotBlank();
+    }
+
+    @Test
+    void conduct_witnessAuditionWithoutWitnessDoesNotThrowAndRanksAsOne() {
+        // Legacy/direct-DB data can leave a WITNESS audition with no witness attached
+        // (witness_id is a nullable FK) even though schedule() always sets one for new
+        // auditions. orderRank() must not NPE on audition.getWitness() in that case.
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = Investigation.builder().dossier(dossier).build();
+        Audition pendingWitnessLessAudition = Audition.builder()
+                .id(UUID.randomUUID())
+                .intervieweeType(IntervieweeType.WITNESS)
+                .witness(null)
+                .status(AuditionStatus.SCHEDULED)
+                .build();
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .intervieweeType(IntervieweeType.TARGETED_PARTY)
+                .status(AuditionStatus.SCHEDULED)
+                .investigation(investigation)
+                .build();
+
+        when(auditionRepository.findById(audition.getId()))
+                .thenReturn(Optional.of(audition));
+        when(auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(any()))
+                .thenReturn(List.of(pendingWitnessLessAudition, audition));
+        when(auditionRepository.save(any(Audition.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(Audition.class)))
+                .thenReturn(AuditionResponse.builder().build());
+
+        AuditionResponse response = service.conduct(audition.getId(),
+                AuditionConductRequest.builder().summary("Compte-rendu").build());
+
+        // Witness-less WITNESS audition is treated as rank 1 (< TARGETED_PARTY's rank 3),
+        // so it still surfaces as an order warning rather than throwing.
         assertThat(response.getOrderWarning()).isNotBlank();
     }
 
