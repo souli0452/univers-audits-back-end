@@ -141,6 +141,23 @@ class VisiteTerrainServiceImplTest {
     }
 
     @Test
+    void cancel_throwsWhenNotScheduled() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        VisiteTerrain visite = VisiteTerrain.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .status(VisiteStatus.CONDUCTED)
+                .build();
+
+        when(visiteTerrainRepository.findById(visite.getId()))
+                .thenReturn(Optional.of(visite));
+
+        assertThatThrownBy(() -> service.cancel(visite.getId(), "motif"))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     void markCarence_movesToCarenceWhenScheduled() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = buildInvestigation(dossier);

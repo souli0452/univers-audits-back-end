@@ -98,6 +98,23 @@ class PvConstatServiceImplTest {
     }
 
     @Test
+    void findByVisiteId_returnsPvWhenAuthorized() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = Investigation.builder().id(UUID.randomUUID()).dossier(dossier).build();
+        VisiteTerrain visite = VisiteTerrain.builder().id(UUID.randomUUID()).investigation(investigation).build();
+        PVConstat pv = PVConstat.builder().id(UUID.randomUUID()).visiteTerrain(visite).build();
+
+        when(pvConstatRepository.findByVisiteTerrainId(visite.getId()))
+                .thenReturn(Optional.of(pv));
+        when(mapper.toResponse(any(PVConstat.class)))
+                .thenReturn(PvConstatResponse.builder().build());
+
+        PvConstatResponse result = service.findByVisiteId(visite.getId());
+
+        assertThat(result).isNotNull();
+    }
+
+    @Test
     void findByVisiteId_throwsWhenNotFound() {
         UUID visiteId = UUID.randomUUID();
         when(pvConstatRepository.findByVisiteTerrainId(visiteId)).thenReturn(Optional.empty());
