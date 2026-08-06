@@ -213,6 +213,7 @@ class DemandeDocumentsServiceImplTest {
 
         assertThat(demande.getRecipientLabel()).isEqualTo("Nouvelle adresse");
         assertThat(demande.getEscalationLevel()).isEqualTo(EscalationLevel.RELANCE);
+        assertThat(demande.isOverdue()).isFalse();
     }
 
     @Test
