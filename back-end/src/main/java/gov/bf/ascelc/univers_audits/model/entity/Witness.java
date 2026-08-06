@@ -61,6 +61,10 @@ public class Witness extends AuditEntity {
     @Builder.Default
     private Boolean anonymous = false;
 
+    @Column(name = "possibly_implicated", nullable = false)
+    @Builder.Default
+    private Boolean possiblyImplicated = false;
+
 
     public boolean hasConsented() {
         return Boolean.TRUE.equals(consentToContact);
@@ -68,6 +72,10 @@ public class Witness extends AuditEntity {
 
     public boolean isAnonymous() {
         return Boolean.TRUE.equals(anonymous);
+    }
+
+    public boolean isPossiblyImplicated() {
+        return Boolean.TRUE.equals(possiblyImplicated);
     }
 
     public String getDisplayName() {

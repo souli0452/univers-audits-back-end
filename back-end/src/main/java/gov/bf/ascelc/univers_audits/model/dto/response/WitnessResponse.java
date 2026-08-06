@@ -23,5 +23,6 @@ public class WitnessResponse {
     private LocalDate interrogationDate;
     private Boolean consentToContact;
     private Boolean anonymous;
+    private Boolean possiblyImplicated;
     private String displayName;
 }

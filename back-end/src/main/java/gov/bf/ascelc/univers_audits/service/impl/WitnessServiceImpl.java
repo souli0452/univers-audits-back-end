@@ -72,6 +72,7 @@ public class WitnessServiceImpl implements WitnessService {
                 .consentToContact(Boolean.TRUE.equals(
                         request.getConsentToContact()))
                 .anonymous(Boolean.TRUE.equals(request.getAnonymous()))
+                .possiblyImplicated(Boolean.TRUE.equals(request.getPossiblyImplicated()))
                 .build();
 
         Witness saved = witnessRepository.save(witness);
@@ -102,6 +103,9 @@ public class WitnessServiceImpl implements WitnessService {
         }
         if (request.getAnonymous() != null) {
             witness.setAnonymous(request.getAnonymous());
+        }
+        if (request.getPossiblyImplicated() != null) {
+            witness.setPossiblyImplicated(request.getPossiblyImplicated());
         }
 
         Witness saved = witnessRepository.save(witness);

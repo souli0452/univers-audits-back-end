@@ -42,4 +42,6 @@ public class WitnessRequest {
     private Boolean consentToContact;
 
     private Boolean anonymous;
+
+    private Boolean possiblyImplicated;
 }
