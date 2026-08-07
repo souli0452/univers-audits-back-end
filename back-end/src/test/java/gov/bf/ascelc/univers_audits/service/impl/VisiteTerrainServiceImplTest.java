@@ -68,7 +68,7 @@ class VisiteTerrainServiceImplTest {
         verify(visiteTerrainRepository).save(argThat(v ->
                 v.getLocation().equals("Siège de l'entreprise X")
                         && v.getStatus() == VisiteStatus.SCHEDULED
-                        && v.getConductedBy() == agent));
+                        && v.getPlannedBy() == agent));
     }
 
     @Test

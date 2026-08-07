@@ -114,7 +114,7 @@ public interface DossierDetailsMapper {
     PvAuditionResponse toResponse(PVAudition pvAudition);
 
     @Mapping(target = "investigationId", source = "investigation.id")
-    @Mapping(target = "conductedByName", source = "conductedBy.nomComplet")
+    @Mapping(target = "plannedByName", source = "plannedBy.nomComplet")
     VisiteTerrainResponse toResponse(VisiteTerrain visiteTerrain);
 
     @Mapping(target = "visiteTerrainId", source = "visiteTerrain.id")

@@ -44,7 +44,7 @@ public class VisiteTerrainServiceImpl implements VisiteTerrainService {
                 .investigation(investigation)
                 .location(request.getLocation())
                 .scheduledAt(request.getScheduledAt())
-                .conductedBy(agentContextResolver.getCurrentAgent())
+                .plannedBy(agentContextResolver.getCurrentAgent())
                 .build();
 
         VisiteTerrain saved = visiteTerrainRepository.save(visite);

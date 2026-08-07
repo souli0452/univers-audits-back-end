@@ -26,7 +26,7 @@ public class VisiteTerrain extends AuditEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conducted_by_id", nullable = false)
-    private Agent conductedBy;
+    private Agent plannedBy;
 
     @Column(name = "location", length = 300, nullable = false)
     private String location;

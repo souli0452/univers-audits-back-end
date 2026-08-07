@@ -14,7 +14,7 @@ import java.util.UUID;
 public class VisiteTerrainResponse {
     private UUID id;
     private UUID investigationId;
-    private String conductedByName;
+    private String plannedByName;
     private String location;
     private Instant scheduledAt;
     private Instant conductedAt;
