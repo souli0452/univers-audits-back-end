@@ -1,10 +1,16 @@
 package gov.bf.ascelc.univers_audits.mapper;
 
+import gov.bf.ascelc.univers_audits.enums.IntervieweeType;
 import gov.bf.ascelc.univers_audits.model.dto.request.EtudeOpportuniteRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.AuditionResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
+import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.model.entity.Audition;
 import gov.bf.ascelc.univers_audits.model.entity.EtudeOpportunite;
 import gov.bf.ascelc.univers_audits.model.entity.Witness;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,6 +56,23 @@ class DossierDetailsMapperTest {
         assertThat(response.getLastName()).isEqualTo("Kabore");
         assertThat(response.getPhoneNumber()).isEqualTo("70000000");
         assertThat(response.getDisplayName()).isEqualTo("Jean Kabore");
+    }
+
+    @Test
+    void toResponse_fillsInvestigatorNamesFromInvestigatorsList() {
+        Agent investigator1 = Agent.builder()
+                .firstName("Aicha").lastName("Ouedraogo").build();
+        Agent investigator2 = Agent.builder()
+                .firstName("Boureima").lastName("Traore").build();
+        Audition audition = Audition.builder()
+                .intervieweeType(IntervieweeType.WITNESS)
+                .investigators(List.of(investigator1, investigator2))
+                .build();
+
+        AuditionResponse response = mapper.toResponse(audition);
+
+        assertThat(response.getInvestigatorNames())
+                .containsExactly("Aicha Ouedraogo", "Boureima Traore");
     }
 
     @Test

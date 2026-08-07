@@ -31,5 +31,5 @@ public class AuditionScheduleRequest {
 
     @NotNull(message = "Au moins deux enquêteurs sont requis")
     @Size(min = 2, message = "Au moins deux enquêteurs sont requis")
-    private List<UUID> investigatorIds;
+    private List<@NotNull(message = "Un identifiant d'enquêteur ne peut pas être vide") UUID> investigatorIds;
 }

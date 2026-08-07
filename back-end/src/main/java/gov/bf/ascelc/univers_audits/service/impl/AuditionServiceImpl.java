@@ -16,6 +16,7 @@ import gov.bf.ascelc.univers_audits.service.AuditionService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
+import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,7 @@ public class AuditionServiceImpl implements AuditionService {
     private final AgentRepository          agentRepository;
     private final DossierDetailsMapper     mapper;
     private final DossierAccessGuard       accessGuard;
+    private final SecurityUtils            securityUtils;
 
     @Override
     @Transactional
@@ -106,6 +108,7 @@ public class AuditionServiceImpl implements AuditionService {
         log.info("Audition planifiée — investigation: {}, id: {}", investigationId, saved.getId());
 
         AuditionResponse response = mapper.toResponse(saved);
+        response.setIntervieweeDisplayName(maskedDeclarantAwareDisplayName(saved));
         if (secondAudition) {
             response.setSecondAuditionWarning(
                     "Une audition de ce mis en cause a déjà été tenue — une seconde audition est déconseillée");
@@ -130,6 +133,7 @@ public class AuditionServiceImpl implements AuditionService {
         log.info("Audition tenue — id: {}", auditionId);
 
         AuditionResponse response = mapper.toResponse(saved);
+        response.setIntervieweeDisplayName(maskedDeclarantAwareDisplayName(saved));
         response.setOrderWarning(orderWarning);
         return response;
     }
@@ -146,7 +150,9 @@ public class AuditionServiceImpl implements AuditionService {
         audition.cancel(reason);
         Audition saved = auditionRepository.save(audition);
         log.info("Audition annulée — id: {}, motif: {}", auditionId, reason);
-        return mapper.toResponse(saved);
+        AuditionResponse response = mapper.toResponse(saved);
+        response.setIntervieweeDisplayName(maskedDeclarantAwareDisplayName(saved));
+        return response;
     }
 
     @Override
@@ -161,7 +167,9 @@ public class AuditionServiceImpl implements AuditionService {
         audition.markNoShow(note);
         Audition saved = auditionRepository.save(audition);
         log.info("Audition — absence constatée — id: {}", auditionId);
-        return mapper.toResponse(saved);
+        AuditionResponse response = mapper.toResponse(saved);
+        response.setIntervieweeDisplayName(maskedDeclarantAwareDisplayName(saved));
+        return response;
     }
 
     @Override
@@ -176,12 +184,39 @@ public class AuditionServiceImpl implements AuditionService {
 
         return auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigationId)
                 .stream()
-                .map(mapper::toResponse)
+                .map(a -> {
+                    AuditionResponse r = mapper.toResponse(a);
+                    r.setIntervieweeDisplayName(maskedDeclarantAwareDisplayName(a));
+                    return r;
+                })
                 .toList();
     }
 
+    private String maskedDeclarantAwareDisplayName(Audition audition) {
+        String raw = audition.getIntervieweeDisplayName();
+        if (audition.getIntervieweeType() != IntervieweeType.DECLARANT) {
+            return raw;
+        }
+        Dossier dossier = audition.getInvestigation().getDossier();
+        Declarant declarant = dossier.getDeclarant();
+        if (declarant != null
+                && Boolean.TRUE.equals(declarant.getProtectionRequested())
+                && !securityUtils.hasRole("CGE")
+                && !securityUtils.hasRole("CGEA")) {
+            raw = "Lanceur d'alerte protégé (Loi N°010-2004/AN)";
+        }
+        if (Boolean.TRUE.equals(dossier.getAnonymous())) {
+            raw = "Déclarant anonyme";
+        }
+        return raw;
+    }
+
     private List<Agent> resolveInvestigators(List<UUID> investigatorIds) {
-        return investigatorIds.stream()
+        List<UUID> distinctIds = investigatorIds.stream().distinct().toList();
+        if (distinctIds.size() < 2) {
+            throw new BusinessException("Au moins deux enquêteurs distincts sont requis");
+        }
+        return distinctIds.stream()
                 .map(id -> agentRepository.findById(id)
                         .orElseThrow(() -> new ResourceNotFoundException(
                                 "Enquêteur introuvable : " + id)))
@@ -198,7 +233,7 @@ public class AuditionServiceImpl implements AuditionService {
                 .filter(a -> orderRank(a) < rank)
                 .findFirst();
         return pending
-                .map(a -> "Ordre non respecté : l'audition de " + a.getIntervieweeDisplayName()
+                .map(a -> "Ordre non respecté : l'audition de " + maskedDeclarantAwareDisplayName(a)
                         + " (rang antérieur dans l'ordre imposé) n'a pas encore été tenue")
                 .orElse(null);
     }
