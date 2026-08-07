@@ -3,6 +3,7 @@ package gov.bf.ascelc.univers_audits.model.dto.response;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -18,4 +19,7 @@ public class PvAuditionResponse {
     private Boolean intervieweeSigned;
     private Boolean intervieweeSignatureRefused;
     private Instant finalizedAt;
+    private Integer pvVersion;
+    private Instant readBackAt;
+    private List<CorrectionPvAuditionResponse> corrections;
 }

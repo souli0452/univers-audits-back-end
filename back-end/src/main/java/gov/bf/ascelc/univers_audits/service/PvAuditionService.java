@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionCorrectionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionFinalizeRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.PvAuditionResponse;
@@ -10,7 +11,11 @@ public interface PvAuditionService {
 
     PvAuditionResponse create(UUID auditionId, PvAuditionCreateRequest request);
 
+    PvAuditionResponse markReadBack(UUID auditionId);
+
     PvAuditionResponse finalizeSignatures(UUID auditionId, PvAuditionFinalizeRequest request);
+
+    PvAuditionResponse correct(UUID auditionId, PvAuditionCorrectionRequest request);
 
     PvAuditionResponse findByAuditionId(UUID auditionId);
 }

@@ -111,6 +111,7 @@ public interface DossierDetailsMapper {
 
     @Mapping(target = "auditionId", source = "audition.id")
     @Mapping(target = "draftedByName", source = "draftedBy.nomComplet")
+    @Mapping(target = "corrections", ignore = true)
     PvAuditionResponse toResponse(PVAudition pvAudition);
 
     @Mapping(target = "investigationId", source = "investigation.id")

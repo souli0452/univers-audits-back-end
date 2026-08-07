@@ -1,13 +1,18 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
+import gov.bf.ascelc.univers_audits.enums.AuditionStatus;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
+import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionCorrectionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionFinalizeRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.CorrectionPvAuditionResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.PvAuditionResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Audition;
+import gov.bf.ascelc.univers_audits.model.entity.CorrectionPvAudition;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.PVAudition;
 import gov.bf.ascelc.univers_audits.repository.AuditionRepository;
+import gov.bf.ascelc.univers_audits.repository.CorrectionPvAuditionRepository;
 import gov.bf.ascelc.univers_audits.repository.PVAuditionRepository;
 import gov.bf.ascelc.univers_audits.service.PvAuditionService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
@@ -19,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Slf4j
@@ -27,11 +33,12 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class PvAuditionServiceImpl implements PvAuditionService {
 
-    private final PVAuditionRepository pvAuditionRepository;
-    private final AuditionRepository   auditionRepository;
-    private final DossierDetailsMapper mapper;
-    private final AgentContextResolver agentContextResolver;
-    private final DossierAccessGuard   accessGuard;
+    private final PVAuditionRepository           pvAuditionRepository;
+    private final CorrectionPvAuditionRepository correctionPvAuditionRepository;
+    private final AuditionRepository             auditionRepository;
+    private final DossierDetailsMapper           mapper;
+    private final AgentContextResolver           agentContextResolver;
+    private final DossierAccessGuard             accessGuard;
 
     @Override
     @Transactional
@@ -41,6 +48,11 @@ public class PvAuditionServiceImpl implements PvAuditionService {
                         "Audition introuvable : " + auditionId));
         accessGuard.checkReadAccess(audition.getInvestigation().getDossier());
 
+        if (audition.getStatus() != AuditionStatus.CONDUCTED) {
+            throw new BusinessException(
+                    "Un procès-verbal ne peut être rédigé que pour une audition tenue (statut actuel : "
+                            + audition.getStatus() + ")");
+        }
         if (pvAuditionRepository.findByAuditionId(auditionId).isPresent()) {
             throw new BusinessException(
                     "Un procès-verbal existe déjà pour cette audition");
@@ -54,7 +66,26 @@ public class PvAuditionServiceImpl implements PvAuditionService {
 
         PVAudition saved = pvAuditionRepository.save(pv);
         log.info("PV d'audition créé — audition: {}, id: {}", auditionId, saved.getId());
-        return mapper.toResponse(saved);
+        return toResponseWithCorrections(saved);
+    }
+
+    @Override
+    @Transactional
+    public PvAuditionResponse markReadBack(UUID auditionId) {
+        PVAudition pv = getPvOrThrow(auditionId);
+        accessGuard.checkReadAccess(pv.getAudition().getInvestigation().getDossier());
+
+        if (pv.isFinalized()) {
+            throw new BusinessException("Ce procès-verbal est déjà finalisé");
+        }
+        if (pv.getReadBackAt() != null) {
+            throw new BusinessException(
+                    "La relecture a déjà été enregistrée pour ce procès-verbal");
+        }
+        pv.setReadBackAt(Instant.now());
+        PVAudition saved = pvAuditionRepository.save(pv);
+        log.info("PV d'audition relu à la personne auditionnée — audition: {}", auditionId);
+        return toResponseWithCorrections(saved);
     }
 
     @Override
@@ -71,6 +102,10 @@ public class PvAuditionServiceImpl implements PvAuditionService {
         if (pv.isFinalized()) {
             throw new BusinessException("Ce procès-verbal est déjà finalisé");
         }
+        if (pv.getReadBackAt() == null) {
+            throw new BusinessException(
+                    "Le procès-verbal doit être relu à la personne auditionnée avant signature");
+        }
 
         pv.finalizeSignatures(
                 Boolean.TRUE.equals(request.getIntervieweeSigned()),
@@ -78,7 +113,36 @@ public class PvAuditionServiceImpl implements PvAuditionService {
 
         PVAudition saved = pvAuditionRepository.save(pv);
         log.info("PV d'audition finalisé — audition: {}", auditionId);
-        return mapper.toResponse(saved);
+        return toResponseWithCorrections(saved);
+    }
+
+    @Override
+    @Transactional
+    public PvAuditionResponse correct(UUID auditionId, PvAuditionCorrectionRequest request) {
+        PVAudition pv = getPvOrThrow(auditionId);
+        accessGuard.checkReadAccess(pv.getAudition().getInvestigation().getDossier());
+
+        if (!pv.isFinalized()) {
+            throw new BusinessException(
+                    "Seul un procès-verbal finalisé peut faire l'objet d'une correction");
+        }
+
+        CorrectionPvAudition correction = CorrectionPvAudition.builder()
+                .pvAudition(pv)
+                .versionNumber(pv.getPvVersion())
+                .content(pv.getContent())
+                .correctedAt(Instant.now())
+                .correctedBy(agentContextResolver.getCurrentAgent())
+                .motifCorrection(request.getMotifCorrection())
+                .build();
+        correctionPvAuditionRepository.save(correction);
+
+        pv.setContent(request.getContent());
+        pv.setPvVersion(pv.getPvVersion() + 1);
+        PVAudition saved = pvAuditionRepository.save(pv);
+        log.info("PV d'audition corrigé — audition: {}, nouvelle version: {}",
+                auditionId, saved.getPvVersion());
+        return toResponseWithCorrections(saved);
     }
 
     @Override
@@ -93,7 +157,29 @@ public class PvAuditionServiceImpl implements PvAuditionService {
                     "Accès refusé — le procès-verbal d'un dossier confidentiel n'est visible que par les rôles habilités");
         }
 
-        return mapper.toResponse(pv);
+        return toResponseWithCorrections(pv);
+    }
+
+    private PvAuditionResponse toResponseWithCorrections(PVAudition pv) {
+        PvAuditionResponse response = mapper.toResponse(pv);
+        response.setCorrections(
+                correctionPvAuditionRepository.findByPvAuditionIdOrderByVersionNumberAsc(pv.getId())
+                        .stream()
+                        .map(this::toCorrectionResponse)
+                        .toList());
+        return response;
+    }
+
+    private CorrectionPvAuditionResponse toCorrectionResponse(CorrectionPvAudition correction) {
+        return CorrectionPvAuditionResponse.builder()
+                .id(correction.getId())
+                .versionNumber(correction.getVersionNumber())
+                .content(correction.getContent())
+                .correctedAt(correction.getCorrectedAt())
+                .correctedById(correction.getCorrectedBy().getId())
+                .correctedByName(correction.getCorrectedBy().getNomComplet())
+                .motifCorrection(correction.getMotifCorrection())
+                .build();
     }
 
     private PVAudition getPvOrThrow(UUID auditionId) {

@@ -41,6 +41,13 @@ public class PVAudition extends AuditEntity {
     @Column(name = "finalized_at")
     private Instant finalizedAt;
 
+    @Column(name = "pv_version", nullable = false)
+    @Builder.Default
+    private Integer pvVersion = 1;
+
+    @Column(name = "read_back_at")
+    private Instant readBackAt;
+
     public boolean isFinalized() {
         return finalizedAt != null;
     }

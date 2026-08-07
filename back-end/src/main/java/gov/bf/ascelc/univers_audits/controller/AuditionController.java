@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.AuditionConductRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.AuditionScheduleRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionCorrectionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.PvAuditionFinalizeRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.AuditionResponse;
@@ -101,5 +102,22 @@ public class AuditionController {
             @PathVariable UUID auditionId,
             @Valid @RequestBody PvAuditionFinalizeRequest request) {
         return ResponseEntity.ok(pvAuditionService.finalizeSignatures(auditionId, request));
+    }
+
+    @PatchMapping("/{auditionId}/pv/relecture")
+    @PreAuthorize(WRITE_ROLES)
+    public ResponseEntity<PvAuditionResponse> markPvReadBack(
+            @PathVariable UUID investigationId,
+            @PathVariable UUID auditionId) {
+        return ResponseEntity.ok(pvAuditionService.markReadBack(auditionId));
+    }
+
+    @PatchMapping("/{auditionId}/pv/correction")
+    @PreAuthorize(WRITE_ROLES)
+    public ResponseEntity<PvAuditionResponse> correctPv(
+            @PathVariable UUID investigationId,
+            @PathVariable UUID auditionId,
+            @Valid @RequestBody PvAuditionCorrectionRequest request) {
+        return ResponseEntity.ok(pvAuditionService.correct(auditionId, request));
     }
 }
