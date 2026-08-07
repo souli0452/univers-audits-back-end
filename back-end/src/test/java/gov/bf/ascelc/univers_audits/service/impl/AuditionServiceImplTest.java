@@ -14,8 +14,8 @@ import gov.bf.ascelc.univers_audits.repository.TargetedPartyRepository;
 import gov.bf.ascelc.univers_audits.repository.WitnessRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.AuditionDisplayNameMasker;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
-import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -42,7 +42,7 @@ class AuditionServiceImplTest {
     @Mock private AgentRepository agentRepository;
     @Mock private DossierDetailsMapper mapper;
     @Mock private DossierAccessGuard accessGuard;
-    @Mock private SecurityUtils securityUtils;
+    @Mock private AuditionDisplayNameMasker displayNameMasker;
 
     @InjectMocks
     private AuditionServiceImpl service;
@@ -187,11 +187,9 @@ class AuditionServiceImplTest {
     }
 
     @Test
-    void schedule_masksIntervieweeDisplayNameForAnonymousDeclarant() {
-        Declarant declarant = Declarant.builder().id(UUID.randomUUID())
-                .firstName("Amidou").lastName("Sawadogo").build();
-        Dossier dossier = Dossier.builder().id(UUID.randomUUID())
-                .declarant(declarant).anonymous(true).build();
+    void schedule_appliesDisplayNameMaskerToResponse() {
+        Declarant declarant = Declarant.builder().id(UUID.randomUUID()).build();
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).declarant(declarant).build();
         Investigation investigation = buildInvestigation(dossier);
         Agent agent1 = Agent.builder().id(UUID.randomUUID()).build();
         Agent agent2 = Agent.builder().id(UUID.randomUUID()).build();
@@ -205,6 +203,7 @@ class AuditionServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(mapper.toResponse(any(Audition.class)))
                 .thenReturn(AuditionResponse.builder().build());
+        when(displayNameMasker.mask(any(Audition.class))).thenReturn("Nom masqué");
 
         AuditionScheduleRequest request = AuditionScheduleRequest.builder()
                 .intervieweeType(IntervieweeType.DECLARANT)
@@ -214,103 +213,7 @@ class AuditionServiceImplTest {
 
         AuditionResponse response = service.schedule(investigation.getId(), request);
 
-        assertThat(response.getIntervieweeDisplayName()).isEqualTo("Déclarant anonyme");
-    }
-
-    @Test
-    void schedule_masksIntervieweeDisplayNameForProtectedDeclarantWithoutPrivilegedRole() {
-        Declarant declarant = Declarant.builder().id(UUID.randomUUID())
-                .firstName("Amidou").lastName("Sawadogo").protectionRequested(true).build();
-        Dossier dossier = Dossier.builder().id(UUID.randomUUID())
-                .declarant(declarant).anonymous(false).build();
-        Investigation investigation = buildInvestigation(dossier);
-        Agent agent1 = Agent.builder().id(UUID.randomUUID()).build();
-        Agent agent2 = Agent.builder().id(UUID.randomUUID()).build();
-
-        when(investigationRepository.findById(investigation.getId()))
-                .thenReturn(Optional.of(investigation));
-        when(auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigation.getId()))
-                .thenReturn(List.of());
-        List<UUID> investigatorIds = twoInvestigatorIds(agent1, agent2);
-        when(auditionRepository.save(any(Audition.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-        when(mapper.toResponse(any(Audition.class)))
-                .thenReturn(AuditionResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
-
-        AuditionScheduleRequest request = AuditionScheduleRequest.builder()
-                .intervieweeType(IntervieweeType.DECLARANT)
-                .scheduledAt(Instant.now())
-                .investigatorIds(investigatorIds)
-                .build();
-
-        AuditionResponse response = service.schedule(investigation.getId(), request);
-
-        assertThat(response.getIntervieweeDisplayName())
-                .isEqualTo("Lanceur d'alerte protégé (Loi N°010-2004/AN)");
-    }
-
-    @Test
-    void schedule_preservesIntervieweeDisplayNameForProtectedDeclarantWhenCallerIsCge() {
-        Declarant declarant = Declarant.builder().id(UUID.randomUUID())
-                .firstName("Amidou").lastName("Sawadogo").protectionRequested(true).build();
-        Dossier dossier = Dossier.builder().id(UUID.randomUUID())
-                .declarant(declarant).anonymous(false).build();
-        Investigation investigation = buildInvestigation(dossier);
-        Agent agent1 = Agent.builder().id(UUID.randomUUID()).build();
-        Agent agent2 = Agent.builder().id(UUID.randomUUID()).build();
-
-        when(investigationRepository.findById(investigation.getId()))
-                .thenReturn(Optional.of(investigation));
-        when(auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigation.getId()))
-                .thenReturn(List.of());
-        List<UUID> investigatorIds = twoInvestigatorIds(agent1, agent2);
-        when(auditionRepository.save(any(Audition.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-        when(mapper.toResponse(any(Audition.class)))
-                .thenReturn(AuditionResponse.builder().build());
-        when(securityUtils.hasRole("CGE")).thenReturn(true);
-
-        AuditionScheduleRequest request = AuditionScheduleRequest.builder()
-                .intervieweeType(IntervieweeType.DECLARANT)
-                .scheduledAt(Instant.now())
-                .investigatorIds(investigatorIds)
-                .build();
-
-        AuditionResponse response = service.schedule(investigation.getId(), request);
-
-        assertThat(response.getIntervieweeDisplayName()).isEqualTo("Amidou Sawadogo");
-    }
-
-    @Test
-    void schedule_preservesIntervieweeDisplayNameForNormalDeclarant() {
-        Declarant declarant = Declarant.builder().id(UUID.randomUUID())
-                .firstName("Amidou").lastName("Sawadogo").build();
-        Dossier dossier = Dossier.builder().id(UUID.randomUUID())
-                .declarant(declarant).anonymous(false).build();
-        Investigation investigation = buildInvestigation(dossier);
-        Agent agent1 = Agent.builder().id(UUID.randomUUID()).build();
-        Agent agent2 = Agent.builder().id(UUID.randomUUID()).build();
-
-        when(investigationRepository.findById(investigation.getId()))
-                .thenReturn(Optional.of(investigation));
-        when(auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigation.getId()))
-                .thenReturn(List.of());
-        List<UUID> investigatorIds = twoInvestigatorIds(agent1, agent2);
-        when(auditionRepository.save(any(Audition.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-        when(mapper.toResponse(any(Audition.class)))
-                .thenReturn(AuditionResponse.builder().build());
-
-        AuditionScheduleRequest request = AuditionScheduleRequest.builder()
-                .intervieweeType(IntervieweeType.DECLARANT)
-                .scheduledAt(Instant.now())
-                .investigatorIds(investigatorIds)
-                .build();
-
-        AuditionResponse response = service.schedule(investigation.getId(), request);
-
-        assertThat(response.getIntervieweeDisplayName()).isEqualTo("Amidou Sawadogo");
+        assertThat(response.getIntervieweeDisplayName()).isEqualTo("Nom masqué");
     }
 
     @Test
