@@ -15,7 +15,7 @@ public interface AuditionRepository extends JpaRepository<Audition, UUID> {
 
     List<Audition> findByInvestigationIdOrderByScheduledAtAsc(UUID investigationId);
 
-    @Query("""
+    @Query(value = """
             SELECT a FROM Audition a
             LEFT JOIN FETCH a.investigation inv
             LEFT JOIN FETCH inv.dossier d
@@ -23,6 +23,7 @@ public interface AuditionRepository extends JpaRepository<Audition, UUID> {
             LEFT JOIN FETCH a.witness
             LEFT JOIN FETCH a.targetedParty
             ORDER BY a.scheduledAt DESC
-            """)
+            """,
+            countQuery = "SELECT COUNT(a) FROM Audition a")
     Page<Audition> findAllForRegistre(Pageable pageable);
 }
