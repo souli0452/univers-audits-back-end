@@ -44,13 +44,15 @@ public class AttachmentController {
             @RequestParam(value = "accessCode", required = false) String accessCode,
             @RequestParam(value = "source", required = false) AttachmentSource source,
             @RequestParam(value = "modeObtention", required = false) ModeObtention modeObtention,
-            @RequestParam(value = "personneRemettante", required = false) String personneRemettante) {
+            @RequestParam(value = "personneRemettante", required = false) String personneRemettante,
+            @RequestParam(value = "sectionId", required = false) String sectionId) {
 
         log.info("Upload {} fichier(s) pour dossier {}", files.size(), dossierId);
 
         List<AttachmentStorageService.UploadedFile> saved =
                 attachmentStorageService.upload(
-                        dossierId, files, accessCode, source, modeObtention, personneRemettante);
+                        dossierId, files, accessCode, source, modeObtention,
+                        personneRemettante, sectionId);
 
         return ResponseEntity.ok(Map.of(
                 "uploaded", saved.size(),
@@ -134,6 +136,15 @@ public class AttachmentController {
 
         attachmentStorageService.delete(att);
         return ResponseEntity.ok(Map.of("deleted", attachmentId));
+    }
+
+    @PatchMapping("/{attachmentId}/section")
+    public ResponseEntity<?> reclasser(
+            @PathVariable String attachmentId,
+            @RequestBody Map<String, String> body) {
+        attachmentStorageService.reclasser(
+                UUID.fromString(attachmentId), body.get("sectionId"));
+        return ResponseEntity.ok().build();
     }
 
     private String sanitizeFilename(String name) {

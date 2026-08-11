@@ -7,9 +7,11 @@ import gov.bf.ascelc.univers_audits.enums.ModeObtention;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.SectionDossierTravail;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.AttachmentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
@@ -57,6 +59,7 @@ public class AttachmentStorageService {
     private final DossierAccessGuard   accessGuard;
     private final SecurityUtils        securityUtils;
     private final AccessCodeGenerator  accessCodeGenerator;
+    private final SectionDossierTravailRepository sectionDossierTravailRepository;
 
     @Value("${storage.upload-dir:C:/asce-lc/uploads}")
     private String uploadDir;
@@ -73,7 +76,8 @@ public class AttachmentStorageService {
     @Transactional
     public List<UploadedFile> upload(
             String dossierId, List<MultipartFile> files, String accessCode,
-            AttachmentSource source, ModeObtention modeObtention, String personneRemettante) {
+            AttachmentSource source, ModeObtention modeObtention, String personneRemettante,
+            String sectionId) {
         Dossier dossier = dossierRepository.findById(UUID.fromString(dossierId))
                 .orElseThrow(() -> new BusinessException(
                         "Dossier introuvable: " + dossierId));
@@ -133,6 +137,9 @@ public class AttachmentStorageService {
                         .personneRemettante(personneRemettante)
                         .uploadedBy(uploader)
                         .code(generateUniqueAttachmentCode(effectiveSource))
+                        .section(sectionId != null
+                                ? sectionDossierTravailRepository.getReferenceById(UUID.fromString(sectionId))
+                                : null)
                         .status(AttachmentStatus.PENDING_VALIDATION)
                         .uploadedAt(LocalDateTime.now())
                         .build();
@@ -183,6 +190,17 @@ public class AttachmentStorageService {
             throw new BusinessException("Erreur suppression fichier : " + e.getMessage());
         }
         attachmentRepository.delete(attachment);
+    }
+
+    @Transactional
+    public void reclasser(UUID attachmentId, String sectionId) {
+        Attachment attachment = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Piece introuvable : " + attachmentId));
+        attachment.setSection(sectionId != null
+                ? sectionDossierTravailRepository.getReferenceById(UUID.fromString(sectionId))
+                : null);
+        attachmentRepository.save(attachment);
     }
 
     private Agent resolveUploaderOrNull() {

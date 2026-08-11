@@ -6,9 +6,11 @@ import gov.bf.ascelc.univers_audits.enums.ModeObtention;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.SectionDossierTravail;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.AttachmentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -43,6 +45,7 @@ class AttachmentStorageServiceTest {
     @Mock private DossierAccessGuard   accessGuard;
     @Mock private SecurityUtils        securityUtils;
     @Mock private AccessCodeGenerator  accessCodeGenerator;
+    @Mock private SectionDossierTravailRepository sectionDossierTravailRepository;
 
     @InjectMocks
     private AttachmentStorageService service;
@@ -72,7 +75,7 @@ class AttachmentStorageServiceTest {
                 .when(accessGuard).checkAttachmentUploadAccess(dossier, null);
 
         assertThatThrownBy(() -> service.upload(
-                dossierId.toString(), List.of(), null, null, null, null))
+                dossierId.toString(), List.of(), null, null, null, null, null))
                 .isInstanceOf(BusinessException.class);
 
         verify(attachmentRepository, never()).save(any());
@@ -98,7 +101,7 @@ class AttachmentStorageServiceTest {
                     return a;
                 });
 
-        service.upload(dossierId.toString(), List.of(file), null, null, null, null);
+        service.upload(dossierId.toString(), List.of(file), null, null, null, null, null);
 
         verify(attachmentRepository).save(argThat(a ->
                 a.getSource() == AttachmentSource.INITIAL_SUBMISSION
@@ -127,7 +130,8 @@ class AttachmentStorageServiceTest {
                 });
 
         service.upload(dossierId.toString(), List.of(file), null,
-                AttachmentSource.FIELD_INVESTIGATION, ModeObtention.REQUISITION, "Jean Kaboré");
+                AttachmentSource.FIELD_INVESTIGATION, ModeObtention.REQUISITION, "Jean Kaboré",
+                null);
 
         verify(attachmentRepository).save(argThat(a ->
                 a.getSource() == AttachmentSource.FIELD_INVESTIGATION
@@ -158,7 +162,7 @@ class AttachmentStorageServiceTest {
                     return a;
                 });
 
-        service.upload(dossierId.toString(), List.of(file), null, null, null, null);
+        service.upload(dossierId.toString(), List.of(file), null, null, null, null, null);
 
         verify(attachmentRepository).save(argThat(a -> a.getUploadedBy() == agent));
     }
@@ -184,9 +188,98 @@ class AttachmentStorageServiceTest {
                     return a;
                 });
 
-        service.upload(dossierId.toString(), List.of(file), null, null, null, null);
+        service.upload(dossierId.toString(), List.of(file), null, null, null, null, null);
 
         verify(attachmentRepository).save(argThat(a -> a.getCode().equals("ACC-S-00002")));
+    }
+
+    @Test
+    void upload_sansSectionIdLaisseSectionNulle() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
+        MockMultipartFile file = new MockMultipartFile(
+                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+        when(attachmentRepository.count()).thenReturn(0L);
+        when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
+                .thenReturn("ACC-S-00001");
+        when(attachmentRepository.existsByCode("ACC-S-00001")).thenReturn(false);
+        when(attachmentRepository.save(any(Attachment.class)))
+                .thenAnswer(inv -> {
+                    Attachment a = inv.getArgument(0);
+                    a.setId(UUID.randomUUID());
+                    return a;
+                });
+
+        service.upload(dossierId.toString(), List.of(file), null, null, null, null, null);
+
+        verify(attachmentRepository).save(argThat(a -> a.getSection() == null));
+    }
+
+    @Test
+    void upload_avecSectionIdRattacheLaPieceALaBonneSection() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
+        UUID sectionId = UUID.randomUUID();
+        SectionDossierTravail section = SectionDossierTravail.builder().build();
+        section.setId(sectionId);
+        MockMultipartFile file = new MockMultipartFile(
+                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+        when(attachmentRepository.count()).thenReturn(0L);
+        when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
+                .thenReturn("ACC-S-00001");
+        when(attachmentRepository.existsByCode("ACC-S-00001")).thenReturn(false);
+        when(sectionDossierTravailRepository.getReferenceById(sectionId)).thenReturn(section);
+        when(attachmentRepository.save(any(Attachment.class)))
+                .thenAnswer(inv -> {
+                    Attachment a = inv.getArgument(0);
+                    a.setId(UUID.randomUUID());
+                    return a;
+                });
+
+        service.upload(dossierId.toString(), List.of(file), null, null, null, null,
+                sectionId.toString());
+
+        verify(attachmentRepository).save(argThat(a -> a.getSection() == section));
+    }
+
+    @Test
+    void reclasser_changeLaSectionDUnePieceDejaDeposee() {
+        UUID attachmentId = UUID.randomUUID();
+        UUID nouvelleSectionId = UUID.randomUUID();
+        Attachment attachment = Attachment.builder().build();
+        attachment.setId(attachmentId);
+        SectionDossierTravail nouvelleSection = SectionDossierTravail.builder().build();
+        nouvelleSection.setId(nouvelleSectionId);
+        when(attachmentRepository.findById(attachmentId)).thenReturn(Optional.of(attachment));
+        when(sectionDossierTravailRepository.getReferenceById(nouvelleSectionId))
+                .thenReturn(nouvelleSection);
+
+        service.reclasser(attachmentId, nouvelleSectionId.toString());
+
+        assertThat(attachment.getSection()).isEqualTo(nouvelleSection);
+        verify(attachmentRepository).save(attachment);
+    }
+
+    @Test
+    void reclasser_avecSectionIdNulDeclasseLaPiece() {
+        UUID attachmentId = UUID.randomUUID();
+        Attachment attachment = Attachment.builder().build();
+        attachment.setId(attachmentId);
+        SectionDossierTravail ancienneSection = SectionDossierTravail.builder().build();
+        ancienneSection.setId(UUID.randomUUID());
+        attachment.setSection(ancienneSection);
+        when(attachmentRepository.findById(attachmentId)).thenReturn(Optional.of(attachment));
+
+        service.reclasser(attachmentId, null);
+
+        assertThat(attachment.getSection()).isNull();
+        verify(attachmentRepository).save(attachment);
     }
 
     @Test
