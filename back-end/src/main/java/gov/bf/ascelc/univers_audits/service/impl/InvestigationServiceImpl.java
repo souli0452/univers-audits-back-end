@@ -21,6 +21,7 @@ import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
+import gov.bf.ascelc.univers_audits.service.SectionDossierTravailService;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -68,6 +69,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final DossierAccessGuard              accessGuard;
     private final ProcedureUrgenceRepository      procedureUrgenceRepository;
     private final MesureConservatoireRepository   mesureConservatoireRepository;
+    private final SectionDossierTravailService sectionDossierTravailService;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -241,6 +243,8 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         inv.start();
         Investigation saved = investigationRepository.save(inv);
+
+        sectionDossierTravailService.creerSectionsFixes(inv.getDossier());
 
         auditRecorder.addObservation(inv.getDossier(),
                 ObservationType.INTERNAL_NOTE,

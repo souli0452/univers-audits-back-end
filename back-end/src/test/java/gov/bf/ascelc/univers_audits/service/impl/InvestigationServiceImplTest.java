@@ -39,6 +39,7 @@ import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
+import gov.bf.ascelc.univers_audits.service.SectionDossierTravailService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
@@ -85,6 +86,7 @@ class InvestigationServiceImplTest {
     @Mock private DossierAccessGuard              accessGuard;
     @Mock private ProcedureUrgenceRepository      procedureUrgenceRepository;
     @Mock private MesureConservatoireRepository   mesureConservatoireRepository;
+    @Mock private SectionDossierTravailService sectionDossierTravailService;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -378,6 +380,39 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getStatus())
                 .isEqualTo(gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void start_declencheLaCreationDesSectionsFixesDuDossierDeTravail() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        investigation.setPlannedDurationDays(30);
+        Agent cge = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CHEF_MISSION)).thenReturn(1L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.INVESTIGATEUR)).thenReturn(2L);
+        when(memberRepository.countByInvestigationIdAndTeamRoleAndActiveTrue(
+                investigation.getId(), TeamRole.CONSEIL_JURIDIQUE)).thenReturn(1L);
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID())
+                        .investigation(investigation).agentCGE(cge)
+                        .dateDelivrance(java.time.Instant.now()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(PlanInvestigation.builder().id(UUID.randomUUID())
+                        .validatedAt(java.time.Instant.now()).build()));
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(agentContextResolver.getCurrentAgent()).thenReturn(cge);
+
+        service.start(investigation.getId(), "127.0.0.1");
+
+        verify(sectionDossierTravailService).creerSectionsFixes(dossier);
     }
 
     /**
