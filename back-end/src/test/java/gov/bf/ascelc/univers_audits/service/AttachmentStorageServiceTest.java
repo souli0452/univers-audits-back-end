@@ -12,6 +12,7 @@ import gov.bf.ascelc.univers_audits.repository.AttachmentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -223,7 +224,7 @@ class AttachmentStorageServiceTest {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
         UUID sectionId = UUID.randomUUID();
-        SectionDossierTravail section = SectionDossierTravail.builder().build();
+        SectionDossierTravail section = SectionDossierTravail.builder().dossier(dossier).build();
         section.setId(sectionId);
         MockMultipartFile file = new MockMultipartFile(
                 "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
@@ -234,7 +235,7 @@ class AttachmentStorageServiceTest {
         when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
                 .thenReturn("ACC-S-00001");
         when(attachmentRepository.existsByCode("ACC-S-00001")).thenReturn(false);
-        when(sectionDossierTravailRepository.getReferenceById(sectionId)).thenReturn(section);
+        when(sectionDossierTravailRepository.findById(sectionId)).thenReturn(Optional.of(section));
         when(attachmentRepository.save(any(Attachment.class)))
                 .thenAnswer(inv -> {
                     Attachment a = inv.getArgument(0);
@@ -249,16 +250,58 @@ class AttachmentStorageServiceTest {
     }
 
     @Test
+    void upload_rejetteSiLaSectionAppartientAUnAutreDossier() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
+        Dossier autreDossier = buildDossier(UUID.randomUUID());
+        UUID sectionId = UUID.randomUUID();
+        SectionDossierTravail section = SectionDossierTravail.builder().dossier(autreDossier).build();
+        section.setId(sectionId);
+        MockMultipartFile file = new MockMultipartFile(
+                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(sectionDossierTravailRepository.findById(sectionId)).thenReturn(Optional.of(section));
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(), List.of(file), null,
+                null, null, null, sectionId.toString()))
+                .isInstanceOf(BusinessException.class);
+
+        verify(attachmentRepository, never()).save(any());
+    }
+
+    @Test
+    void upload_rejetteSiLaSectionEstIntrouvable() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
+        UUID sectionId = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile(
+                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(sectionDossierTravailRepository.findById(sectionId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(), List.of(file), null,
+                null, null, null, sectionId.toString()))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(attachmentRepository, never()).save(any());
+    }
+
+    @Test
     void reclasser_changeLaSectionDUnePieceDejaDeposee() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
         UUID attachmentId = UUID.randomUUID();
         UUID nouvelleSectionId = UUID.randomUUID();
-        Attachment attachment = Attachment.builder().build();
+        Attachment attachment = Attachment.builder().dossier(dossier).build();
         attachment.setId(attachmentId);
-        SectionDossierTravail nouvelleSection = SectionDossierTravail.builder().build();
+        SectionDossierTravail nouvelleSection = SectionDossierTravail.builder().dossier(dossier).build();
         nouvelleSection.setId(nouvelleSectionId);
         when(attachmentRepository.findById(attachmentId)).thenReturn(Optional.of(attachment));
-        when(sectionDossierTravailRepository.getReferenceById(nouvelleSectionId))
-                .thenReturn(nouvelleSection);
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(sectionDossierTravailRepository.findById(nouvelleSectionId))
+                .thenReturn(Optional.of(nouvelleSection));
 
         service.reclasser(attachmentId, nouvelleSectionId.toString());
 
@@ -268,18 +311,78 @@ class AttachmentStorageServiceTest {
 
     @Test
     void reclasser_avecSectionIdNulDeclasseLaPiece() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
         UUID attachmentId = UUID.randomUUID();
-        Attachment attachment = Attachment.builder().build();
+        Attachment attachment = Attachment.builder().dossier(dossier).build();
         attachment.setId(attachmentId);
-        SectionDossierTravail ancienneSection = SectionDossierTravail.builder().build();
+        SectionDossierTravail ancienneSection = SectionDossierTravail.builder().dossier(dossier).build();
         ancienneSection.setId(UUID.randomUUID());
         attachment.setSection(ancienneSection);
         when(attachmentRepository.findById(attachmentId)).thenReturn(Optional.of(attachment));
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
 
         service.reclasser(attachmentId, null);
 
         assertThat(attachment.getSection()).isNull();
         verify(attachmentRepository).save(attachment);
+    }
+
+    @Test
+    void reclasser_rejetteSiAgentNonHabiliteSurLeDossier() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
+        UUID attachmentId = UUID.randomUUID();
+        Attachment attachment = Attachment.builder().dossier(dossier).build();
+        attachment.setId(attachmentId);
+        when(attachmentRepository.findById(attachmentId)).thenReturn(Optional.of(attachment));
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        doThrow(new BusinessException("Accès refusé — ce dossier ne vous est pas assigné"))
+                .when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.reclasser(attachmentId, null))
+                .isInstanceOf(BusinessException.class);
+
+        verify(attachmentRepository, never()).save(any());
+    }
+
+    @Test
+    void reclasser_rejetteSiDossierConfidentielEtAgentNePeutPasVoirLeConfidentiel() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId)
+                .status(DossierStatus.EN_INVESTIGATION).isConfidential(true).build();
+        UUID attachmentId = UUID.randomUUID();
+        Attachment attachment = Attachment.builder().dossier(dossier).build();
+        attachment.setId(attachmentId);
+        when(attachmentRepository.findById(attachmentId)).thenReturn(Optional.of(attachment));
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.reclasser(attachmentId, null))
+                .isInstanceOf(BusinessException.class);
+
+        verify(attachmentRepository, never()).save(any());
+    }
+
+    @Test
+    void reclasser_rejetteSiLaSectionAppartientAUnAutreDossier() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = buildDossier(dossierId);
+        Dossier autreDossier = buildDossier(UUID.randomUUID());
+        UUID attachmentId = UUID.randomUUID();
+        UUID sectionId = UUID.randomUUID();
+        Attachment attachment = Attachment.builder().dossier(dossier).build();
+        attachment.setId(attachmentId);
+        SectionDossierTravail section = SectionDossierTravail.builder().dossier(autreDossier).build();
+        section.setId(sectionId);
+        when(attachmentRepository.findById(attachmentId)).thenReturn(Optional.of(attachment));
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(sectionDossierTravailRepository.findById(sectionId)).thenReturn(Optional.of(section));
+
+        assertThatThrownBy(() -> service.reclasser(attachmentId, sectionId.toString()))
+                .isInstanceOf(BusinessException.class);
+
+        verify(attachmentRepository, never()).save(any());
     }
 
     @Test

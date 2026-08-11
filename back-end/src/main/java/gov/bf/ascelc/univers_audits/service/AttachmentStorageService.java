@@ -94,6 +94,7 @@ public class AttachmentStorageService {
         AttachmentSource effectiveSource = source != null ? source : AttachmentSource.INITIAL_SUBMISSION;
         ModeObtention effectiveModeObtention = modeObtention != null ? modeObtention : ModeObtention.VOLONTAIRE;
         Agent uploader = resolveUploaderOrNull();
+        SectionDossierTravail section = resolveSectionForDossierOrThrow(sectionId, dossier);
 
         List<UploadedFile> saved = new ArrayList<>();
 
@@ -137,9 +138,7 @@ public class AttachmentStorageService {
                         .personneRemettante(personneRemettante)
                         .uploadedBy(uploader)
                         .code(generateUniqueAttachmentCode(effectiveSource))
-                        .section(sectionId != null
-                                ? sectionDossierTravailRepository.getReferenceById(UUID.fromString(sectionId))
-                                : null)
+                        .section(section)
                         .status(AttachmentStatus.PENDING_VALIDATION)
                         .uploadedAt(LocalDateTime.now())
                         .build();
@@ -197,10 +196,39 @@ public class AttachmentStorageService {
         Attachment attachment = attachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Piece introuvable : " + attachmentId));
-        attachment.setSection(sectionId != null
-                ? sectionDossierTravailRepository.getReferenceById(UUID.fromString(sectionId))
-                : null);
+
+        Dossier dossier = accessGuard.getDossierOrThrow(attachment.getDossier().getId());
+        // Lève BusinessException si l'agent n'est ni privilégié ni affecté au dossier.
+        accessGuard.checkReadAccess(dossier);
+
+        if (Boolean.TRUE.equals(dossier.getIsConfidential()) && !accessGuard.canSeeConfidential()) {
+            throw new BusinessException(
+                    "Accès refusé — ce dossier est confidentiel");
+        }
+
+        attachment.setSection(resolveSectionForDossierOrThrow(sectionId, dossier));
         attachmentRepository.save(attachment);
+    }
+
+    /**
+     * Résout la section fournie et vérifie qu'elle appartient bien au même
+     * dossier que la pièce jointe concernée — sans cette vérification, rien
+     * n'empêche de classer une pièce du dossier A dans une section du
+     * dossier B.
+     */
+    private SectionDossierTravail resolveSectionForDossierOrThrow(String sectionId, Dossier dossier) {
+        if (sectionId == null) {
+            return null;
+        }
+        SectionDossierTravail section = sectionDossierTravailRepository
+                .findById(UUID.fromString(sectionId))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Section introuvable : " + sectionId));
+        if (!section.getDossier().getId().equals(dossier.getId())) {
+            throw new BusinessException(
+                    "La section indiquée n'appartient pas à ce dossier");
+        }
+        return section;
     }
 
     private Agent resolveUploaderOrNull() {

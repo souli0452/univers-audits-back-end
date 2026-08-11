@@ -139,6 +139,7 @@ public class AttachmentController {
     }
 
     @PatchMapping("/{attachmentId}/section")
+    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','AGENT_BRPD','ADMIN_DDIC')")
     public ResponseEntity<?> reclasser(
             @PathVariable String attachmentId,
             @RequestBody Map<String, String> body) {
