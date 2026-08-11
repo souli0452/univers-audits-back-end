@@ -320,6 +320,69 @@ class AuditionServiceImplTest {
     }
 
     @Test
+    void conduct_appliesDisplayNameMaskerToResponse() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = Investigation.builder().dossier(dossier).build();
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .intervieweeType(IntervieweeType.TARGETED_PARTY)
+                .status(AuditionStatus.SCHEDULED)
+                .investigation(investigation)
+                .build();
+        when(auditionRepository.findById(audition.getId()))
+                .thenReturn(Optional.of(audition));
+        when(auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(any()))
+                .thenReturn(List.of(audition));
+        when(auditionRepository.save(any(Audition.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(Audition.class)))
+                .thenReturn(AuditionResponse.builder().build());
+        when(displayNameMasker.mask(any(Audition.class))).thenReturn("Nom masqué");
+
+        AuditionResponse response = service.conduct(audition.getId(),
+                AuditionConductRequest.builder().summary("Compte-rendu").build());
+
+        assertThat(response.getIntervieweeDisplayName()).isEqualTo("Nom masqué");
+    }
+
+    @Test
+    void conduct_appliesDisplayNameMaskerToOrderWarningText() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = Investigation.builder().dossier(dossier).build();
+        Witness pendingWitness = Witness.builder().id(UUID.randomUUID())
+                .dossier(dossier).firstName("Jean").lastName("Kaboré")
+                .possiblyImplicated(false).build();
+        Audition pendingEarlierAudition = Audition.builder()
+                .id(UUID.randomUUID())
+                .intervieweeType(IntervieweeType.WITNESS)
+                .witness(pendingWitness)
+                .status(AuditionStatus.SCHEDULED)
+                .build();
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .intervieweeType(IntervieweeType.TARGETED_PARTY)
+                .status(AuditionStatus.SCHEDULED)
+                .investigation(investigation)
+                .build();
+
+        when(auditionRepository.findById(audition.getId()))
+                .thenReturn(Optional.of(audition));
+        when(auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(any()))
+                .thenReturn(List.of(pendingEarlierAudition, audition));
+        when(auditionRepository.save(any(Audition.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(Audition.class)))
+                .thenReturn(AuditionResponse.builder().build());
+        when(displayNameMasker.mask(pendingEarlierAudition)).thenReturn("Témoin masqué");
+        when(displayNameMasker.mask(audition)).thenReturn("Nom masqué");
+
+        AuditionResponse response = service.conduct(audition.getId(),
+                AuditionConductRequest.builder().summary("Compte-rendu").build());
+
+        assertThat(response.getOrderWarning()).contains("Témoin masqué");
+    }
+
+    @Test
     void conduct_throwsWhenAuditionNotScheduled() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Audition audition = Audition.builder()
@@ -455,6 +518,27 @@ class AuditionServiceImplTest {
     }
 
     @Test
+    void cancel_appliesDisplayNameMaskerToResponse() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .status(AuditionStatus.SCHEDULED)
+                .investigation(Investigation.builder().dossier(dossier).build())
+                .build();
+        when(auditionRepository.findById(audition.getId()))
+                .thenReturn(Optional.of(audition));
+        when(auditionRepository.save(any(Audition.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(Audition.class)))
+                .thenReturn(AuditionResponse.builder().build());
+        when(displayNameMasker.mask(any(Audition.class))).thenReturn("Nom masqué");
+
+        AuditionResponse response = service.cancel(audition.getId(), "Personne injoignable");
+
+        assertThat(response.getIntervieweeDisplayName()).isEqualTo("Nom masqué");
+    }
+
+    @Test
     void cancel_throwsWhenAuditionNotScheduled() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Audition audition = Audition.builder()
@@ -491,6 +575,27 @@ class AuditionServiceImplTest {
     }
 
     @Test
+    void markNoShow_appliesDisplayNameMaskerToResponse() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .status(AuditionStatus.SCHEDULED)
+                .investigation(Investigation.builder().dossier(dossier).build())
+                .build();
+        when(auditionRepository.findById(audition.getId()))
+                .thenReturn(Optional.of(audition));
+        when(auditionRepository.save(any(Audition.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(Audition.class)))
+                .thenReturn(AuditionResponse.builder().build());
+        when(displayNameMasker.mask(any(Audition.class))).thenReturn("Nom masqué");
+
+        AuditionResponse response = service.markNoShow(audition.getId(), "Deux relances sans réponse");
+
+        assertThat(response.getIntervieweeDisplayName()).isEqualTo("Nom masqué");
+    }
+
+    @Test
     void markNoShow_throwsWhenAuditionNotScheduled() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Audition audition = Audition.builder()
@@ -520,6 +625,30 @@ class AuditionServiceImplTest {
 
         assertThat(result).isEmpty();
         verify(auditionRepository, never()).findByInvestigationIdOrderByScheduledAtAsc(any());
+    }
+
+    @Test
+    void findByInvestigationId_appliesDisplayNameMaskerToResponse() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Audition audition = Audition.builder()
+                .id(UUID.randomUUID())
+                .intervieweeType(IntervieweeType.TARGETED_PARTY)
+                .status(AuditionStatus.SCHEDULED)
+                .investigation(investigation)
+                .build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigation.getId()))
+                .thenReturn(List.of(audition));
+        when(mapper.toResponse(any(Audition.class)))
+                .thenReturn(AuditionResponse.builder().build());
+        when(displayNameMasker.mask(any(Audition.class))).thenReturn("Nom masqué");
+
+        List<AuditionResponse> result = service.findByInvestigationId(investigation.getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getIntervieweeDisplayName()).isEqualTo("Nom masqué");
     }
 
     @Test

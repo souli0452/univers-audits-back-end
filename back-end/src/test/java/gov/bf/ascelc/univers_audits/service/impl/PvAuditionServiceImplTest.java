@@ -110,6 +110,19 @@ class PvAuditionServiceImplTest {
     }
 
     @Test
+    void create_throwsWhenDossierConfidentialAndAgentCannotSeeConfidential() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).isConfidential(true).build();
+        Audition audition = buildAudition(dossier);
+
+        when(auditionRepository.findById(audition.getId())).thenReturn(Optional.of(audition));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.create(audition.getId(),
+                PvAuditionCreateRequest.builder().content("x").build()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     void create_throwsWhenAgentLacksReadAccess() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = Investigation.builder().dossier(dossier).build();
@@ -142,6 +155,18 @@ class PvAuditionServiceImplTest {
     }
 
     @Test
+    void markReadBack_throwsWhenDossierConfidentialAndAgentCannotSeeConfidential() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).isConfidential(true).build();
+        Audition audition = buildAudition(dossier);
+        PVAudition pv = PVAudition.builder().id(UUID.randomUUID()).audition(audition).build();
+        when(pvAuditionRepository.findByAuditionId(pv.getId())).thenReturn(Optional.of(pv));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.markReadBack(pv.getId()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
     void markReadBack_throwsWhenAlreadySet() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Audition audition = buildAudition(dossier);
@@ -162,6 +187,23 @@ class PvAuditionServiceImplTest {
         when(pvAuditionRepository.findByAuditionId(pv.getId())).thenReturn(Optional.of(pv));
 
         assertThatThrownBy(() -> service.markReadBack(pv.getId()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void finalizeSignatures_throwsWhenDossierConfidentialAndAgentCannotSeeConfidential() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).isConfidential(true).build();
+        Audition audition = buildAudition(dossier);
+        PVAudition pv = PVAudition.builder().id(UUID.randomUUID()).audition(audition).build();
+        when(pvAuditionRepository.findByAuditionId(pv.getId())).thenReturn(Optional.of(pv));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        PvAuditionFinalizeRequest request = PvAuditionFinalizeRequest.builder()
+                .intervieweeSigned(true)
+                .intervieweeSignatureRefused(false)
+                .build();
+
+        assertThatThrownBy(() -> service.finalizeSignatures(pv.getId(), request))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -239,6 +281,23 @@ class PvAuditionServiceImplTest {
         service.finalizeSignatures(pv.getId(), request);
 
         assertThat(pv.isFinalized()).isTrue();
+    }
+
+    @Test
+    void correct_throwsWhenDossierConfidentialAndAgentCannotSeeConfidential() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).isConfidential(true).build();
+        Audition audition = buildAudition(dossier);
+        PVAudition pv = PVAudition.builder().id(UUID.randomUUID()).audition(audition)
+                .finalizedAt(Instant.now()).build();
+        when(pvAuditionRepository.findByAuditionId(pv.getId())).thenReturn(Optional.of(pv));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.correct(pv.getId(),
+                PvAuditionCorrectionRequest.builder()
+                        .content("Nouveau contenu")
+                        .motifCorrection("Erreur de transcription")
+                        .build()))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test

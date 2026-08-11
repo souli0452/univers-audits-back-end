@@ -46,7 +46,9 @@ public class PvAuditionServiceImpl implements PvAuditionService {
         Audition audition = auditionRepository.findById(auditionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Audition introuvable : " + auditionId));
-        accessGuard.checkReadAccess(audition.getInvestigation().getDossier());
+        Dossier dossier = audition.getInvestigation().getDossier();
+        accessGuard.checkReadAccess(dossier);
+        checkConfidentialAccess(dossier);
 
         if (audition.getStatus() != AuditionStatus.CONDUCTED) {
             throw new BusinessException(
@@ -73,7 +75,9 @@ public class PvAuditionServiceImpl implements PvAuditionService {
     @Transactional
     public PvAuditionResponse markReadBack(UUID auditionId) {
         PVAudition pv = getPvOrThrow(auditionId);
-        accessGuard.checkReadAccess(pv.getAudition().getInvestigation().getDossier());
+        Dossier dossier = pv.getAudition().getInvestigation().getDossier();
+        accessGuard.checkReadAccess(dossier);
+        checkConfidentialAccess(dossier);
 
         if (pv.isFinalized()) {
             throw new BusinessException("Ce procès-verbal est déjà finalisé");
@@ -92,7 +96,9 @@ public class PvAuditionServiceImpl implements PvAuditionService {
     @Transactional
     public PvAuditionResponse finalizeSignatures(UUID auditionId, PvAuditionFinalizeRequest request) {
         PVAudition pv = getPvOrThrow(auditionId);
-        accessGuard.checkReadAccess(pv.getAudition().getInvestigation().getDossier());
+        Dossier dossier = pv.getAudition().getInvestigation().getDossier();
+        accessGuard.checkReadAccess(dossier);
+        checkConfidentialAccess(dossier);
 
         if (Boolean.TRUE.equals(request.getIntervieweeSigned())
                 && Boolean.TRUE.equals(request.getIntervieweeSignatureRefused())) {
@@ -120,7 +126,9 @@ public class PvAuditionServiceImpl implements PvAuditionService {
     @Transactional
     public PvAuditionResponse correct(UUID auditionId, PvAuditionCorrectionRequest request) {
         PVAudition pv = getPvOrThrow(auditionId);
-        accessGuard.checkReadAccess(pv.getAudition().getInvestigation().getDossier());
+        Dossier dossier = pv.getAudition().getInvestigation().getDossier();
+        accessGuard.checkReadAccess(dossier);
+        checkConfidentialAccess(dossier);
 
         if (!pv.isFinalized()) {
             throw new BusinessException(
@@ -150,14 +158,17 @@ public class PvAuditionServiceImpl implements PvAuditionService {
         PVAudition pv = getPvOrThrow(auditionId);
         Dossier dossier = pv.getAudition().getInvestigation().getDossier();
         accessGuard.checkReadAccess(dossier);
+        checkConfidentialAccess(dossier);
 
+        return toResponseWithCorrections(pv);
+    }
+
+    private void checkConfidentialAccess(Dossier dossier) {
         if (Boolean.TRUE.equals(dossier.getIsConfidential())
                 && !accessGuard.canSeeConfidential()) {
             throw new BusinessException(
                     "Accès refusé — le procès-verbal d'un dossier confidentiel n'est visible que par les rôles habilités");
         }
-
-        return toResponseWithCorrections(pv);
     }
 
     private PvAuditionResponse toResponseWithCorrections(PVAudition pv) {
