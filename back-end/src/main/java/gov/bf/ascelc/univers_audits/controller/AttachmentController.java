@@ -1,5 +1,7 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.enums.AttachmentSource;
+import gov.bf.ascelc.univers_audits.enums.ModeObtention;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.service.AttachmentStorageService;
@@ -39,12 +41,16 @@ public class AttachmentController {
     public ResponseEntity<?> uploadFiles(
             @PathVariable String dossierId,
             @RequestParam("files") List<MultipartFile> files,
-            @RequestParam(value = "accessCode", required = false) String accessCode) {
+            @RequestParam(value = "accessCode", required = false) String accessCode,
+            @RequestParam(value = "source", required = false) AttachmentSource source,
+            @RequestParam(value = "modeObtention", required = false) ModeObtention modeObtention,
+            @RequestParam(value = "personneRemettante", required = false) String personneRemettante) {
 
         log.info("Upload {} fichier(s) pour dossier {}", files.size(), dossierId);
 
         List<AttachmentStorageService.UploadedFile> saved =
-                attachmentStorageService.upload(dossierId, files, accessCode);
+                attachmentStorageService.upload(
+                        dossierId, files, accessCode, source, modeObtention, personneRemettante);
 
         return ResponseEntity.ok(Map.of(
                 "uploaded", saved.size(),

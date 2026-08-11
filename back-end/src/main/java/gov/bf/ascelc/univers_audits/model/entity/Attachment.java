@@ -4,6 +4,7 @@ import gov.bf.ascelc.univers_audits.abstracts.AuditEntity;
 import gov.bf.ascelc.univers_audits.enums.AttachmentSource;
 import gov.bf.ascelc.univers_audits.enums.AttachmentStatus;
 import gov.bf.ascelc.univers_audits.enums.AttachmentType;
+import gov.bf.ascelc.univers_audits.enums.ModeObtention;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -100,6 +101,21 @@ public class Attachment extends AuditEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "validated_by_id")
     private Agent validatedBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploaded_by_id")
+    private Agent uploadedBy;
+
+    @Column(name = "personne_remettante", length = 255)
+    private String personneRemettante;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mode_obtention", nullable = false, length = 20)
+    @Builder.Default
+    private ModeObtention modeObtention = ModeObtention.VOLONTAIRE;
+
+    @Column(name = "code", unique = true, length = 20)
+    private String code;
 
 
     public void validate(Agent agent) {

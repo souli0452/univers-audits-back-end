@@ -3,13 +3,18 @@ package gov.bf.ascelc.univers_audits.service;
 import gov.bf.ascelc.univers_audits.enums.AttachmentSource;
 import gov.bf.ascelc.univers_audits.enums.AttachmentStatus;
 import gov.bf.ascelc.univers_audits.enums.AttachmentType;
+import gov.bf.ascelc.univers_audits.enums.ModeObtention;
+import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.AttachmentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
+import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,7 +53,10 @@ public class AttachmentStorageService {
 
     private final AttachmentRepository attachmentRepository;
     private final DossierRepository    dossierRepository;
+    private final AgentRepository      agentRepository;
     private final DossierAccessGuard   accessGuard;
+    private final SecurityUtils        securityUtils;
+    private final AccessCodeGenerator  accessCodeGenerator;
 
     @Value("${storage.upload-dir:C:/asce-lc/uploads}")
     private String uploadDir;
@@ -58,10 +66,14 @@ public class AttachmentStorageService {
 
     public record AttachmentSummary(String id, String originalName, String mimeType,
                                     Long fileSizeBytes, String uploadedAt,
-                                    boolean isAudio, String status) {}
+                                    boolean isAudio, String status,
+                                    String description, String source,
+                                    String modeObtention, String code) {}
 
     @Transactional
-    public List<UploadedFile> upload(String dossierId, List<MultipartFile> files, String accessCode) {
+    public List<UploadedFile> upload(
+            String dossierId, List<MultipartFile> files, String accessCode,
+            AttachmentSource source, ModeObtention modeObtention, String personneRemettante) {
         Dossier dossier = dossierRepository.findById(UUID.fromString(dossierId))
                 .orElseThrow(() -> new BusinessException(
                         "Dossier introuvable: " + dossierId));
@@ -74,6 +86,10 @@ public class AttachmentStorageService {
             log.error("Erreur création dossier upload: {}", e.getMessage(), e);
             throw new BusinessException("Erreur création dossier upload : " + e.getMessage());
         }
+
+        AttachmentSource effectiveSource = source != null ? source : AttachmentSource.INITIAL_SUBMISSION;
+        ModeObtention effectiveModeObtention = modeObtention != null ? modeObtention : ModeObtention.VOLONTAIRE;
+        Agent uploader = resolveUploaderOrNull();
 
         List<UploadedFile> saved = new ArrayList<>();
 
@@ -112,7 +128,11 @@ public class AttachmentStorageService {
                         .fileSizeBytes(file.getSize())
                         .hashSha256(hash)
                         .type(attType)
-                        .source(AttachmentSource.INITIAL_SUBMISSION)
+                        .source(effectiveSource)
+                        .modeObtention(effectiveModeObtention)
+                        .personneRemettante(personneRemettante)
+                        .uploadedBy(uploader)
+                        .code(generateUniqueAttachmentCode(effectiveSource))
                         .status(AttachmentStatus.PENDING_VALIDATION)
                         .uploadedAt(LocalDateTime.now())
                         .build();
@@ -141,7 +161,11 @@ public class AttachmentStorageService {
                         att.getFileSizeBytes(),
                         att.getUploadedAt() != null ? att.getUploadedAt().toString() : "",
                         att.getMimeType() != null && att.getMimeType().contains("audio"),
-                        att.getStatus().name()))
+                        att.getStatus().name(),
+                        att.getDescription(),
+                        att.getSource() != null ? att.getSource().name() : null,
+                        att.getModeObtention() != null ? att.getModeObtention().name() : null,
+                        att.getCode()))
                 .toList();
     }
 
@@ -159,6 +183,22 @@ public class AttachmentStorageService {
             throw new BusinessException("Erreur suppression fichier : " + e.getMessage());
         }
         attachmentRepository.delete(attachment);
+    }
+
+    private Agent resolveUploaderOrNull() {
+        return securityUtils.getCurrentKeycloakId()
+                .flatMap(agentRepository::findByKeycloakId)
+                .orElse(null);
+    }
+
+    private String generateUniqueAttachmentCode(AttachmentSource source) {
+        long sequence = attachmentRepository.count() + 1;
+        String code;
+        do {
+            code = accessCodeGenerator.generateAttachmentCode(source, sequence);
+            sequence++;
+        } while (attachmentRepository.existsByCode(code));
+        return code;
     }
 
     private String computeHash(byte[] data) {

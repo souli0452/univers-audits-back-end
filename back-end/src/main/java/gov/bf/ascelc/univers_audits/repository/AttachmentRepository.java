@@ -21,5 +21,6 @@ public interface AttachmentRepository
 
     List<Attachment> findByInvestigationId(UUID investigationId);
 
+    boolean existsByCode(String code);
 
 }
