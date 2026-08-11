@@ -4,6 +4,7 @@ import gov.bf.ascelc.univers_audits.abstracts.AuditEntity;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.DossierPriority;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.OrganisationDetail;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
@@ -73,6 +74,10 @@ public class Dossier extends AuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "auto_referral_source", length = 30)
     private AutoReferralSource autoReferralSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "organisation_detail", length = 25)
+    private OrganisationDetail organisationDetail;
 
     @Column(name = "source_reference", length = 500)
     private String sourceReference;

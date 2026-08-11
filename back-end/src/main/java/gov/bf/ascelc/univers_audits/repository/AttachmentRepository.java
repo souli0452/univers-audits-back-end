@@ -23,4 +23,6 @@ public interface AttachmentRepository
 
     boolean existsByCode(String code);
 
+    long countBySectionId(UUID sectionId);
+
 }

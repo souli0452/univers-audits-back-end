@@ -117,6 +117,10 @@ public class Attachment extends AuditEntity {
     @Column(name = "code", unique = true, length = 20)
     private String code;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "section_id")
+    private SectionDossierTravail section;
+
 
     public void validate(Agent agent) {
         this.status = AttachmentStatus.VALIDATED;
