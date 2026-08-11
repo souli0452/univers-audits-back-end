@@ -10,6 +10,7 @@ import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +36,8 @@ class SectionDossierTravailServiceTest {
     private DossierRepository dossierRepository;
     @Mock
     private AttachmentRepository attachmentRepository;
+    @Mock
+    private DossierAccessGuard accessGuard;
 
     @InjectMocks
     private SectionDossierTravailService service;
@@ -137,7 +140,7 @@ class SectionDossierTravailServiceTest {
                 .type(TypeSectionDossierTravail.ADMINISTRATION_MISSION)
                 .build();
         section.setId(UUID.randomUUID());
-        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
         when(sectionRepository.findByDossierId(dossierId)).thenReturn(List.of(section));
         when(attachmentRepository.countBySectionId(section.getId())).thenReturn(0L);
 
@@ -155,7 +158,7 @@ class SectionDossierTravailServiceTest {
                 .type(TypeSectionDossierTravail.ADMINISTRATION_MISSION)
                 .build();
         section.setId(UUID.randomUUID());
-        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
         when(sectionRepository.findByDossierId(dossierId)).thenReturn(List.of(section));
         when(attachmentRepository.countBySectionId(section.getId())).thenReturn(3L);
 
@@ -167,9 +170,54 @@ class SectionDossierTravailServiceTest {
 
     @Test
     void listerSections_rejetteSiDossierIntrouvable() {
-        when(dossierRepository.findById(dossierId)).thenReturn(Optional.empty());
+        when(accessGuard.getDossierOrThrow(dossierId))
+                .thenThrow(new ResourceNotFoundException("Dossier introuvable : " + dossierId));
 
         assertThatThrownBy(() -> service.listerSections(dossierId))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void listerSections_rejetteSiAgentNonHabiliteSurLeDossier() {
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        doThrow(new BusinessException("Accès refusé — ce dossier ne vous est pas assigné"))
+                .when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.listerSections(dossierId))
+                .isInstanceOf(BusinessException.class);
+
+        verify(sectionRepository, never()).findByDossierId(any());
+    }
+
+    @Test
+    void listerSections_masqueLesSectionsSiDossierConfidentielEtAgentNePeutPasVoirLeConfidentiel() {
+        dossier.setIsConfidential(true);
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        List<SectionDossierTravailService.SectionDossierTravailResponse> result =
+                service.listerSections(dossierId);
+
+        assertThat(result).isEmpty();
+        verify(sectionRepository, never()).findByDossierId(any());
+    }
+
+    @Test
+    void listerSections_retourneLesSectionsSiDossierConfidentielEtAgentPeutVoirLeConfidentiel() {
+        dossier.setIsConfidential(true);
+        SectionDossierTravail section = SectionDossierTravail.builder()
+                .dossier(dossier)
+                .type(TypeSectionDossierTravail.ADMINISTRATION_MISSION)
+                .build();
+        section.setId(UUID.randomUUID());
+        when(accessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(sectionRepository.findByDossierId(dossierId)).thenReturn(List.of(section));
+        when(attachmentRepository.countBySectionId(section.getId())).thenReturn(0L);
+
+        List<SectionDossierTravailService.SectionDossierTravailResponse> result =
+                service.listerSections(dossierId);
+
+        assertThat(result).hasSize(1);
     }
 }

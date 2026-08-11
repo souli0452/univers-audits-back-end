@@ -9,6 +9,7 @@ import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class SectionDossierTravailService {
     private final SectionDossierTravailRepository sectionRepository;
     private final DossierRepository dossierRepository;
     private final AttachmentRepository attachmentRepository;
+    private final DossierAccessGuard accessGuard;
 
     @Transactional
     public void creerSectionsFixes(Dossier dossier) {
@@ -79,7 +81,18 @@ public class SectionDossierTravailService {
     }
 
     public List<SectionDossierTravailResponse> listerSections(UUID dossierId) {
-        getDossierOrThrow(dossierId);
+        Dossier dossier = accessGuard.getDossierOrThrow(dossierId);
+        // Lève BusinessException si l'agent n'est ni privilégié ni affecté au dossier.
+        accessGuard.checkReadAccess(dossier);
+
+        // Les libellés des sections DETAIL nomment souvent les entités/sites
+        // visés par l'investigation — un dossier confidentiel masque
+        // entièrement sa structure aux rôles non habilités, comme
+        // AttachmentController.listFiles() le fait pour les pièces jointes.
+        if (Boolean.TRUE.equals(dossier.getIsConfidential()) && !accessGuard.canSeeConfidential()) {
+            return List.of();
+        }
+
         return sectionRepository.findByDossierId(dossierId).stream()
                 .map(s -> new SectionDossierTravailResponse(
                         s.getId(), s.getType(), s.getLibelle(),
