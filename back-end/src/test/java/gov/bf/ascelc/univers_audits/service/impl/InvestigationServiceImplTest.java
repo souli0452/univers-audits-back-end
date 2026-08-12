@@ -25,6 +25,13 @@ import gov.bf.ascelc.univers_audits.model.entity.PlanInvestigation;
 import gov.bf.ascelc.univers_audits.model.entity.RevisionPlan;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.enums.StatutProcedureUrgence;
+import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
+import gov.bf.ascelc.univers_audits.enums.InvestigationOutcome;
+import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest;
+import gov.bf.ascelc.univers_audits.model.entity.NoteRecommandations;
+import gov.bf.ascelc.univers_audits.model.entity.RapportEnquete;
+import gov.bf.ascelc.univers_audits.repository.NoteRecommandationsRepository;
+import gov.bf.ascelc.univers_audits.repository.RapportEnqueteRepository;
 import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceDecisionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.MesureConservatoireRequest;
@@ -87,12 +94,119 @@ class InvestigationServiceImplTest {
     @Mock private ProcedureUrgenceRepository      procedureUrgenceRepository;
     @Mock private MesureConservatoireRepository   mesureConservatoireRepository;
     @Mock private SectionDossierTravailService sectionDossierTravailService;
+    @Mock private RapportEnqueteRepository       rapportEnqueteRepository;
+    @Mock private NoteRecommandationsRepository   noteRecommandationsRepository;
 
     @InjectMocks
     private InvestigationServiceImpl service;
 
     private Investigation buildInvestigation(Dossier dossier) {
         return Investigation.builder().id(UUID.randomUUID()).dossier(dossier).build();
+    }
+
+    private Investigation buildInProgressInvestigation() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        investigation.setStatus(InvestigationStatus.IN_PROGRESS);
+        return investigation;
+    }
+
+    private RapportEnquete buildRapportComplet(Investigation investigation) {
+        return RapportEnquete.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .titre("Titre").introduction("Introduction").methodologie("Methodologie")
+                .informationsCollectees("Infos").exposeFactuelAnomalies("Anomalies")
+                .quantificationPrejudice("Prejudice").conclusions("Conclusions")
+                .build();
+    }
+
+    @Test
+    void submitReport_rejetteSiAucunRapportRedige() {
+        Investigation investigation = buildInProgressInvestigation();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(rapportEnqueteRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.empty());
+
+        InvestigationUpdateRequest request = InvestigationUpdateRequest.builder()
+                .outcome(InvestigationOutcome.ARCHIVED).build();
+
+        assertThatThrownBy(() -> service.submitReport(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void submitReport_rejetteSiRapportIncomplet() {
+        Investigation investigation = buildInProgressInvestigation();
+        RapportEnquete rapportIncomplet = RapportEnquete.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .titre("Titre")
+                .build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(rapportEnqueteRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(rapportIncomplet));
+
+        InvestigationUpdateRequest request = InvestigationUpdateRequest.builder()
+                .outcome(InvestigationOutcome.ARCHIVED).build();
+
+        assertThatThrownBy(() -> service.submitReport(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void submitReport_rejetteSiAucuneNoteRedigee() {
+        Investigation investigation = buildInProgressInvestigation();
+        RapportEnquete rapportComplet = buildRapportComplet(investigation);
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(rapportEnqueteRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(rapportComplet));
+        when(noteRecommandationsRepository.findByRapportEnqueteId(rapportComplet.getId()))
+                .thenReturn(Optional.empty());
+
+        InvestigationUpdateRequest request = InvestigationUpdateRequest.builder()
+                .outcome(InvestigationOutcome.ARCHIVED).build();
+
+        assertThatThrownBy(() -> service.submitReport(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void submitReport_succeedsAvecRapportEtNoteComplets() {
+        Investigation investigation = buildInProgressInvestigation();
+        RapportEnquete rapportComplet = buildRapportComplet(investigation);
+        NoteRecommandations noteComplete = NoteRecommandations.builder()
+                .rapportEnquete(rapportComplet)
+                .contenu("Recommandation n°1")
+                .build();
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID()).build();
+
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(rapportEnqueteRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(rapportComplet));
+        when(noteRecommandationsRepository.findByRapportEnqueteId(rapportComplet.getId()))
+                .thenReturn(Optional.of(noteComplete));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(investigationMapper.toResponse(any(Investigation.class)))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        InvestigationUpdateRequest request = InvestigationUpdateRequest.builder()
+                .outcome(InvestigationOutcome.ARCHIVED).build();
+
+        service.submitReport(investigation.getId(), request, "127.0.0.1");
+
+        assertThat(investigation.getStatus()).isEqualTo(InvestigationStatus.COMPLETED);
+        assertThat(investigation.getOutcome()).isEqualTo(InvestigationOutcome.ARCHIVED);
+        verify(dossierRepository).save(investigation.getDossier());
     }
 
     @Test

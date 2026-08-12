@@ -1,7 +1,7 @@
 package gov.bf.ascelc.univers_audits.model.dto.request;
 
 import gov.bf.ascelc.univers_audits.enums.InvestigationOutcome;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Getter
@@ -10,14 +10,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvestigationUpdateRequest {
-
-    @NotBlank(message = "Le rapport final est obligatoire")
-    private String finalReport;
-
-    @NotBlank(message = "Les conclusions sont obligatoires")
-    private String conclusions;
-
-    private String recommendations;
-
+    @NotNull(message = "Le résultat de l'investigation est obligatoire")
     private InvestigationOutcome outcome;
 }

@@ -30,9 +30,6 @@ public class InvestigationResponse {
     private Boolean overdue;
     private Long remainingDays;
     private Integer memberCount;
-    private String finalReport;
-    private String conclusions;
-    private String recommendations;
     private InvestigationOutcome outcome;
     private Instant reportSubmittedAt;
     private Instant deiApprovedAt;
