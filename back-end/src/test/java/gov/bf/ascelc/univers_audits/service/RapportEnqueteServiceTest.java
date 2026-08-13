@@ -3,6 +3,7 @@ package gov.bf.ascelc.univers_audits.service;
 import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
 import gov.bf.ascelc.univers_audits.model.dto.request.NoteRecommandationsRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.RapportEnqueteRequest;
+import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.NoteRecommandations;
 import gov.bf.ascelc.univers_audits.model.entity.RapportEnquete;
@@ -11,6 +12,7 @@ import gov.bf.ascelc.univers_audits.repository.NoteRecommandationsRepository;
 import gov.bf.ascelc.univers_audits.repository.RapportEnqueteRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +37,8 @@ class RapportEnqueteServiceTest {
     private NoteRecommandationsRepository noteRecommandationsRepository;
     @Mock
     private InvestigationRepository investigationRepository;
+    @Mock
+    private DossierAccessGuard accessGuard;
 
     @InjectMocks
     private RapportEnqueteService service;
@@ -45,9 +49,11 @@ class RapportEnqueteServiceTest {
     @BeforeEach
     void setUp() {
         investigationId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         investigation = Investigation.builder()
                 .id(investigationId)
                 .status(InvestigationStatus.IN_PROGRESS)
+                .dossier(dossier)
                 .build();
     }
 
@@ -107,7 +113,34 @@ class RapportEnqueteServiceTest {
 
     @Test
     void getRapportOrThrow_leveResourceNotFoundExceptionSiAucunRapport() {
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
         when(rapportEnqueteRepository.findByInvestigationId(investigationId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getRapportOrThrow(investigationId))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void getRapportOrThrow_propageBusinessExceptionSiAccesRefuse() {
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé — ce dossier ne vous est pas assigné"))
+                .when(accessGuard).checkReadAccess(investigation.getDossier());
+
+        assertThatThrownBy(() -> service.getRapportOrThrow(investigationId))
+                .isInstanceOf(BusinessException.class);
+        verify(rapportEnqueteRepository, never()).findByInvestigationId(any());
+    }
+
+    @Test
+    void getRapportOrThrow_leveResourceNotFoundExceptionSiDossierConfidentielEtAgentNonPrivilegie() {
+        investigation.getDossier().setIsConfidential(true);
+        RapportEnquete rapport = RapportEnquete.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .build();
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(rapportEnqueteRepository.findByInvestigationId(investigationId)).thenReturn(Optional.of(rapport));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
 
         assertThatThrownBy(() -> service.getRapportOrThrow(investigationId))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -162,7 +195,11 @@ class RapportEnqueteServiceTest {
 
     @Test
     void getNoteOrThrow_leveResourceNotFoundExceptionSiAucuneNote() {
-        RapportEnquete rapport = RapportEnquete.builder().id(UUID.randomUUID()).build();
+        RapportEnquete rapport = RapportEnquete.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .build();
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
         when(rapportEnqueteRepository.findByInvestigationId(investigationId)).thenReturn(Optional.of(rapport));
         when(noteRecommandationsRepository.findByRapportEnqueteId(rapport.getId())).thenReturn(Optional.empty());
 

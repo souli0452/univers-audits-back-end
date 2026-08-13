@@ -11,6 +11,7 @@ import gov.bf.ascelc.univers_audits.repository.NoteRecommandationsRepository;
 import gov.bf.ascelc.univers_audits.repository.RapportEnqueteRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,10 +27,12 @@ public class RapportEnqueteService {
     private final RapportEnqueteRepository rapportEnqueteRepository;
     private final NoteRecommandationsRepository noteRecommandationsRepository;
     private final InvestigationRepository investigationRepository;
+    private final DossierAccessGuard accessGuard;
 
     @Transactional
     public RapportEnquete enregistrerRapport(UUID investigationId, RapportEnqueteRequest request) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(investigation.getDossier());
         checkEditable(investigation);
 
         RapportEnquete rapport = rapportEnqueteRepository.findByInvestigationId(investigationId)
@@ -50,15 +53,28 @@ public class RapportEnqueteService {
     }
 
     public RapportEnquete getRapportOrThrow(UUID investigationId) {
-        return rapportEnqueteRepository.findByInvestigationId(investigationId)
+        Investigation investigation = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(investigation.getDossier());
+
+        RapportEnquete rapport = rapportEnqueteRepository.findByInvestigationId(investigationId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Aucun rapport d'enquête n'a été rédigé pour cette investigation : "
                                 + investigationId));
+
+        if (Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            throw new ResourceNotFoundException(
+                    "Aucun rapport d'enquête n'a été rédigé pour cette investigation : "
+                            + investigationId);
+        }
+
+        return rapport;
     }
 
     @Transactional
     public NoteRecommandations enregistrerNote(UUID investigationId, NoteRecommandationsRequest request) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(investigation.getDossier());
         checkEditable(investigation);
 
         RapportEnquete rapport = rapportEnqueteRepository.findByInvestigationId(investigationId)

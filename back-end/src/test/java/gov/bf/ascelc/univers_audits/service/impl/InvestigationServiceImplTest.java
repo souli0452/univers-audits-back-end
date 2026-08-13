@@ -159,6 +159,30 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void submitReport_rejetteSiNoteRecommandationsVide() {
+        Investigation investigation = buildInProgressInvestigation();
+        RapportEnquete rapportComplet = buildRapportComplet(investigation);
+        NoteRecommandations noteVide = NoteRecommandations.builder()
+                .rapportEnquete(rapportComplet)
+                .contenu("   ")
+                .build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(rapportEnqueteRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(rapportComplet));
+        when(noteRecommandationsRepository.findByRapportEnqueteId(rapportComplet.getId()))
+                .thenReturn(Optional.of(noteVide));
+
+        InvestigationUpdateRequest request = InvestigationUpdateRequest.builder()
+                .outcome(InvestigationOutcome.ARCHIVED).build();
+
+        assertThatThrownBy(() -> service.submitReport(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("La note de recommandations est vide.");
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
     void submitReport_rejetteSiAucuneNoteRedigee() {
         Investigation investigation = buildInProgressInvestigation();
         RapportEnquete rapportComplet = buildRapportComplet(investigation);
