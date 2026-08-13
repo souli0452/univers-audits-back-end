@@ -25,4 +25,16 @@ public class AgentContextResolver {
                 .orElseThrow(() -> new BusinessException(
                         "Agent introuvable. Contactez l'administrateur DDIC."));
     }
+
+    /**
+     * Variante non-levante pour les points d'entrée accessibles sans
+     * authentification (ex. dépôt citoyen anonyme via accessCode) : retourne
+     * {@code null} plutôt que de lever si personne n'est authentifié ou si
+     * l'agent est introuvable.
+     */
+    public Agent getCurrentAgentOrNull() {
+        return securityUtils.getCurrentKeycloakId()
+                .flatMap(agentRepository::findByKeycloakId)
+                .orElse(null);
+    }
 }

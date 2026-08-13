@@ -8,15 +8,14 @@ import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.SectionDossierTravail;
-import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.AttachmentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
+import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
-import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
@@ -55,11 +55,12 @@ public class AttachmentStorageService {
 
     private final AttachmentRepository attachmentRepository;
     private final DossierRepository    dossierRepository;
-    private final AgentRepository      agentRepository;
     private final DossierAccessGuard   accessGuard;
-    private final SecurityUtils        securityUtils;
+    private final AgentContextResolver agentContextResolver;
     private final AccessCodeGenerator  accessCodeGenerator;
     private final SectionDossierTravailRepository sectionDossierTravailRepository;
+
+    private static final int PERSONNE_REMETTANTE_MAX_LENGTH = 255;
 
     @Value("${storage.upload-dir:C:/asce-lc/uploads}")
     private String uploadDir;
@@ -78,6 +79,11 @@ public class AttachmentStorageService {
             String dossierId, List<MultipartFile> files, String accessCode,
             AttachmentSource source, ModeObtention modeObtention, String personneRemettante,
             String sectionId) {
+        if (personneRemettante != null && personneRemettante.length() > PERSONNE_REMETTANTE_MAX_LENGTH) {
+            throw new BusinessException(
+                    "Personne remettante : " + PERSONNE_REMETTANTE_MAX_LENGTH + " caractères maximum");
+        }
+
         Dossier dossier = dossierRepository.findById(UUID.fromString(dossierId))
                 .orElseThrow(() -> new BusinessException(
                         "Dossier introuvable: " + dossierId));
@@ -91,10 +97,18 @@ public class AttachmentStorageService {
             throw new BusinessException("Erreur création dossier upload : " + e.getMessage());
         }
 
-        AttachmentSource effectiveSource = source != null ? source : AttachmentSource.INITIAL_SUBMISSION;
-        ModeObtention effectiveModeObtention = modeObtention != null ? modeObtention : ModeObtention.VOLONTAIRE;
-        Agent uploader = resolveUploaderOrNull();
+        Agent uploader = agentContextResolver.getCurrentAgentOrNull();
+        // Un déposant non authentifié (citoyen anonyme via accessCode) ne peut pas
+        // s'attribuer une provenance/mode d'obtention d'agent — sans quoi n'importe
+        // qui pourrait se déclarer auteur d'une réquisition sur le terrain.
+        boolean isAuthenticatedAgent = uploader != null;
+        AttachmentSource effectiveSource = isAuthenticatedAgent && source != null
+                ? source : AttachmentSource.INITIAL_SUBMISSION;
+        ModeObtention effectiveModeObtention = isAuthenticatedAgent && modeObtention != null
+                ? modeObtention : ModeObtention.VOLONTAIRE;
+        String effectivePersonneRemettante = isAuthenticatedAgent ? personneRemettante : null;
         SectionDossierTravail section = resolveSectionForDossierOrThrow(sectionId, dossier);
+        AtomicLong nextSequence = new AtomicLong(attachmentRepository.count() + 1);
 
         List<UploadedFile> saved = new ArrayList<>();
 
@@ -135,9 +149,9 @@ public class AttachmentStorageService {
                         .type(attType)
                         .source(effectiveSource)
                         .modeObtention(effectiveModeObtention)
-                        .personneRemettante(personneRemettante)
+                        .personneRemettante(effectivePersonneRemettante)
                         .uploadedBy(uploader)
-                        .code(generateUniqueAttachmentCode(effectiveSource))
+                        .code(generateUniqueAttachmentCode(effectiveSource, nextSequence))
                         .section(section)
                         .status(AttachmentStatus.PENDING_VALIDATION)
                         .uploadedAt(LocalDateTime.now())
@@ -231,18 +245,10 @@ public class AttachmentStorageService {
         return section;
     }
 
-    private Agent resolveUploaderOrNull() {
-        return securityUtils.getCurrentKeycloakId()
-                .flatMap(agentRepository::findByKeycloakId)
-                .orElse(null);
-    }
-
-    private String generateUniqueAttachmentCode(AttachmentSource source) {
-        long sequence = attachmentRepository.count() + 1;
+    private String generateUniqueAttachmentCode(AttachmentSource source, AtomicLong nextSequence) {
         String code;
         do {
-            code = accessCodeGenerator.generateAttachmentCode(source, sequence);
-            sequence++;
+            code = accessCodeGenerator.generateAttachmentCode(source, nextSequence.getAndIncrement());
         } while (attachmentRepository.existsByCode(code));
         return code;
     }

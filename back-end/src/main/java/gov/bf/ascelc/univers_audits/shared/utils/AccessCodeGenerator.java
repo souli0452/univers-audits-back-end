@@ -38,7 +38,11 @@ public class AccessCodeGenerator {
             AttachmentSource.OTHER, 'X');
 
     public String generateAttachmentCode(AttachmentSource source, long sequence) {
-        char letter = ATTACHMENT_SOURCE_LETTERS.get(source);
+        Character letter = ATTACHMENT_SOURCE_LETTERS.get(source);
+        if (letter == null) {
+            throw new IllegalStateException(
+                    "Aucune lettre de code définie pour AttachmentSource." + source);
+        }
         return String.format("ACC-%c-%05d", letter, sequence);
     }
 }

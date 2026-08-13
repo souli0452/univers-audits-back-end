@@ -7,15 +7,14 @@ import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.SectionDossierTravail;
-import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.AttachmentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
+import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
-import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,9 +41,8 @@ class AttachmentStorageServiceTest {
 
     @Mock private AttachmentRepository attachmentRepository;
     @Mock private DossierRepository    dossierRepository;
-    @Mock private AgentRepository      agentRepository;
     @Mock private DossierAccessGuard   accessGuard;
-    @Mock private SecurityUtils        securityUtils;
+    @Mock private AgentContextResolver agentContextResolver;
     @Mock private AccessCodeGenerator  accessCodeGenerator;
     @Mock private SectionDossierTravailRepository sectionDossierTravailRepository;
 
@@ -83,6 +81,19 @@ class AttachmentStorageServiceTest {
     }
 
     @Test
+    void upload_rejetteSiPersonneRemettanteDepasse255Caracteres() {
+        UUID dossierId = UUID.randomUUID();
+        String tropLong = "x".repeat(256);
+
+        assertThatThrownBy(() -> service.upload(
+                dossierId.toString(), List.of(), null, null, null, tropLong, null))
+                .isInstanceOf(BusinessException.class);
+
+        verify(attachmentRepository, never()).save(any());
+        verify(dossierRepository, never()).findById(any());
+    }
+
+    @Test
     void upload_defaultsSourceAndModeObtentionWhenNotProvided() {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
@@ -90,7 +101,7 @@ class AttachmentStorageServiceTest {
                 "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
-        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
         when(attachmentRepository.count()).thenReturn(0L);
         when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
                 .thenReturn("ACC-S-00001");
@@ -111,14 +122,15 @@ class AttachmentStorageServiceTest {
     }
 
     @Test
-    void upload_usesProvidedSourceModeObtentionAndPersonneRemettante() {
+    void upload_usesProvidedSourceModeObtentionAndPersonneRemettanteWhenAgentAuthenticated() {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
         MockMultipartFile file = new MockMultipartFile(
                 "files", "preuve.jpg", "image/jpeg", "contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
-        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(agent);
         when(attachmentRepository.count()).thenReturn(4L);
         when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
                 .thenReturn("ACC-T-00005");
@@ -138,20 +150,19 @@ class AttachmentStorageServiceTest {
                 a.getSource() == AttachmentSource.FIELD_INVESTIGATION
                         && a.getModeObtention() == ModeObtention.REQUISITION
                         && a.getPersonneRemettante().equals("Jean Kaboré")
-                        && a.getCode().equals("ACC-T-00005")));
+                        && a.getCode().equals("ACC-T-00005")
+                        && a.getUploadedBy() == agent));
     }
 
     @Test
-    void upload_setsUploadedByWhenAgentAuthenticated() {
+    void upload_ignoresProvidedSourceModeObtentionAndPersonneRemettanteWhenAnonymous() {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
-        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+                "files", "preuve.jpg", "image/jpeg", "contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
-        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-agent-1"));
-        when(agentRepository.findByKeycloakId("kc-agent-1")).thenReturn(Optional.of(agent));
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
         when(attachmentRepository.count()).thenReturn(0L);
         when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
                 .thenReturn("ACC-S-00001");
@@ -163,9 +174,18 @@ class AttachmentStorageServiceTest {
                     return a;
                 });
 
-        service.upload(dossierId.toString(), List.of(file), null, null, null, null, null);
+        // Un citoyen anonyme (accessCode, sans authentification) ne doit pas
+        // pouvoir s'attribuer une provenance/mode d'obtention d'agent — vérifie
+        // la correction du finding "usurpation" de la revue finale.
+        service.upload(dossierId.toString(), List.of(file), null,
+                AttachmentSource.FIELD_INVESTIGATION, ModeObtention.REQUISITION, "Jean Kaboré",
+                null);
 
-        verify(attachmentRepository).save(argThat(a -> a.getUploadedBy() == agent));
+        verify(attachmentRepository).save(argThat(a ->
+                a.getSource() == AttachmentSource.INITIAL_SUBMISSION
+                        && a.getModeObtention() == ModeObtention.VOLONTAIRE
+                        && a.getPersonneRemettante() == null
+                        && a.getUploadedBy() == null));
     }
 
     @Test
@@ -176,7 +196,7 @@ class AttachmentStorageServiceTest {
                 "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
-        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
         when(attachmentRepository.count()).thenReturn(0L);
         when(accessCodeGenerator.generateAttachmentCode(any(), eq(1L))).thenReturn("ACC-S-00001");
         when(accessCodeGenerator.generateAttachmentCode(any(), eq(2L))).thenReturn("ACC-S-00002");
@@ -202,7 +222,7 @@ class AttachmentStorageServiceTest {
                 "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
-        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
         when(attachmentRepository.count()).thenReturn(0L);
         when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
                 .thenReturn("ACC-S-00001");
@@ -230,7 +250,7 @@ class AttachmentStorageServiceTest {
                 "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
-        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
         when(attachmentRepository.count()).thenReturn(0L);
         when(accessCodeGenerator.generateAttachmentCode(any(), anyLong()))
                 .thenReturn("ACC-S-00001");
