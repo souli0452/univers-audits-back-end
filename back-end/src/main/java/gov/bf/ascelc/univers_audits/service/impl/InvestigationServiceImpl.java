@@ -22,6 +22,7 @@ import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.service.SectionDossierTravailService;
+import gov.bf.ascelc.univers_audits.service.ChecklistDossierTravailService;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -72,6 +73,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final SectionDossierTravailService sectionDossierTravailService;
     private final RapportEnqueteRepository       rapportEnqueteRepository;
     private final NoteRecommandationsRepository   noteRecommandationsRepository;
+    private final ChecklistDossierTravailService checklistDossierTravailService;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -397,6 +399,12 @@ public class InvestigationServiceImpl implements InvestigationService {
                                 + "avant soumission."));
         if (!note.isComplet()) {
             throw new BusinessException("La note de recommandations est vide.");
+        }
+
+        if (!checklistDossierTravailService.isComplete(investigationId)) {
+            throw new BusinessException(
+                    "La check-list du dossier de travail n'est pas entièrement cochée — "
+                            + "tous les points actifs doivent être validés avant soumission.");
         }
 
         inv.setOutcome(request.getOutcome());

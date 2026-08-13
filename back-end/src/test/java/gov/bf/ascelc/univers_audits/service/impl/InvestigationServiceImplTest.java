@@ -47,6 +47,7 @@ import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.service.SectionDossierTravailService;
+import gov.bf.ascelc.univers_audits.service.ChecklistDossierTravailService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
@@ -96,6 +97,7 @@ class InvestigationServiceImplTest {
     @Mock private SectionDossierTravailService sectionDossierTravailService;
     @Mock private RapportEnqueteRepository       rapportEnqueteRepository;
     @Mock private NoteRecommandationsRepository   noteRecommandationsRepository;
+    @Mock private ChecklistDossierTravailService checklistDossierTravailService;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -202,6 +204,30 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void submitReport_rejetteSiChecklistIncomplete() {
+        Investigation investigation = buildInProgressInvestigation();
+        RapportEnquete rapportComplet = buildRapportComplet(investigation);
+        NoteRecommandations noteComplete = NoteRecommandations.builder()
+                .rapportEnquete(rapportComplet)
+                .contenu("Recommandation n°1")
+                .build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(rapportEnqueteRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(rapportComplet));
+        when(noteRecommandationsRepository.findByRapportEnqueteId(rapportComplet.getId()))
+                .thenReturn(Optional.of(noteComplete));
+        when(checklistDossierTravailService.isComplete(investigation.getId())).thenReturn(false);
+
+        InvestigationUpdateRequest request = InvestigationUpdateRequest.builder()
+                .outcome(InvestigationOutcome.ARCHIVED).build();
+
+        assertThatThrownBy(() -> service.submitReport(investigation.getId(), request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
     void submitReport_succeedsAvecRapportEtNoteComplets() {
         Investigation investigation = buildInProgressInvestigation();
         RapportEnquete rapportComplet = buildRapportComplet(investigation);
@@ -217,6 +243,7 @@ class InvestigationServiceImplTest {
                 .thenReturn(Optional.of(rapportComplet));
         when(noteRecommandationsRepository.findByRapportEnqueteId(rapportComplet.getId()))
                 .thenReturn(Optional.of(noteComplete));
+        when(checklistDossierTravailService.isComplete(investigation.getId())).thenReturn(true);
         when(agentContextResolver.getCurrentAgent()).thenReturn(currentAgent);
         when(investigationRepository.save(any(Investigation.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
