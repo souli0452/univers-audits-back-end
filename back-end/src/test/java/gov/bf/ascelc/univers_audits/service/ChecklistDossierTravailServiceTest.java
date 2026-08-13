@@ -209,15 +209,25 @@ class ChecklistDossierTravailServiceTest {
     }
 
     @Test
-    void isComplete_retourneFauxSiUnPointCocheEstDesactiveEtUnAutrePointActifResteNonCoche() {
-        // Reproduit le bug corrige : avant le fix, le denominateur (points actifs) et le
-        // numerateur (coches, sans filtre sur point.actif) portaient sur des ensembles
-        // differents des qu'un point deja coche etait desactive.
+    void isComplete_neComptePasLesCochesDePointsDesactives_utiliseLaMethodeFiltreePasLAncienne() {
+        // Reproduit le bug corrige : avant le fix, le numerateur (coches) etait compte
+        // par countByInvestigationIdAndCocheTrue, SANS filtre sur point.actif — un point
+        // coche puis desactive restait comptabilise, ce qui pouvait satisfaire a tort le
+        // gate des qu'un point placeholder etait remplace/desactive (mecanisme
+        // d'administration prevu, pas un cas exotique). Ici : 1 seul point actif, jamais
+        // coche (un autre point, deja coche, a ete desactive et n'entre donc plus dans
+        // findByActifTrueOrderByOrdreAsc). Le comptage correctement filtre doit renvoyer
+        // 0 (le point actif n'a jamais ete coche), et le service ne doit JAMAIS invoquer
+        // l'ancienne methode non filtree — une regression vers l'ancien comportement
+        // serait detectee par le verify(never()) ci-dessous, pas seulement par le calcul.
         when(pointRepository.findByActifTrueOrderByOrdreAsc()).thenReturn(List.of(
                 PointChecklistDossierTravail.builder().id(UUID.randomUUID()).build()));
         when(cocheRepository.countByInvestigationIdAndCocheTrueAndPointActifTrue(investigationId))
                 .thenReturn(0L);
 
-        assertThat(service.isComplete(investigationId)).isFalse();
+        boolean result = service.isComplete(investigationId);
+
+        assertThat(result).isFalse();
+        verify(cocheRepository, never()).countByInvestigationIdAndCocheTrue(any());
     }
 }
