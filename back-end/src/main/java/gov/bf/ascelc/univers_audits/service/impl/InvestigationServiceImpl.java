@@ -70,6 +70,8 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final ProcedureUrgenceRepository      procedureUrgenceRepository;
     private final MesureConservatoireRepository   mesureConservatoireRepository;
     private final SectionDossierTravailService sectionDossierTravailService;
+    private final RapportEnqueteRepository       rapportEnqueteRepository;
+    private final NoteRecommandationsRepository   noteRecommandationsRepository;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -377,9 +379,26 @@ public class InvestigationServiceImpl implements InvestigationService {
                             + "que pour une investigation en cours");
         }
 
-        inv.setFinalReport(request.getFinalReport());
-        inv.setConclusions(request.getConclusions());
-        inv.setRecommendations(request.getRecommendations());
+        RapportEnquete rapport = rapportEnqueteRepository.findByInvestigationId(investigationId)
+                .orElseThrow(() -> new BusinessException(
+                        "Aucun rapport d'enquête n'a été rédigé pour cette investigation. "
+                                + "Renseignez-le via PUT /investigations/{id}/rapport avant soumission."));
+        if (!rapport.isComplet()) {
+            throw new BusinessException(
+                    "Le rapport d'enquête est incomplet — tous les champs sont obligatoires "
+                            + "(les réserves exceptées).");
+        }
+
+        NoteRecommandations note = noteRecommandationsRepository
+                .findByRapportEnqueteId(rapport.getId())
+                .orElseThrow(() -> new BusinessException(
+                        "Aucune note de recommandations n'a été rédigée pour cette investigation. "
+                                + "Renseignez-la via PUT /investigations/{id}/note-recommandations "
+                                + "avant soumission."));
+        if (!note.isComplet()) {
+            throw new BusinessException("La note de recommandations est vide.");
+        }
+
         inv.setOutcome(request.getOutcome());
         inv.complete();
 
@@ -397,7 +416,7 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         auditRecorder.addObservation(dossier,
                 ObservationType.FIELD_FINDING,
-                "Rapport final soumis. Conclusions : " + request.getConclusions(),
+                "Rapport final soumis. Conclusions : " + rapport.getConclusions(),
                 true, agentContextResolver.getCurrentAgent());
 
         log.info("Rapport soumis — investigation: {}", investigationId);

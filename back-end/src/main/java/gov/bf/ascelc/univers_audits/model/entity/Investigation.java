@@ -69,16 +69,6 @@ public class Investigation extends AuditEntity {
     @Column(name = "suspension_reason", columnDefinition = "TEXT")
     private String suspensionReason;
 
-    @Column(name = "final_report", columnDefinition = "TEXT")
-    private String finalReport;
-
-    @Column(name = "conclusions", columnDefinition = "TEXT")
-    private String conclusions;
-
-
-    @Column(name = "recommendations", columnDefinition = "TEXT")
-    private String recommendations;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "outcome", length = 30)
     private InvestigationOutcome outcome;
