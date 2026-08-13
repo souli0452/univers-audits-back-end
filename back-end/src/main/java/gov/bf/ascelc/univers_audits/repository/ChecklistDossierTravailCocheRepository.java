@@ -13,4 +13,5 @@ public interface ChecklistDossierTravailCocheRepository
     Optional<ChecklistDossierTravailCoche> findByInvestigationIdAndPointId(
             UUID investigationId, UUID pointId);
     long countByInvestigationIdAndCocheTrue(UUID investigationId);
+    long countByInvestigationIdAndCocheTrueAndPointActifTrue(UUID investigationId);
 }

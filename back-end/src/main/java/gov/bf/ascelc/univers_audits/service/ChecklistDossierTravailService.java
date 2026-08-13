@@ -1,11 +1,13 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
 import gov.bf.ascelc.univers_audits.model.dto.request.ChecklistCocheRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.ChecklistDossierTravailItemResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.ChecklistDossierTravailCocheRepository;
 import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.PointChecklistDossierTravailRepository;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -36,10 +38,8 @@ public class ChecklistDossierTravailService {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
 
-        if (Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
-                && !accessGuard.canSeeConfidential()) {
-            return List.of();
-        }
+        boolean maskSensitive = Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential();
 
         List<PointChecklistDossierTravail> points = pointRepository.findByActifTrueOrderByOrdreAsc();
         Map<UUID, ChecklistDossierTravailCoche> etatParPoint = cocheRepository
@@ -47,7 +47,7 @@ public class ChecklistDossierTravailService {
                 .collect(Collectors.toMap(c -> c.getPoint().getId(), c -> c));
 
         return points.stream()
-                .map(point -> toItemResponse(point, etatParPoint.get(point.getId())))
+                .map(point -> toItemResponse(point, etatParPoint.get(point.getId()), maskSensitive))
                 .toList();
     }
 
@@ -57,6 +57,7 @@ public class ChecklistDossierTravailService {
 
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
+        checkEditable(investigation);
 
         PointChecklistDossierTravail point = pointRepository.findByCode(pointCode)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -74,30 +75,35 @@ public class ChecklistDossierTravailService {
         if (Boolean.TRUE.equals(request.getCoche())) {
             etat.setCochePar(agentContextResolver.getCurrentAgent());
             etat.setCocheAt(Instant.now());
-        } else {
-            etat.setCochePar(null);
-            etat.setCocheAt(null);
         }
 
         ChecklistDossierTravailCoche saved = cocheRepository.save(etat);
         log.info("Check-list dossier de travail — investigation {}, point {}, coché={}",
                 investigationId, pointCode, request.getCoche());
-        return toItemResponse(point, saved);
+        return toItemResponse(point, saved, false);
     }
 
-    /** Utilisé par InvestigationServiceImpl.submitReport() — aucun contrôle d'accès ici,
-     *  submitReport() a déjà résolu et vérifié l'investigation avant cet appel. */
+    /** Utilisé par InvestigationServiceImpl.submitReport() — aucune vérification
+     *  d'habilitation ici, cette méthode est un simple calcul de complétude. */
     public boolean isComplete(UUID investigationId) {
-        List<PointChecklistDossierTravail> actifs = pointRepository.findByActifTrueOrderByOrdreAsc();
-        if (actifs.isEmpty()) {
+        long actifs = pointRepository.findByActifTrueOrderByOrdreAsc().size();
+        if (actifs == 0) {
             return true;
         }
-        long coches = cocheRepository.countByInvestigationIdAndCocheTrue(investigationId);
-        return coches >= actifs.size();
+        long coches = cocheRepository.countByInvestigationIdAndCocheTrueAndPointActifTrue(investigationId);
+        return coches == actifs;
+    }
+
+    private void checkEditable(Investigation investigation) {
+        if (investigation.getStatus() != InvestigationStatus.IN_PROGRESS) {
+            throw new BusinessException(
+                    "La check-list du dossier de travail n'est modifiable "
+                            + "que pendant que l'investigation est en cours.");
+        }
     }
 
     private ChecklistDossierTravailItemResponse toItemResponse(
-            PointChecklistDossierTravail point, ChecklistDossierTravailCoche etat) {
+            PointChecklistDossierTravail point, ChecklistDossierTravailCoche etat, boolean maskSensitive) {
         return ChecklistDossierTravailItemResponse.builder()
                 .pointId(point.getId())
                 .code(point.getCode())
@@ -105,10 +111,10 @@ public class ChecklistDossierTravailService {
                 .categorie(point.getCategorie())
                 .ordre(point.getOrdre())
                 .coche(etat != null && Boolean.TRUE.equals(etat.getCoche()))
-                .cocheParNom(etat != null && etat.getCochePar() != null
+                .cocheParNom(!maskSensitive && etat != null && etat.getCochePar() != null
                         ? etat.getCochePar().getNomComplet() : null)
                 .cocheAt(etat != null ? etat.getCocheAt() : null)
-                .commentaire(etat != null ? etat.getCommentaire() : null)
+                .commentaire(!maskSensitive && etat != null ? etat.getCommentaire() : null)
                 .build();
     }
 

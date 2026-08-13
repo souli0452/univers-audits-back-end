@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
 import gov.bf.ascelc.univers_audits.model.dto.request.ChecklistCocheRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.ChecklistDossierTravailItemResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
@@ -17,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,7 +47,8 @@ class ChecklistDossierTravailServiceTest {
     void setUp() {
         investigationId = UUID.randomUUID();
         dossier = Dossier.builder().id(UUID.randomUUID()).build();
-        investigation = Investigation.builder().id(investigationId).dossier(dossier).build();
+        investigation = Investigation.builder().id(investigationId).dossier(dossier)
+                .status(InvestigationStatus.IN_PROGRESS).build();
     }
 
     @Test
@@ -82,15 +85,27 @@ class ChecklistDossierTravailServiceTest {
     }
 
     @Test
-    void getChecklist_renvoieListeVideSiDossierConfidentielEtAgentNonPrivilegie() {
+    void getChecklist_masqueCommentaireEtCocheParNomSiDossierConfidentielEtAgentNonPrivilegie() {
         dossier.setIsConfidential(true);
+        PointChecklistDossierTravail point1 = PointChecklistDossierTravail.builder()
+                .id(UUID.randomUUID()).code("PT-01").libelle("Point 1").ordre(1).build();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        ChecklistDossierTravailCoche etatPoint1 = ChecklistDossierTravailCoche.builder()
+                .point(point1).coche(true).commentaire("Commentaire sensible")
+                .cochePar(agent).build();
+
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
         when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(pointRepository.findByActifTrueOrderByOrdreAsc()).thenReturn(List.of(point1));
+        when(cocheRepository.findByInvestigationId(investigationId)).thenReturn(List.of(etatPoint1));
 
         List<ChecklistDossierTravailItemResponse> result = service.getChecklist(investigationId);
 
-        assertThat(result).isEmpty();
-        verify(pointRepository, never()).findByActifTrueOrderByOrdreAsc();
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getLibelle()).isEqualTo("Point 1");
+        assertThat(result.get(0).isCoche()).isTrue();
+        assertThat(result.get(0).getCommentaire()).isNull();
+        assertThat(result.get(0).getCocheParNom()).isNull();
     }
 
     @Test
@@ -115,13 +130,14 @@ class ChecklistDossierTravailServiceTest {
     }
 
     @Test
-    void setCoche_decocherRemetCocheParEtCocheAtANull() {
+    void setCoche_decocherConserveLeDernierCochePar() {
         PointChecklistDossierTravail point = PointChecklistDossierTravail.builder()
                 .id(UUID.randomUUID()).code("PT-01").libelle("Point 1").ordre(1).build();
         Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        Instant dernierCocheAt = Instant.now();
         ChecklistDossierTravailCoche existant = ChecklistDossierTravailCoche.builder()
                 .investigation(investigation).point(point).coche(true)
-                .cochePar(agent).build();
+                .cochePar(agent).cocheAt(dernierCocheAt).build();
 
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
         when(pointRepository.findByCode("PT-01")).thenReturn(Optional.of(point));
@@ -134,8 +150,8 @@ class ChecklistDossierTravailServiceTest {
         ChecklistDossierTravailItemResponse result = service.setCoche(investigationId, "PT-01", request);
 
         assertThat(result.isCoche()).isFalse();
-        assertThat(result.getCocheAt()).isNull();
-        assertThat(result.getCocheParNom()).isNull();
+        assertThat(result.getCocheAt()).isEqualTo(dernierCocheAt);
+        assertThat(result.getCocheParNom()).isEqualTo(agent.getNomComplet());
         verify(agentContextResolver, never()).getCurrentAgent();
     }
 
@@ -152,6 +168,20 @@ class ChecklistDossierTravailServiceTest {
     }
 
     @Test
+    void setCoche_rejetteSiInvestigationNEstPasEnCours() {
+        investigation.setStatus(InvestigationStatus.COMPLETED);
+        PointChecklistDossierTravail point = PointChecklistDossierTravail.builder()
+                .id(UUID.randomUUID()).code("PT-01").build();
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+
+        ChecklistCocheRequest request = ChecklistCocheRequest.builder().coche(true).build();
+
+        assertThatThrownBy(() -> service.setCoche(investigationId, "PT-01", request))
+                .isInstanceOf(BusinessException.class);
+        verify(cocheRepository, never()).save(any());
+    }
+
+    @Test
     void isComplete_retourneVraiSiAucunPointActif() {
         when(pointRepository.findByActifTrueOrderByOrdreAsc()).thenReturn(List.of());
 
@@ -163,7 +193,7 @@ class ChecklistDossierTravailServiceTest {
         PointChecklistDossierTravail point1 = PointChecklistDossierTravail.builder().id(UUID.randomUUID()).build();
         PointChecklistDossierTravail point2 = PointChecklistDossierTravail.builder().id(UUID.randomUUID()).build();
         when(pointRepository.findByActifTrueOrderByOrdreAsc()).thenReturn(List.of(point1, point2));
-        when(cocheRepository.countByInvestigationIdAndCocheTrue(investigationId)).thenReturn(1L);
+        when(cocheRepository.countByInvestigationIdAndCocheTrueAndPointActifTrue(investigationId)).thenReturn(1L);
 
         assertThat(service.isComplete(investigationId)).isFalse();
     }
@@ -173,8 +203,21 @@ class ChecklistDossierTravailServiceTest {
         PointChecklistDossierTravail point1 = PointChecklistDossierTravail.builder().id(UUID.randomUUID()).build();
         PointChecklistDossierTravail point2 = PointChecklistDossierTravail.builder().id(UUID.randomUUID()).build();
         when(pointRepository.findByActifTrueOrderByOrdreAsc()).thenReturn(List.of(point1, point2));
-        when(cocheRepository.countByInvestigationIdAndCocheTrue(investigationId)).thenReturn(2L);
+        when(cocheRepository.countByInvestigationIdAndCocheTrueAndPointActifTrue(investigationId)).thenReturn(2L);
 
         assertThat(service.isComplete(investigationId)).isTrue();
+    }
+
+    @Test
+    void isComplete_retourneFauxSiUnPointCocheEstDesactiveEtUnAutrePointActifResteNonCoche() {
+        // Reproduit le bug corrige : avant le fix, le denominateur (points actifs) et le
+        // numerateur (coches, sans filtre sur point.actif) portaient sur des ensembles
+        // differents des qu'un point deja coche etait desactive.
+        when(pointRepository.findByActifTrueOrderByOrdreAsc()).thenReturn(List.of(
+                PointChecklistDossierTravail.builder().id(UUID.randomUUID()).build()));
+        when(cocheRepository.countByInvestigationIdAndCocheTrueAndPointActifTrue(investigationId))
+                .thenReturn(0L);
+
+        assertThat(service.isComplete(investigationId)).isFalse();
     }
 }
