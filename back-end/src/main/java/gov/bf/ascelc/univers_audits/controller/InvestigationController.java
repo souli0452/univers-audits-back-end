@@ -299,6 +299,85 @@ public class InvestigationController {
         return ResponseEntity.ok(result);
     }
 
+    @PatchMapping("/{id}/approve-cgea")
+    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    public ResponseEntity<InvestigationResponse> approveCgea(
+            @PathVariable UUID id,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Approbation CGEA — investigation {}", id);
+        InvestigationResponse result = investigationService.approveCgea(
+                id, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "APPROUVER_CGEA", "INVESTIGATION", id.toString(),
+                "Approbation CGEA", AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PatchMapping("/{id}/reject-dei")
+    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    public ResponseEntity<InvestigationResponse> rejectDei(
+            @PathVariable UUID id,
+            @RequestParam String motif,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Rejet DEI — investigation {}", id);
+        InvestigationResponse result = investigationService.rejectDei(
+                id, motif, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "REJETER_DEI", "INVESTIGATION", id.toString(),
+                "Rejet DEI — " + motif, AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PatchMapping("/{id}/reject-cgea")
+    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    public ResponseEntity<InvestigationResponse> rejectCgea(
+            @PathVariable UUID id,
+            @RequestParam String motif,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Rejet CGEA — investigation {}", id);
+        InvestigationResponse result = investigationService.rejectCgea(
+                id, motif, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "REJETER_CGEA", "INVESTIGATION", id.toString(),
+                "Rejet CGEA — " + motif, AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PatchMapping("/{id}/reject-cge")
+    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    public ResponseEntity<InvestigationResponse> rejectCge(
+            @PathVariable UUID id,
+            @RequestParam String motif,
+            HttpServletRequest httpRequest,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        log.info("Rejet CGE — investigation {}", id);
+        InvestigationResponse result = investigationService.rejectCge(
+                id, motif, getClientIp(httpRequest));
+
+        auditService.logAction(
+                id(jwt), name(jwt), role(jwt),
+                "REJETER_CGE", "INVESTIGATION", id.toString(),
+                "Rejet CGE — " + motif, AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+        return ResponseEntity.ok(result);
+    }
+
     // ── Équipe ────────────────────────────────────────────────
 
     @PostMapping("/{id}/members")
