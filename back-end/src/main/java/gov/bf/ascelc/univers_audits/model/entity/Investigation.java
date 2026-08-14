@@ -99,6 +99,13 @@ public class Investigation extends AuditEntity {
     @JoinColumn(name = "cge_approved_by_id")
     private Agent cgeApprovedBy;
 
+    @Column(name = "cgea_approved_at")
+    private Instant cgeaApprovedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cgea_approved_by_id")
+    private Agent cgeaApprovedBy;
+
     @OneToMany(mappedBy = "investigation",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
