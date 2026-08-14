@@ -1891,4 +1891,95 @@ class InvestigationServiceImplTest {
         verify(mesureConservatoireRepository, never())
                 .findByInvestigationIdOrderByTakenAtDesc(any());
     }
+
+    @Test
+    void findById_calculeEcheanceCjDepuisReportSubmittedAt() {
+        Investigation investigation = buildCompletedInvestigation();
+        Instant submittedAt = Instant.parse("2026-01-01T00:00:00Z");
+        investigation.setReportSubmittedAt(submittedAt);
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(parametreDelaiService.resolveDelaiJours("REVUE_CJ_RAPPORT")).thenReturn(10);
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getCjRevueDeadline()).isEqualTo(submittedAt.plusSeconds(10L * 24 * 3600));
+    }
+
+    @Test
+    void findById_cjRevueOverdueVraiSiEcheanceDepasseeEtPasEncoreApprouve() {
+        Investigation investigation = buildCompletedInvestigation();
+        Instant submittedAt = Instant.now().minusSeconds(20L * 24 * 3600);
+        investigation.setReportSubmittedAt(submittedAt);
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(parametreDelaiService.resolveDelaiJours("REVUE_CJ_RAPPORT")).thenReturn(10);
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getCjRevueOverdue()).isTrue();
+    }
+
+    @Test
+    void findById_neCalculeAucuneEcheanceSiRapportPasEncoreSoumis() {
+        Investigation investigation = buildInProgressInvestigation();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getCjRevueDeadline()).isNull();
+        verify(parametreDelaiService, never()).resolveDelaiJours(any());
+    }
+
+    @Test
+    void findById_degradeVersNullSiParametreDelaiIndisponible() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setReportSubmittedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(parametreDelaiService.resolveDelaiJours("REVUE_CJ_RAPPORT"))
+                .thenThrow(new ResourceNotFoundException("Paramètre introuvable"));
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getCjRevueDeadline()).isNull();
+        assertThat(result.getCjRevueOverdue()).isFalse();
+    }
+
+    @Test
+    void findById_calculeEcheanceDeiDepuisLegalAdvisorApprovedAtPasReportSubmittedAt() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setReportSubmittedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        Instant cjApprovedAt = Instant.parse("2026-01-05T00:00:00Z");
+        investigation.setLegalAdvisorApprovedAt(cjApprovedAt);
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(parametreDelaiService.resolveDelaiJours("REVUE_CJ_RAPPORT")).thenReturn(10);
+        when(parametreDelaiService.resolveDelaiJours("ANALYSE_DEI_RAPPORT")).thenReturn(15);
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getDeiAnalyseDeadline()).isEqualTo(cjApprovedAt.plusSeconds(15L * 24 * 3600));
+    }
 }

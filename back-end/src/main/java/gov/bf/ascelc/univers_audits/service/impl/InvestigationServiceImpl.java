@@ -1242,7 +1242,50 @@ public class InvestigationServiceImpl implements InvestigationService {
         response.setMembers(memberResponses);
         response.setMemberCount(memberResponses.size());
 
+        fillCircuitValidationDeadlines(response, inv);
+
         return response;
+    }
+
+    private void fillCircuitValidationDeadlines(InvestigationResponse response, Investigation inv) {
+        if (inv.getReportSubmittedAt() != null) {
+            response.setCjRevueDeadline(
+                    resolveDeadline(inv.getReportSubmittedAt(), "REVUE_CJ_RAPPORT"));
+            response.setCjRevueOverdue(isOverdue(
+                    response.getCjRevueDeadline(), inv.getLegalAdvisorApprovedAt()));
+        }
+        if (inv.getLegalAdvisorApprovedAt() != null) {
+            response.setDeiAnalyseDeadline(
+                    resolveDeadline(inv.getLegalAdvisorApprovedAt(), "ANALYSE_DEI_RAPPORT"));
+            response.setDeiAnalyseOverdue(isOverdue(
+                    response.getDeiAnalyseDeadline(), inv.getDeiApprovedAt()));
+        }
+        if (inv.getDeiApprovedAt() != null) {
+            response.setCgeaApprobationDeadline(
+                    resolveDeadline(inv.getDeiApprovedAt(), "APPROBATION_CGEA_RAPPORT"));
+            response.setCgeaApprobationOverdue(isOverdue(
+                    response.getCgeaApprobationDeadline(), inv.getCgeaApprovedAt()));
+        }
+        if (inv.getCgeaApprovedAt() != null) {
+            response.setCgeApprobationDeadline(
+                    resolveDeadline(inv.getCgeaApprovedAt(), "APPROBATION_CGE"));
+            response.setCgeApprobationOverdue(isOverdue(
+                    response.getCgeApprobationDeadline(), inv.getCgeApprovedAt()));
+        }
+    }
+
+    private Instant resolveDeadline(Instant from, String delaiCode) {
+        try {
+            int delaiJours = parametreDelaiService.resolveDelaiJours(delaiCode);
+            return from.plusSeconds((long) delaiJours * 24 * 3600);
+        } catch (ResourceNotFoundException e) {
+            log.warn("Délai {} indisponible — échéance non calculée : {}", delaiCode, e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isOverdue(Instant deadline, Instant completedAt) {
+        return deadline != null && completedAt == null && Instant.now().isAfter(deadline);
     }
 
 

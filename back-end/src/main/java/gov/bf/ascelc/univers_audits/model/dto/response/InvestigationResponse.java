@@ -35,6 +35,15 @@ public class InvestigationResponse {
     private Instant deiApprovedAt;
     private Instant legalAdvisorApprovedAt;
     private Instant cgeApprovedAt;
+    private Instant cgeaApprovedAt;
+    private Instant cjRevueDeadline;
+    private Boolean cjRevueOverdue;
+    private Instant deiAnalyseDeadline;
+    private Boolean deiAnalyseOverdue;
+    private Instant cgeaApprobationDeadline;
+    private Boolean cgeaApprobationOverdue;
+    private Instant cgeApprobationDeadline;
+    private Boolean cgeApprobationOverdue;
     private AgentSummaryResponse cgea;
     private List<InvestigationMemberResponse> members;
     private Instant createdAt;
