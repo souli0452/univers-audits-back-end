@@ -73,6 +73,8 @@ public interface InvestigationService {
                                      String reason,
                                      String ipAddress);
 
+    InvestigationResponse approveCgea(UUID investigationId, String ipAddress);
+
     InvestigationResponse addMember(UUID investigationId,
                                     AddMemberRequest request,
                                     String ipAddress);

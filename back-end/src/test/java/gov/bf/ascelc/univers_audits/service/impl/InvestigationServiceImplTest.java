@@ -113,6 +113,13 @@ class InvestigationServiceImplTest {
         return investigation;
     }
 
+    private Investigation buildCompletedInvestigation() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        investigation.setStatus(InvestigationStatus.COMPLETED);
+        return investigation;
+    }
+
     private RapportEnquete buildRapportComplet(Investigation investigation) {
         return RapportEnquete.builder()
                 .id(UUID.randomUUID())
@@ -257,6 +264,142 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getStatus()).isEqualTo(InvestigationStatus.COMPLETED);
         assertThat(investigation.getOutcome()).isEqualTo(InvestigationOutcome.ARCHIVED);
+        verify(dossierRepository).save(investigation.getDossier());
+    }
+
+    @Test
+    void approveLegalAdvisor_rejetteSiStatusNestPasCompleted() {
+        Investigation investigation = buildInProgressInvestigation();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.approveLegalAdvisor(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveLegalAdvisor_succeeds() {
+        Investigation investigation = buildCompletedInvestigation();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.approveLegalAdvisor(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
+        assertThat(investigation.getLegalAdvisorApprovedBy()).isEqualTo(agent);
+    }
+
+    @Test
+    void approveDei_rejetteSiConseillerJuridiqueNaPasApprouve() {
+        Investigation investigation = buildCompletedInvestigation();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveDei_succeedsApresApprobationCj() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.approveDei(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getDeiApprovedAt()).isNotNull();
+        assertThat(investigation.getDeiApprovedBy()).isEqualTo(agent);
+    }
+
+    @Test
+    void approveCgea_rejetteSiDeiNaPasApprouve() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.approveCgea(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCgea_succeedsApresApprobationDei() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.approveCgea(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getCgeaApprovedAt()).isNotNull();
+        assertThat(investigation.getCgeaApprovedBy()).isEqualTo(agent);
+    }
+
+    @Test
+    void approveCge_rejetteSiCgeaNaPasApprouve() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.approveCge(investigation.getId(), "motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCge_succeedsApresApprobationCgea() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setCgeaApprovedAt(Instant.now());
+        investigation.setOutcome(InvestigationOutcome.ARCHIVED);
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.approveCge(investigation.getId(), "Motif de clôture", "127.0.0.1");
+
+        assertThat(investigation.getCgeApprovedAt()).isNotNull();
+        assertThat(investigation.getCgeApprovedBy()).isEqualTo(agent);
+        assertThat(investigation.getStatus()).isEqualTo(InvestigationStatus.ARCHIVED);
         verify(dossierRepository).save(investigation.getDossier());
     }
 

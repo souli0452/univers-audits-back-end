@@ -433,38 +433,14 @@ public class InvestigationServiceImpl implements InvestigationService {
 
     @Override
     @Transactional
-    public InvestigationResponse approveDei(UUID investigationId, String ipAddress) {
-        Investigation inv = getInvestigationOrThrow(investigationId);
-
-        if (inv.getStatus() != InvestigationStatus.COMPLETED) {
-            throw new BusinessException(
-                    "L'approbation DEI n'est possible qu'après soumission du rapport.");
-        }
-
-        Agent agent = agentContextResolver.getCurrentAgent();
-        inv.setDeiApprovedAt(Instant.now());
-        inv.setDeiApprovedBy(agent);
-        Investigation saved = investigationRepository.save(inv);
-
-        auditRecorder.addObservation(inv.getDossier(),
-                ObservationType.INTERNAL_NOTE,
-                "Rapport approuvé par le DEI (délai légal : 15 jours ouvrables).",
-                true, agent);
-
-        log.info("DEI approuvé — investigation: {}", investigationId);
-        return investigationMapper.toResponse(saved);
-    }
-
-    @Override
-    @Transactional
     public InvestigationResponse approveLegalAdvisor(
             UUID investigationId, String ipAddress) {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
 
-        if (inv.getDeiApprovedAt() == null) {
+        if (inv.getStatus() != InvestigationStatus.COMPLETED) {
             throw new BusinessException(
-                    "Le rapport doit d'abord être approuvé par le DEI.");
+                    "La revue du conseiller juridique n'est possible qu'après soumission du rapport.");
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
@@ -479,7 +455,55 @@ public class InvestigationServiceImpl implements InvestigationService {
                 true, agent);
 
         log.info("Conseiller juridique approuvé — investigation: {}", investigationId);
-        return investigationMapper.toResponse(saved);
+        return buildResponseWithFreshMembers(saved, investigationId);
+    }
+
+    @Override
+    @Transactional
+    public InvestigationResponse approveDei(UUID investigationId, String ipAddress) {
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (inv.getLegalAdvisorApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit d'abord être approuvé par le Conseiller Juridique.");
+        }
+
+        Agent agent = agentContextResolver.getCurrentAgent();
+        inv.setDeiApprovedAt(Instant.now());
+        inv.setDeiApprovedBy(agent);
+        Investigation saved = investigationRepository.save(inv);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Rapport approuvé par le DEI (délai légal : 15 jours ouvrables).",
+                true, agent);
+
+        log.info("DEI approuvé — investigation: {}", investigationId);
+        return buildResponseWithFreshMembers(saved, investigationId);
+    }
+
+    @Override
+    @Transactional
+    public InvestigationResponse approveCgea(UUID investigationId, String ipAddress) {
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (inv.getDeiApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit d'abord être approuvé par le DEI.");
+        }
+
+        Agent agent = agentContextResolver.getCurrentAgent();
+        inv.setCgeaApprovedAt(Instant.now());
+        inv.setCgeaApprovedBy(agent);
+        Investigation saved = investigationRepository.save(inv);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Rapport approuvé par le CGEA (délai légal : 10 jours ouvrables).",
+                true, agent);
+
+        log.info("CGEA approuvé — investigation: {}", investigationId);
+        return buildResponseWithFreshMembers(saved, investigationId);
     }
 
     @Override
@@ -490,14 +514,9 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
 
-        if (inv.getDeiApprovedAt() == null) {
+        if (inv.getCgeaApprovedAt() == null) {
             throw new BusinessException(
-                    "Le rapport doit être approuvé par le DEI avant la décision CGE.");
-        }
-        if (inv.getLegalAdvisorApprovedAt() == null) {
-            throw new BusinessException(
-                    "Le rapport doit être approuvé par le Conseiller Juridique "
-                            + "avant la décision CGE.");
+                    "Le rapport doit être approuvé par le CGEA avant la décision CGE.");
         }
 
         Agent cge = agentContextResolver.getCurrentAgent();
@@ -536,7 +555,7 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         log.info("Décision CGE finalisée — dossier: {} → {}",
                 dossier.getNumber(), newDossierStatus);
-        return investigationMapper.toResponse(saved);
+        return buildResponseWithFreshMembers(saved, investigationId);
     }
 
     @Override
