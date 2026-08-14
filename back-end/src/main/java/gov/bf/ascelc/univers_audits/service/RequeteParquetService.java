@@ -19,6 +19,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class RequeteParquetService {
 
     private final RequeteParquetRepository requeteParquetRepository;
@@ -29,6 +30,13 @@ public class RequeteParquetService {
     public RequeteParquet enregistrer(UUID investigationId, RequeteParquetRequest request) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
+
+        if (Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            throw new BusinessException(
+                    "Accès refusé — ce dossier est confidentiel.");
+        }
+
         checkEditable(investigation);
 
         RequeteParquet requete = requeteParquetRepository.findByInvestigationId(investigationId)

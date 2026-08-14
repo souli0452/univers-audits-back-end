@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.service;
 
 import gov.bf.ascelc.univers_audits.enums.AttachmentSource;
+import gov.bf.ascelc.univers_audits.enums.AttachmentStatus;
 import gov.bf.ascelc.univers_audits.enums.ModeObtention;
 import gov.bf.ascelc.univers_audits.model.dto.response.InventairePieceItemResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
@@ -62,6 +63,7 @@ class InventairePiecesServiceTest {
                 .source(AttachmentSource.INITIAL_SUBMISSION)
                 .uploadedAt(uploadedAt1)
                 .modeObtention(ModeObtention.VOLONTAIRE)
+                .status(AttachmentStatus.VALIDATED)
                 .build();
         Attachment piece2 = Attachment.builder()
                 .id(UUID.randomUUID())
@@ -70,9 +72,10 @@ class InventairePiecesServiceTest {
                 .source(AttachmentSource.FIELD_INVESTIGATION)
                 .uploadedAt(uploadedAt2)
                 .modeObtention(ModeObtention.REQUISITION)
+                .status(AttachmentStatus.REJECTED)
                 .build();
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
-        when(attachmentRepository.findByInvestigationId(investigationId))
+        when(attachmentRepository.findByDossierId(dossier.getId()))
                 .thenReturn(List.of(piece1, piece2));
 
         List<InventairePieceItemResponse> result = service.getInventaire(investigationId);
@@ -83,14 +86,16 @@ class InventairePiecesServiceTest {
         assertThat(result.get(0).getSource()).isEqualTo(AttachmentSource.INITIAL_SUBMISSION);
         assertThat(result.get(0).getUploadedAt()).isEqualTo(uploadedAt1);
         assertThat(result.get(0).getModeObtention()).isEqualTo(ModeObtention.VOLONTAIRE);
+        assertThat(result.get(0).getStatus()).isEqualTo(AttachmentStatus.VALIDATED);
         assertThat(result.get(1).getCode()).isEqualTo("ACC-T-00002");
         assertThat(result.get(1).getModeObtention()).isEqualTo(ModeObtention.REQUISITION);
+        assertThat(result.get(1).getStatus()).isEqualTo(AttachmentStatus.REJECTED);
     }
 
     @Test
     void getInventaire_renvoieListeVideSiAucunePieceJointe() {
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
-        when(attachmentRepository.findByInvestigationId(investigationId)).thenReturn(List.of());
+        when(attachmentRepository.findByDossierId(dossier.getId())).thenReturn(List.of());
 
         assertThat(service.getInventaire(investigationId)).isEmpty();
     }
@@ -104,7 +109,7 @@ class InventairePiecesServiceTest {
         List<InventairePieceItemResponse> result = service.getInventaire(investigationId);
 
         assertThat(result).isEmpty();
-        verify(attachmentRepository, never()).findByInvestigationId(any());
+        verify(attachmentRepository, never()).findByDossierId(any());
     }
 
     @Test
@@ -115,6 +120,6 @@ class InventairePiecesServiceTest {
 
         assertThatThrownBy(() -> service.getInventaire(investigationId))
                 .isInstanceOf(BusinessException.class);
-        verify(attachmentRepository, never()).findByInvestigationId(any());
+        verify(attachmentRepository, never()).findByDossierId(any());
     }
 }

@@ -112,6 +112,17 @@ class RequeteParquetServiceTest {
     }
 
     @Test
+    void enregistrer_rejetteSiDossierConfidentielEtAgentNonPrivilegie() {
+        investigation.getDossier().setIsConfidential(true);
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.enregistrer(investigationId, buildRequest()))
+                .isInstanceOf(BusinessException.class);
+        verify(requeteParquetRepository, never()).save(any());
+    }
+
+    @Test
     void getOrThrow_leveResourceNotFoundExceptionSiAucuneRequete() {
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
         when(requeteParquetRepository.findByInvestigationId(investigationId)).thenReturn(Optional.empty());

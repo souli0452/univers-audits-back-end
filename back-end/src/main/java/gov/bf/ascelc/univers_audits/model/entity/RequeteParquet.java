@@ -5,6 +5,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+/**
+ * Contenu de la requête au Parquet, rédigé par le conseiller juridique. La transmission
+ * effective au Parquet (changement de statut, notification) n'est pas modélisée ici — hors
+ * périmètre de ce sous-chantier, appartient à un futur Lot (Post-investigation).
+ */
 @Getter
 @Setter
 @Entity

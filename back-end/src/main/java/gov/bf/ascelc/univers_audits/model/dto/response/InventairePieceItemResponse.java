@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.model.dto.response;
 
 import gov.bf.ascelc.univers_audits.enums.AttachmentSource;
+import gov.bf.ascelc.univers_audits.enums.AttachmentStatus;
 import gov.bf.ascelc.univers_audits.enums.ModeObtention;
 import lombok.*;
 
@@ -19,4 +20,5 @@ public class InventairePieceItemResponse {
     private AttachmentSource source;
     private LocalDateTime uploadedAt;
     private ModeObtention modeObtention;
+    private AttachmentStatus status;
 }

@@ -9,12 +9,15 @@ import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class InventairePiecesService {
 
     private final InvestigationRepository investigationRepository;
@@ -32,7 +35,8 @@ public class InventairePiecesService {
             return List.of();
         }
 
-        return attachmentRepository.findByInvestigationId(investigationId).stream()
+        return attachmentRepository.findByDossierId(investigation.getDossier().getId()).stream()
+                .sorted(Comparator.comparing(Attachment::getCode, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(this::toItemResponse)
                 .toList();
     }
@@ -45,6 +49,7 @@ public class InventairePiecesService {
                 .source(attachment.getSource())
                 .uploadedAt(attachment.getUploadedAt())
                 .modeObtention(attachment.getModeObtention())
+                .status(attachment.getStatus())
                 .build();
     }
 }
