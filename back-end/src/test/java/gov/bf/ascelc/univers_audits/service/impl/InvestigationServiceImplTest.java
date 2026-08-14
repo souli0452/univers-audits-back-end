@@ -404,6 +404,150 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void rejectDei_rejetteSiConseillerJuridiqueNaPasApprouve() {
+        Investigation investigation = buildCompletedInvestigation();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectDei_rejetteSiMotifVide() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "   ", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectDei_remetLegalAdvisorApprovedAtANull() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setLegalAdvisorApprovedBy(Agent.builder().id(UUID.randomUUID()).build());
+        Agent deiAgent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(deiAgent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.rejectDei(investigation.getId(), "Preuves insuffisantes", "127.0.0.1");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNull();
+        assertThat(investigation.getLegalAdvisorApprovedBy()).isNull();
+    }
+
+    @Test
+    void rejectCgea_rejetteSiDeiNaPasApprouve() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectCgea(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectCgea_rejetteSiMotifVide() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectCgea(investigation.getId(), "", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectCgea_remetDeiApprovedAtANull() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setDeiApprovedBy(Agent.builder().id(UUID.randomUUID()).build());
+        Agent cgeaAgent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(cgeaAgent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.rejectCgea(investigation.getId(), "Analyse incomplète", "127.0.0.1");
+
+        assertThat(investigation.getDeiApprovedAt()).isNull();
+        assertThat(investigation.getDeiApprovedBy()).isNull();
+    }
+
+    @Test
+    void rejectCge_rejetteSiCgeaNaPasApprouve() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectCge(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectCge_rejetteSiMotifVide() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setCgeaApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectCge(investigation.getId(), null, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectCge_remetCgeaApprovedAtANull() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setCgeaApprovedAt(Instant.now());
+        investigation.setCgeaApprovedBy(Agent.builder().id(UUID.randomUUID()).build());
+        Agent cgeAgent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(cgeAgent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.rejectCge(investigation.getId(), "Éléments insuffisants pour trancher", "127.0.0.1");
+
+        assertThat(investigation.getCgeaApprovedAt()).isNull();
+        assertThat(investigation.getCgeaApprovedBy()).isNull();
+    }
+
+    @Test
     void addMember_grantsInvestigationTeamHabilitation() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = buildInvestigation(dossier);

@@ -75,6 +75,12 @@ public interface InvestigationService {
 
     InvestigationResponse approveCgea(UUID investigationId, String ipAddress);
 
+    InvestigationResponse rejectDei(UUID investigationId, String motif, String ipAddress);
+
+    InvestigationResponse rejectCgea(UUID investigationId, String motif, String ipAddress);
+
+    InvestigationResponse rejectCge(UUID investigationId, String motif, String ipAddress);
+
     InvestigationResponse addMember(UUID investigationId,
                                     AddMemberRequest request,
                                     String ipAddress);

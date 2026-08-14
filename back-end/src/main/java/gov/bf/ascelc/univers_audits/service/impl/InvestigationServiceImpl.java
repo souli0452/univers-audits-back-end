@@ -560,6 +560,93 @@ public class InvestigationServiceImpl implements InvestigationService {
 
     @Override
     @Transactional
+    public InvestigationResponse rejectDei(
+            UUID investigationId, String motif, String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (inv.getLegalAdvisorApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit d'abord être approuvé par le Conseiller Juridique.");
+        }
+        if (motif == null || motif.isBlank()) {
+            throw new BusinessException("Le motif du rejet est obligatoire.");
+        }
+
+        Agent agent = agentContextResolver.getCurrentAgent();
+        inv.setLegalAdvisorApprovedAt(null);
+        inv.setLegalAdvisorApprovedBy(null);
+        Investigation saved = investigationRepository.save(inv);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Rapport rejeté par le DEI, renvoyé au Conseiller Juridique. Motif : " + motif,
+                true, agent);
+
+        log.info("DEI rejeté — investigation: {}", investigationId);
+        return buildResponseWithFreshMembers(saved, investigationId);
+    }
+
+    @Override
+    @Transactional
+    public InvestigationResponse rejectCgea(
+            UUID investigationId, String motif, String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (inv.getDeiApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit d'abord être approuvé par le DEI.");
+        }
+        if (motif == null || motif.isBlank()) {
+            throw new BusinessException("Le motif du rejet est obligatoire.");
+        }
+
+        Agent agent = agentContextResolver.getCurrentAgent();
+        inv.setDeiApprovedAt(null);
+        inv.setDeiApprovedBy(null);
+        Investigation saved = investigationRepository.save(inv);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Rapport rejeté par le CGEA, renvoyé au DEI. Motif : " + motif,
+                true, agent);
+
+        log.info("CGEA rejeté — investigation: {}", investigationId);
+        return buildResponseWithFreshMembers(saved, investigationId);
+    }
+
+    @Override
+    @Transactional
+    public InvestigationResponse rejectCge(
+            UUID investigationId, String motif, String ipAddress) {
+
+        Investigation inv = getInvestigationOrThrow(investigationId);
+
+        if (inv.getCgeaApprovedAt() == null) {
+            throw new BusinessException(
+                    "Le rapport doit être approuvé par le CGEA avant la décision CGE.");
+        }
+        if (motif == null || motif.isBlank()) {
+            throw new BusinessException("Le motif du rejet est obligatoire.");
+        }
+
+        Agent agent = agentContextResolver.getCurrentAgent();
+        inv.setCgeaApprovedAt(null);
+        inv.setCgeaApprovedBy(null);
+        Investigation saved = investigationRepository.save(inv);
+
+        auditRecorder.addObservation(inv.getDossier(),
+                ObservationType.INTERNAL_NOTE,
+                "Rapport rejeté par le CGE, renvoyé au CGEA. Motif : " + motif,
+                true, agent);
+
+        log.info("CGE rejeté — investigation: {}", investigationId);
+        return buildResponseWithFreshMembers(saved, investigationId);
+    }
+
+    @Override
+    @Transactional
     public InvestigationResponse addMember(
             UUID investigationId,
             AddMemberRequest request,
