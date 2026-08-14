@@ -548,6 +548,61 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void circuitComplet_sequenceNominaleApprouveLesQuatreEtapes() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setOutcome(InvestigationOutcome.ARCHIVED);
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(investigationRepository.save(any(Investigation.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+
+        service.approveLegalAdvisor(investigation.getId(), "127.0.0.1");
+        service.approveDei(investigation.getId(), "127.0.0.1");
+        service.approveCgea(investigation.getId(), "127.0.0.1");
+        service.approveCge(investigation.getId(), "Décision finale", "127.0.0.1");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
+        assertThat(investigation.getDeiApprovedAt()).isNotNull();
+        assertThat(investigation.getCgeaApprovedAt()).isNotNull();
+        assertThat(investigation.getCgeApprovedAt()).isNotNull();
+        assertThat(investigation.getStatus()).isEqualTo(InvestigationStatus.ARCHIVED);
+    }
+
+    @Test
+    void rejectDei_rejetteSiEtapeDeiDejaApprouvee() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectCge_rejetteSiRapportDejaDecideParLeCge() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setCgeaApprovedAt(Instant.now());
+        investigation.setCgeApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.rejectCge(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
     void addMember_grantsInvestigationTeamHabilitation() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = buildInvestigation(dossier);
@@ -1981,5 +2036,53 @@ class InvestigationServiceImplTest {
         InvestigationResponse result = service.findById(investigation.getId());
 
         assertThat(result.getDeiAnalyseDeadline()).isEqualTo(cjApprovedAt.plusSeconds(15L * 24 * 3600));
+    }
+
+    @Test
+    void findById_calculeEcheanceCgeaDepuisDeiApprovedAt() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setReportSubmittedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        investigation.setLegalAdvisorApprovedAt(Instant.parse("2026-01-05T00:00:00Z"));
+        Instant deiApprovedAt = Instant.parse("2026-01-10T00:00:00Z");
+        investigation.setDeiApprovedAt(deiApprovedAt);
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(parametreDelaiService.resolveDelaiJours("REVUE_CJ_RAPPORT")).thenReturn(10);
+        when(parametreDelaiService.resolveDelaiJours("ANALYSE_DEI_RAPPORT")).thenReturn(15);
+        when(parametreDelaiService.resolveDelaiJours("APPROBATION_CGEA_RAPPORT")).thenReturn(10);
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getCgeaApprobationDeadline())
+                .isEqualTo(deiApprovedAt.plusSeconds(10L * 24 * 3600));
+    }
+
+    @Test
+    void findById_calculeEcheanceCgeDepuisCgeaApprovedAt() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setReportSubmittedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        investigation.setLegalAdvisorApprovedAt(Instant.parse("2026-01-05T00:00:00Z"));
+        investigation.setDeiApprovedAt(Instant.parse("2026-01-10T00:00:00Z"));
+        Instant cgeaApprovedAt = Instant.parse("2026-01-15T00:00:00Z");
+        investigation.setCgeaApprovedAt(cgeaApprovedAt);
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(parametreDelaiService.resolveDelaiJours("REVUE_CJ_RAPPORT")).thenReturn(10);
+        when(parametreDelaiService.resolveDelaiJours("ANALYSE_DEI_RAPPORT")).thenReturn(15);
+        when(parametreDelaiService.resolveDelaiJours("APPROBATION_CGEA_RAPPORT")).thenReturn(10);
+        when(parametreDelaiService.resolveDelaiJours("APPROBATION_CGE")).thenReturn(20);
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getCgeApprobationDeadline())
+                .isEqualTo(cgeaApprovedAt.plusSeconds(20L * 24 * 3600));
     }
 }

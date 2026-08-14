@@ -569,6 +569,10 @@ public class InvestigationServiceImpl implements InvestigationService {
             throw new BusinessException(
                     "Le rapport doit d'abord être approuvé par le Conseiller Juridique.");
         }
+        if (inv.getDeiApprovedAt() != null) {
+            throw new BusinessException(
+                    "L'étape DEI a déjà été approuvée — un rejet n'est plus possible à ce stade.");
+        }
         if (motif == null || motif.isBlank()) {
             throw new BusinessException("Le motif du rejet est obligatoire.");
         }
@@ -598,6 +602,10 @@ public class InvestigationServiceImpl implements InvestigationService {
             throw new BusinessException(
                     "Le rapport doit d'abord être approuvé par le DEI.");
         }
+        if (inv.getCgeaApprovedAt() != null) {
+            throw new BusinessException(
+                    "L'étape CGEA a déjà été approuvée — un rejet n'est plus possible à ce stade.");
+        }
         if (motif == null || motif.isBlank()) {
             throw new BusinessException("Le motif du rejet est obligatoire.");
         }
@@ -626,6 +634,10 @@ public class InvestigationServiceImpl implements InvestigationService {
         if (inv.getCgeaApprovedAt() == null) {
             throw new BusinessException(
                     "Le rapport doit être approuvé par le CGEA avant la décision CGE.");
+        }
+        if (inv.getCgeApprovedAt() != null) {
+            throw new BusinessException(
+                    "Le rapport a déjà été décidé par le CGE — un rejet n'est plus possible à ce stade.");
         }
         if (motif == null || motif.isBlank()) {
             throw new BusinessException("Le motif du rejet est obligatoire.");
@@ -1247,6 +1259,12 @@ public class InvestigationServiceImpl implements InvestigationService {
         return response;
     }
 
+    /**
+     * Échéances purement informatives — aucune alerte/escalade n'y est branchée dans ce dépôt.
+     * Chaque champ {@code *Overdue} est tri-état : {@code null} si l'étape n'est pas encore
+     * atteinte, {@code false} si dans les délais OU si le paramètre de délai est indisponible
+     * (dégradation silencieuse), {@code true} si l'échéance est dépassée.
+     */
     private void fillCircuitValidationDeadlines(InvestigationResponse response, Investigation inv) {
         if (inv.getReportSubmittedAt() != null) {
             response.setCjRevueDeadline(
