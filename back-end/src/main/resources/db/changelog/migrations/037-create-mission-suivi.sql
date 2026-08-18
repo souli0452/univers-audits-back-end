@@ -13,8 +13,8 @@ CREATE TABLE mission_suivi (
     version                   BIGINT       NOT NULL DEFAULT 0,
     created_at                TIMESTAMP    NOT NULL,
     updated_at                TIMESTAMP,
-    created_by_id              VARCHAR(100),
-    updated_by_id              VARCHAR(100)
+    created_by_id             VARCHAR(100),
+    updated_by_id             VARCHAR(100)
 );
 
 CREATE INDEX idx_mission_suivi_investigation

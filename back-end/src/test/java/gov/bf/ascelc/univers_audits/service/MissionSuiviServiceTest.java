@@ -114,7 +114,8 @@ class MissionSuiviServiceTest {
 
         assertThat(result.getInvestigationId()).isEqualTo(investigationId);
         verify(missionSuiviRepository).save(argThat(m ->
-                m.getConductedBy() == agent
+                m.getInvestigation() == investigation
+                        && m.getConductedBy() == agent
                         && m.getSubmittedAt() != null
                         && m.getObjectifs().equals("Vérifier l'application des recommandations")));
     }
