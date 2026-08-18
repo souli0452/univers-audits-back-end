@@ -187,13 +187,14 @@ class PlanActionsServiceTest {
 
     @Test
     void ajouterAvancement_ajouteALaListeExistante() {
+        Agent agent = Agent.builder().id(UUID.randomUUID()).firstName("Awa").lastName("Sawadogo").build();
         PlanActions planActions = PlanActions.builder()
                 .investigation(investigation)
                 .entiteControlee("DGI")
                 .contenu("Plan d'action détaillé")
                 .submittedAt(Instant.now())
+                .receivedBy(agent)
                 .build();
-        Agent agent = Agent.builder().id(UUID.randomUUID()).firstName("Awa").lastName("Sawadogo").build();
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
         when(planActionsRepository.findByInvestigationId(investigationId))
                 .thenReturn(Optional.of(planActions));
@@ -227,11 +228,13 @@ class PlanActionsServiceTest {
     @Test
     void planActionsOverdue_fauxSiPlanDejaDepose() {
         investigation.setReportSubmittedAt(Instant.now().minusSeconds(30L * 24 * 3600));
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
         PlanActions planActions = PlanActions.builder()
                 .investigation(investigation)
                 .entiteControlee("DGI")
                 .contenu("Plan déposé tardivement")
                 .submittedAt(Instant.now())
+                .receivedBy(agent)
                 .build();
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
         when(planActionsRepository.findByInvestigationId(investigationId))

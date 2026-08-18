@@ -133,9 +133,7 @@ public class PlanActionsService {
                     .entiteControlee(planActions.getEntiteControlee())
                     .contenu(planActions.getContenu())
                     .submittedAt(planActions.getSubmittedAt())
-                    .receivedByNom(planActions.getReceivedBy() != null
-                            ? planActions.getReceivedBy().getNomComplet()
-                            : null)
+                    .receivedByNom(planActions.getReceivedBy().getNomComplet())
                     .avancements(planActions.getAvancements().stream()
                             .map(this::toAvancementResponse)
                             .toList());
