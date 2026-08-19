@@ -86,6 +86,13 @@ class StatistiqueServiceImplTest {
         lenient().when(investigationRepository.avgLegalAdvisorApprovalDays(start, end)).thenReturn(null);
         lenient().when(investigationRepository.avgCgeaApprovalDays(start, end)).thenReturn(null);
         lenient().when(investigationRepository.avgPlanActionsSubmissionDays(start, end)).thenReturn(null);
+
+        lenient().when(notificationRepository.countByTypeAndStatusAndDossierReceptionDateBetween(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.eq(start),
+                        org.mockito.ArgumentMatchers.eq(end)))
+                .thenReturn(0L);
     }
 
     @Test
@@ -201,5 +208,78 @@ class StatistiqueServiceImplTest {
         assertThat(result.getCountByCgeDecision()).isEmpty();
         assertThat(result.getCountByTargetedPartyType()).isEmpty();
         assertThat(result.getCountByInvestigationOutcome()).isEmpty();
+    }
+
+    @Test
+    void getDashboard_renseigneInvestigationCoverageRate() {
+        when(dossierRepository.countByReceptionDateBetween(start, end)).thenReturn(10L);
+        when(investigationRepository.countByDossierReceptionDateBetween(start, end))
+                .thenReturn(4L);
+
+        StatistiqueResponse result = service.getDashboard(start, end);
+
+        assertThat(result.getInvestigationCoverageRate()).isEqualTo(40.0);
+    }
+
+    @Test
+    void getDashboard_investigationCoverageRateZeroSiAucunDossier() {
+        when(dossierRepository.countByReceptionDateBetween(start, end)).thenReturn(0L);
+
+        StatistiqueResponse result = service.getDashboard(start, end);
+
+        assertThat(result.getInvestigationCoverageRate()).isEqualTo(0.0);
+    }
+
+    @Test
+    void getDashboard_renseigneReportProductionRate() {
+        when(investigationRepository.countByDossierReceptionDateBetween(start, end))
+                .thenReturn(8L);
+        when(dossierRepository.countByStatusAndReceptionDateBetween(start, end))
+                .thenReturn(List.of(
+                        new Object[]{"RAPPORT_PRODUIT", 2L},
+                        new Object[]{"DECISION_RENDUE", 1L},
+                        new Object[]{"CLOS", 1L}));
+
+        StatistiqueResponse result = service.getDashboard(start, end);
+
+        assertThat(result.getReportProductionRate()).isEqualTo(50.0);
+    }
+
+    @Test
+    void getDashboard_reportProductionRateZeroSiAucuneInvestigation() {
+        when(investigationRepository.countByDossierReceptionDateBetween(start, end))
+                .thenReturn(0L);
+
+        StatistiqueResponse result = service.getDashboard(start, end);
+
+        assertThat(result.getReportProductionRate()).isEqualTo(0.0);
+    }
+
+    @Test
+    void getDashboard_renseigneAcknowledgmentCoverageRate() {
+        when(dossierRepository.countByReceptionDateBetween(start, end)).thenReturn(20L);
+        when(notificationRepository.countByTypeAndStatusAndDossierReceptionDateBetween(
+                        gov.bf.ascelc.univers_audits.enums.NotificationType.ACKNOWLEDGMENT_B5,
+                        gov.bf.ascelc.univers_audits.enums.NotificationStatus.SENT,
+                        start, end))
+                .thenReturn(15L);
+
+        StatistiqueResponse result = service.getDashboard(start, end);
+
+        assertThat(result.getAcknowledgmentCoverageRate()).isEqualTo(75.0);
+    }
+
+    @Test
+    void getDashboard_acknowledgmentCoverageRateZeroSiAucunAccuseEnvoye() {
+        when(dossierRepository.countByReceptionDateBetween(start, end)).thenReturn(10L);
+        when(notificationRepository.countByTypeAndStatusAndDossierReceptionDateBetween(
+                        gov.bf.ascelc.univers_audits.enums.NotificationType.ACKNOWLEDGMENT_B5,
+                        gov.bf.ascelc.univers_audits.enums.NotificationStatus.SENT,
+                        start, end))
+                .thenReturn(0L);
+
+        StatistiqueResponse result = service.getDashboard(start, end);
+
+        assertThat(result.getAcknowledgmentCoverageRate()).isEqualTo(0.0);
     }
 }

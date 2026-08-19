@@ -84,6 +84,23 @@ public class StatistiqueServiceImpl implements StatistiqueService {
         log.info("[Stats] Taux recevabilité : {}/{} = {}%",
                 recevablesTotal, examined, String.format("%.1f", admissibilityRate));
 
+        double investigationCoverageRate = total > 0
+                ? (investigatedCount * 100.0) / total
+                : 0.0;
+
+        double reportProductionRate = investigatedCount > 0
+                ? (reportsProduced * 100.0) / investigatedCount
+                : 0.0;
+
+        long acknowledgmentSentCount = notificationRepository
+                .countByTypeAndStatusAndDossierReceptionDateBetween(
+                        gov.bf.ascelc.univers_audits.enums.NotificationType.ACKNOWLEDGMENT_B5,
+                        gov.bf.ascelc.univers_audits.enums.NotificationStatus.SENT,
+                        start, end);
+        double acknowledgmentCoverageRate = total > 0
+                ? (acknowledgmentSentCount * 100.0) / total
+                : 0.0;
+
 
         Double avgRegistrationDays = dossierRepository
                 .avgRegistrationDelayInDays(start, end);
@@ -154,6 +171,9 @@ public class StatistiqueServiceImpl implements StatistiqueService {
                 .unfoundedAfterInvestigation(
                         investigationRepository.countByOutcomeBetween("ARCHIVED", start, end))
                 .admissibilityRate(admissibilityRate)
+                .investigationCoverageRate(investigationCoverageRate)
+                .reportProductionRate(reportProductionRate)
+                .acknowledgmentCoverageRate(acknowledgmentCoverageRate)
                 .avgRegistrationDelayDays(avgRegistrationDays)
                 .avgInvestigationDurationDays(avgInvestigationDays)
                 .avgDeiApprovalDays(avgDeiDays)

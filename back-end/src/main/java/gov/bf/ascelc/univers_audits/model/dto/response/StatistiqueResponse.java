@@ -94,6 +94,21 @@ public class StatistiqueResponse {
 
     private Double avgPlanActionsSubmissionDays;
 
+    /** Part des dossiers reçus ayant déclenché une investigation, en % */
+    private double investigationCoverageRate;
+
+    /** Part des investigations ayant produit un rapport, en % */
+    private double reportProductionRate;
+
+    /**
+     * Part des dossiers reçus dont l'accusé de réception (B5) a été effectivement envoyé, en %.
+     * Cette notification est créée systématiquement à l'enregistrement de chaque dossier — le
+     * taux mesure donc l'envoi effectif (status = SENT), pas la décision d'accuser réception.
+     * Un taux proche de 100% est le cas nominal ; un déficit signale un blocage du scheduler
+     * d'envoi, pas une absence d'accusé de réception.
+     */
+    private double acknowledgmentCoverageRate;
+
 
     @Data
     @Builder
