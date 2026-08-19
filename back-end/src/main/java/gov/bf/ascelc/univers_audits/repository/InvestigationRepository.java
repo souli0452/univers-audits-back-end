@@ -184,4 +184,69 @@ public interface InvestigationRepository
             @Param("outcome") String outcome,
             @Param("start")   Instant start,
             @Param("end")     Instant end);
+
+    @Query("""
+            SELECT i.outcome, COUNT(i)
+            FROM Investigation i
+            JOIN i.dossier d
+            WHERE d.receptionDate BETWEEN :start AND :end
+            AND i.outcome IS NOT NULL
+            GROUP BY i.outcome
+            """)
+    List<Object[]> countByOutcomeGrouped(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query(
+            value = """
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (i.legal_advisor_approved_at - i.report_submitted_at))
+                    / 86400.0
+                )
+                FROM investigation i
+                WHERE i.legal_advisor_approved_at IS NOT NULL
+                  AND i.report_submitted_at       IS NOT NULL
+                  AND i.report_submitted_at >= :start
+                  AND i.report_submitted_at <  :end
+                """,
+            nativeQuery = true
+    )
+    Double avgLegalAdvisorApprovalDays(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query(
+            value = """
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (i.cgea_approved_at - i.dei_approved_at))
+                    / 86400.0
+                )
+                FROM investigation i
+                WHERE i.cgea_approved_at IS NOT NULL
+                  AND i.dei_approved_at  IS NOT NULL
+                  AND i.dei_approved_at >= :start
+                  AND i.dei_approved_at <  :end
+                """,
+            nativeQuery = true
+    )
+    Double avgCgeaApprovalDays(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query(
+            value = """
+                SELECT AVG(
+                    EXTRACT(EPOCH FROM (pa.submitted_at - i.report_submitted_at))
+                    / 86400.0
+                )
+                FROM investigation i
+                JOIN plan_actions pa ON pa.investigation_id = i.id
+                WHERE i.report_submitted_at >= :start
+                  AND i.report_submitted_at <  :end
+                """,
+            nativeQuery = true
+    )
+    Double avgPlanActionsSubmissionDays(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
 }

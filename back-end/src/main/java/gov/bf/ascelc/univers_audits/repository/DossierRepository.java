@@ -226,4 +226,18 @@ public interface DossierRepository
     Double avgProcessingTimeInSeconds(
             @Param("start") Instant start,
             @Param("end")   Instant end);
+
+    @Query(value = """
+            SELECT AVG(
+                EXTRACT(EPOCH FROM (eligibility_decision_date - reception_date))
+                / 86400.0
+            )
+            FROM dossier
+            WHERE reception_date            >= :start
+              AND reception_date            <  :end
+              AND eligibility_decision_date IS NOT NULL
+            """, nativeQuery = true)
+    Double avgOpportunityStudyDelayInDays(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
 }

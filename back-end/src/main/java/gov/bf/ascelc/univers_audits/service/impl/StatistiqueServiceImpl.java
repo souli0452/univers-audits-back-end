@@ -2,9 +2,12 @@ package gov.bf.ascelc.univers_audits.service.impl;
 
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
+import gov.bf.ascelc.univers_audits.repository.DecisionCGERepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
+import gov.bf.ascelc.univers_audits.repository.SeanceCtadpDossierRepository;
+import gov.bf.ascelc.univers_audits.repository.TargetedPartyRepository;
 import gov.bf.ascelc.univers_audits.service.StatistiqueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +32,9 @@ public class StatistiqueServiceImpl implements StatistiqueService {
     private final DossierRepository       dossierRepository;
     private final InvestigationRepository investigationRepository;
     private final NotificationRepository  notificationRepository;
+    private final SeanceCtadpDossierRepository seanceCtadpDossierRepository;
+    private final DecisionCGERepository        decisionCgeRepository;
+    private final TargetedPartyRepository      targetedPartyRepository;
 
     private static final ZoneId OUAGA_TZ = ZoneId.of("Africa/Ouagadougou");
     private static final List<DossierStatus> STATUTS_RECEVABLES = List.of(
@@ -95,6 +101,30 @@ public class StatistiqueServiceImpl implements StatistiqueService {
         long overdueComp = dossierRepository
                 .countOverdueComplementRequests(Instant.now());
 
+        Map<String, Long> byCtadpRecommandation = buildMap(
+                seanceCtadpDossierRepository.countByRecommandationBetween(start, end));
+
+        Map<String, Long> byCgeDecision = buildMap(
+                decisionCgeRepository.countByDecisionBetween(start, end));
+
+        Map<String, Long> byTargetedPartyType = buildMap(
+                targetedPartyRepository.countByPartyTypeBetween(start, end));
+
+        Map<String, Long> byInvestigationOutcome = buildMap(
+                investigationRepository.countByOutcomeGrouped(start, end));
+
+        Double avgOpportunityStudy = dossierRepository
+                .avgOpportunityStudyDelayInDays(start, end);
+
+        Double avgLegalAdvisorDays = investigationRepository
+                .avgLegalAdvisorApprovalDays(start, end);
+
+        Double avgCgeaDays = investigationRepository
+                .avgCgeaApprovalDays(start, end);
+
+        Double avgPlanActionsDays = investigationRepository
+                .avgPlanActionsSubmissionDays(start, end);
+
         List<StatistiqueResponse.MonthlyCount> monthlyTrend =
                 buildMonthlyTrend(start, end);
 
@@ -128,6 +158,18 @@ public class StatistiqueServiceImpl implements StatistiqueService {
                 .avgInvestigationDurationDays(avgInvestigationDays)
                 .avgDeiApprovalDays(avgDeiDays)
                 .avgCgeApprovalDays(avgCgeDays)
+                .countByCtadpRecommandation(byCtadpRecommandation)
+                .countByCgeDecision(byCgeDecision)
+                .countByTargetedPartyType(byTargetedPartyType)
+                .countByInvestigationOutcome(byInvestigationOutcome)
+                .avgOpportunityStudyDays(avgOpportunityStudy)
+                // avgAcknowledgmentDays reste null : aucun horodatage d'emission du recepisse
+                // n'existe dans le modele (Dossier.acknowledgmentDeadline est une echeance,
+                // pas un horodatage d'emission) — voir spec
+                // 2026-08-19-statistiques-priorisations-parties-delais-design.md
+                .avgLegalAdvisorApprovalDays(avgLegalAdvisorDays)
+                .avgCgeaApprovalDays(avgCgeaDays)
+                .avgPlanActionsSubmissionDays(avgPlanActionsDays)
                 .overdueAcknowledgments(overdueAck)
                 .overdueInvestigations(overdueInv)
                 .overdueComplements(overdueComp)
