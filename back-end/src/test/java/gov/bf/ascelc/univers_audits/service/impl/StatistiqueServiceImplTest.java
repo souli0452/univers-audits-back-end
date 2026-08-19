@@ -134,14 +134,20 @@ class StatistiqueServiceImplTest {
                         new Object[]{
                                 gov.bf.ascelc.univers_audits.enums.InvestigationOutcome.PRESS_RELEASE, 1L}));
         when(investigationRepository.countByOutcomeBetween("JUDICIAL_REFERRAL", start, end))
-                .thenReturn(2L);
+                .thenReturn(7L);
+        when(investigationRepository.avgDeiApprovalDays(start, end)).thenReturn(4.5);
+        when(investigationRepository.avgCgeApprovalDays(start, end)).thenReturn(3.0);
+        when(investigationRepository.countByOutcomeBetween("ARCHIVED", start, end)).thenReturn(9L);
 
         StatistiqueResponse result = service.getDashboard(start, end);
 
         assertThat(result.getCountByInvestigationOutcome())
                 .containsEntry("JUDICIAL_REFERRAL", 2L)
                 .containsEntry("PRESS_RELEASE", 1L);
-        assertThat(result.getReferredToJustice()).isEqualTo(2L);
+        assertThat(result.getReferredToJustice()).isEqualTo(7L);
+        assertThat(result.getAvgDeiApprovalDays()).isEqualTo(4.5);
+        assertThat(result.getAvgCgeApprovalDays()).isEqualTo(3.0);
+        assertThat(result.getUnfoundedAfterInvestigation()).isEqualTo(9L);
     }
 
     @Test
