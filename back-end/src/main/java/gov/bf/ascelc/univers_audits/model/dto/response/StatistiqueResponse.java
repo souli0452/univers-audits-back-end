@@ -94,6 +94,15 @@ public class StatistiqueResponse {
 
     private Double avgPlanActionsSubmissionDays;
 
+    /** Part des dossiers reçus ayant déclenché une investigation, en % */
+    private double investigationCoverageRate;
+
+    /** Part des investigations ayant produit un rapport, en % */
+    private double reportProductionRate;
+
+    /** Part des dossiers reçus dont l'accusé de réception (B5) a été effectivement envoyé, en % */
+    private double acknowledgmentCoverageRate;
+
 
     @Data
     @Builder

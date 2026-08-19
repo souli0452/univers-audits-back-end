@@ -111,4 +111,17 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     List<Notification> findRetryable();
 
     boolean existsByDossierIdAndType(UUID dossierId, NotificationType type);
+
+    @Query("""
+            SELECT COUNT(n)
+            FROM Notification n
+            WHERE n.type = :type
+              AND n.status = :status
+              AND n.dossier.receptionDate BETWEEN :start AND :end
+            """)
+    long countByTypeAndStatusAndDossierReceptionDateBetween(
+            @Param("type")   NotificationType type,
+            @Param("status") NotificationStatus status,
+            @Param("start")  Instant start,
+            @Param("end")    Instant end);
 }
