@@ -76,6 +76,24 @@ public class StatistiqueResponse {
     private long overdueInvestigations;
     private long overdueComplements;
 
+    /** Répartition des recommandations CTADP — clé: RecommandationCtadp, valeur: count */
+    private Map<String, Long> countByCtadpRecommandation;
+
+    /** Répartition des décisions CGE — clé: RecommandationCtadp, valeur: count */
+    private Map<String, Long> countByCgeDecision;
+
+    /** Répartition des parties visées par type — clé: PartyType, valeur: count */
+    private Map<String, Long> countByTargetedPartyType;
+
+    /** Répartition complète des résultats d'investigation — clé: InvestigationOutcome, valeur: count */
+    private Map<String, Long> countByInvestigationOutcome;
+
+    private Double avgLegalAdvisorApprovalDays;
+
+    private Double avgCgeaApprovalDays;
+
+    private Double avgPlanActionsSubmissionDays;
+
 
     @Data
     @Builder
