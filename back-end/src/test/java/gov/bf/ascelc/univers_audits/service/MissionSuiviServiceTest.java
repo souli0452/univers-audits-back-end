@@ -89,14 +89,22 @@ class MissionSuiviServiceTest {
     }
 
     @Test
-    void ajouter_rejetteSiDossierConfidentielEtAgentNonPrivilegie() {
+    void ajouter_succeedsSurDossierConfidentielSiAgentHabilite() {
         dossier.setIsConfidential(true);
+        Agent agent = Agent.builder().id(UUID.randomUUID()).firstName("Jean").lastName("Ouedraogo").build();
         when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
-        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(planActionsRepository.findByInvestigationId(investigationId)).thenReturn(Optional.of(planActions));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(missionSuiviRepository.save(any(MissionSuivi.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(missionSuiviRepository.findByInvestigationIdOrderByMissionDateDesc(investigationId))
+                .thenReturn(List.of());
+        when(parametreDelaiService.resolveDelaiJours("MISSION_SUIVI_PLAN_ACTIONS")).thenReturn(365);
 
-        assertThatThrownBy(() -> service.ajouter(investigationId, validRequest().build()))
-                .isInstanceOf(BusinessException.class);
-        verify(missionSuiviRepository, never()).save(any());
+        MissionSuiviListResponse result = service.ajouter(investigationId, validRequest().build());
+
+        assertThat(result.getInvestigationId()).isEqualTo(investigationId);
+        verify(missionSuiviRepository).save(any(MissionSuivi.class));
+        verify(accessGuard, never()).canSeeConfidential();
     }
 
     @Test

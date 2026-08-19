@@ -38,7 +38,6 @@ public class MissionSuiviService {
     public MissionSuiviListResponse ajouter(UUID investigationId, MissionSuiviRequest request) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
-        checkNotConfidentialMasked(investigation);
 
         if (investigation.getCgeApprovedAt() == null) {
             throw new BusinessException(
@@ -80,13 +79,6 @@ public class MissionSuiviService {
 
         Optional<PlanActions> planActions = planActionsRepository.findByInvestigationId(investigationId);
         return toListResponse(investigation, planActions.orElse(null));
-    }
-
-    private void checkNotConfidentialMasked(Investigation investigation) {
-        if (Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
-                && !accessGuard.canSeeConfidential()) {
-            throw new BusinessException("Accès refusé — ce dossier est confidentiel.");
-        }
     }
 
     private MissionSuiviListResponse toListResponse(Investigation investigation, PlanActions planActions) {
