@@ -90,6 +90,7 @@ les requêtes existantes).
 | `avgAcknowledgmentDays` | Reste `null`, avec un commentaire de code explicite au point où il serait fixé dans le builder | Documente la décision plutôt que de laisser un champ mort silencieux sans explication |
 | `avgOpportunityStudyDays` | Nouvelle requête `Dossier.receptionDate`→`Dossier.eligibilityDecisionDate` en jours | Réutilise un champ déjà présent sur `Dossier` (`eligibilityDecisionDate`) ; une requête `avgProcessingTimeInSeconds` existe déjà sur le même calcul mais en secondes et n'est appelée nulle part — laissée telle quelle (hors périmètre de la retoucher), nouvelle requête dédiée en jours pour cohérence d'unité avec le reste du DTO |
 | Test | Nouveau fichier `StatistiqueServiceImplTest` | Aucun test n'existe aujourd'hui pour ce service (gap hérité, pas introduit ici) — ce sous-chantier teste les champs qu'il ajoute, ne tente pas une couverture rétroactive complète de l'existant |
+| `TargetedPartyRepository.countByPartyTypeBetween` | Réutilisée telle quelle, pas recréée | Requête déjà présente dans le dépôt (`TargetedPartyRepository.java:39-48`), jamais consommée — même patron « capacité orpheline » déjà rencontré avec `avgProcessingTimeInSeconds` (voir plus haut) |
 
 ## Composants
 
@@ -123,19 +124,12 @@ List<Object[]> countByDecisionBetween(
         @Param("end")   Instant end);
 ```
 
-Fichier : `src/main/java/gov/bf/ascelc/univers_audits/repository/TargetedPartyRepository.java`
-
-```java
-@Query("""
-        SELECT t.partyType, COUNT(t)
-        FROM TargetedParty t
-        WHERE t.dossier.receptionDate BETWEEN :start AND :end
-        GROUP BY t.partyType
-        """)
-List<Object[]> countByPartyTypeBetween(
-        @Param("start") Instant start,
-        @Param("end")   Instant end);
-```
+**`TargetedPartyRepository.countByPartyTypeBetween(Instant, Instant): List<Object[]>` existe déjà**
+(`TargetedPartyRepository.java:39-48`), identique à ce qui était prévu ici — orpheline, jamais
+consommée par aucun service. Aucun ajout nécessaire dans ce fichier ; la Tâche 2 la câble
+directement. (Un bonus `countByAllegedRoleBetween` existe aussi au même endroit — hors périmètre
+de ce sous-chantier, le texte du Lot 7 ne demande que la répartition par type de partie, pas par
+rôle allégué ; non utilisé ici pour rester strictement dans le périmètre approuvé.)
 
 Fichier : `src/main/java/gov/bf/ascelc/univers_audits/repository/InvestigationRepository.java` (ajouts)
 
