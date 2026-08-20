@@ -4,6 +4,9 @@ import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
 import gov.bf.ascelc.univers_audits.service.StatistiqueService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
+import gov.bf.ascelc.univers_audits.service.RapportAnnuelPdfService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +23,7 @@ import java.util.Map;
 public class StatistiqueController {
 
     private final StatistiqueService statistiqueService;
+    private final RapportAnnuelPdfService rapportAnnuelPdfService;
 
 
     @GetMapping("/public")
@@ -71,5 +75,23 @@ public class StatistiqueController {
         }
         log.info("Stats annuelles {}", year);
         return ResponseEntity.ok(statistiqueService.getAnnualStats(year));
+    }
+
+    @GetMapping("/annual/export")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    public ResponseEntity<byte[]> exportAnnualStats(
+            @RequestParam int year) {
+
+        if (year < 2020 || year > 2100) {
+            throw new BusinessException("Année invalide : " + year);
+        }
+        log.info("Export PDF rapport annuel {}", year);
+        byte[] pdf = rapportAnnuelPdfService.exportRapportAnnuel(year);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"rapport-annuel-activite-" + year + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 }
