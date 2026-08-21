@@ -98,6 +98,7 @@ class RapportAnnuelPdfServiceTest {
         assertThat(text).contains("150");
         assertThat(text).contains("Clôturé");
         assertThat(text).contains("Investigation");
+        assertThat(text).contains("2 500 000 FCFA");
     }
 
     @Test

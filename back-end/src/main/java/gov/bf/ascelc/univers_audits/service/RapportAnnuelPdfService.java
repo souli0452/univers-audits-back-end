@@ -22,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -41,6 +43,10 @@ public class RapportAnnuelPdfService {
     private static final DeviceRgb BLANC      = new DeviceRgb(255, 255, 255);
 
     private static final Locale FR = Locale.forLanguageTag("fr-FR");
+
+    private static final DateTimeFormatter FMT = DateTimeFormatter
+            .ofPattern("dd/MM/yyyy HH:mm")
+            .withZone(ZoneId.of("Africa/Ouagadougou"));
 
     public byte[] exportRapportAnnuel(int year) {
 
@@ -118,12 +124,20 @@ public class RapportAnnuelPdfService {
                 .setPadding(20)
                 .setTextAlignment(TextAlignment.RIGHT);
 
-        rightCell.add(new Paragraph(stats.getPeriod() != null ? stats.getPeriod() : String.valueOf(year))
+        rightCell.add(new Paragraph("Année " + year)
                 .setFont(fontBold).setFontSize(14)
                 .setFontColor(ColorConstants.WHITE).setMarginBottom(8));
 
-        rightCell.add(new Paragraph("Généré le "
-                + (stats.getGeneratedAt() != null ? stats.getGeneratedAt() : "—"))
+        String generatedLabel = "—";
+        if (stats.getGeneratedAt() != null) {
+            try {
+                generatedLabel = FMT.format(java.time.Instant.parse(stats.getGeneratedAt()));
+            } catch (java.time.format.DateTimeParseException e) {
+                generatedLabel = stats.getGeneratedAt();
+            }
+        }
+
+        rightCell.add(new Paragraph("Généré le " + generatedLabel)
                 .setFont(fontNormal).setFontSize(9)
                 .setFontColor(new DeviceRgb(200, 230, 210)));
 
@@ -144,6 +158,7 @@ public class RapportAnnuelPdfService {
         addInfoCell(totals, "Préjudice total estimé",
                 stats.getTotalEstimatedLoss() != null
                         ? String.format(FR, "%,.0f FCFA", stats.getTotalEstimatedLoss().doubleValue())
+                                .replace(' ', ' ')
                         : "—",
                 fontBold, fontNormal);
         doc.add(totals);
@@ -450,6 +465,11 @@ public class RapportAnnuelPdfService {
             case "GREEN_NUMBER"  -> "Numéro Vert";
             case "AUDIO_COUNTER" -> "Comptoir Audio";
             case "PAPER_FORM"    -> "Formulaire Papier";
+            case "SMS"           -> "SMS";
+            case "SOCIAL_MEDIA"  -> "Réseaux sociaux";
+            case "PRESS_MEDIA"   -> "Média de presse";
+            case "AUDIT_REPORT"  -> "Rapport d'audit";
+            case "POSTAL_MAIL"   -> "Courrier postal";
             default              -> mode;
         };
     }
