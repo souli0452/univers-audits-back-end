@@ -9,12 +9,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.CorsProcessor;
+import org.springframework.web.cors.DefaultCorsProcessor;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -22,20 +28,26 @@ import java.util.List;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "rate-limit", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private final RateLimiter rateLimiter;
     private final RateLimitProperties properties;
     private final ObjectMapper objectMapper;
+    private final CorsConfigurationSource corsConfigurationSource;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
+    private final UrlPathHelper urlPathHelper = new UrlPathHelper();
+    private final CorsProcessor corsProcessor = new DefaultCorsProcessor();
     private final List<RouteRule> rules;
 
     public RateLimitFilter(RateLimiter rateLimiter, RateLimitProperties properties,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            CorsConfigurationSource corsConfigurationSource) {
         this.rateLimiter = rateLimiter;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.corsConfigurationSource = corsConfigurationSource;
         this.rules = List.of(
                 new RouteRule("POST", "/api/v1/dossiers/public/submit", "submit",
                         properties.getSubmit().getCapacity(),
@@ -67,7 +79,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        String ip = getClientIp(request);
+        String ip = request.getRemoteAddr();
         String key = "rl:" + matched.name() + ":" + ip;
 
         RateLimiter.RateLimitResult result;
@@ -89,26 +101,25 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private RouteRule findMatchingRule(HttpServletRequest request) {
+        String path = urlPathHelper.getPathWithinApplication(request);
         for (RouteRule rule : rules) {
             if (rule.method().equalsIgnoreCase(request.getMethod())
-                    && pathMatcher.match(rule.pattern(), request.getRequestURI())) {
+                    && pathMatcher.match(rule.pattern(), path)) {
                 return rule;
             }
         }
         return null;
     }
 
-    private String getClientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        return (xff != null && !xff.isBlank())
-                ? xff.split(",")[0].trim()
-                : request.getRemoteAddr();
-    }
-
     private void writeRateLimitedResponse(HttpServletResponse response, HttpServletRequest request,
                                            long retryAfterSeconds) throws IOException {
+        CorsConfiguration corsConfig = corsConfigurationSource.getCorsConfiguration(request);
+        if (corsConfig != null) {
+            corsProcessor.processRequest(corsConfig, request, response);
+        }
+
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-        response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+        response.setHeader("Retry-After", String.valueOf(Math.max(1, retryAfterSeconds)));
         response.setContentType("application/json;charset=UTF-8");
 
         GlobalExceptionHandler.ErrorResponse body = GlobalExceptionHandler.ErrorResponse.of(

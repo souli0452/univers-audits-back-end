@@ -118,7 +118,7 @@ public class SecurityConfig {
                 "Access-Control-Request-Headers"
         ));
         config.setExposedHeaders(List.of(
-                "Authorization", "Content-Disposition"
+                "Authorization", "Content-Disposition", "Retry-After"
         ));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
