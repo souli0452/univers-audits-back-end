@@ -33,6 +33,10 @@ public final class ApiUrls {
 
     public static final String STATS           = BASE + "/stats";
 
+    // ── Informations préoccupantes ────────────────────────────
+
+    public static final String INFORMATIONS_PREOCCUPANTES = BASE + "/informations-preoccupantes";
+
     // ── Agents ────────────────────────────────────────────────
 
     public static final String AGENTS              = BASE + "/agents";
