@@ -62,7 +62,7 @@ public class InformationPreoccupanteController {
     public ResponseEntity<InformationPreoccupanteResponse> rattacherDossier(
             @PathVariable UUID id,
             @PathVariable UUID dossierId,
-            @RequestBody(required = false) RattacherDossierRequest request) {
+            @Valid @RequestBody(required = false) RattacherDossierRequest request) {
         log.info("Rattachement dossier {} à l'information préoccupante {}", dossierId, id);
         return ResponseEntity.ok(
                 informationPreoccupanteService.rattacherDossier(id, dossierId, request));

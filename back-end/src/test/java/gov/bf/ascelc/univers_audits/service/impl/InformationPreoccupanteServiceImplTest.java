@@ -16,6 +16,7 @@ import gov.bf.ascelc.univers_audits.repository.InformationPreoccupanteDossierRep
 import gov.bf.ascelc.univers_audits.repository.InformationPreoccupanteRepository;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -45,6 +46,7 @@ class InformationPreoccupanteServiceImplTest {
     @Mock private InformationPreoccupanteDossierRepository informationPreoccupanteDossierRepository;
     @Mock private DossierRepository dossierRepository;
     @Mock private DossierService dossierService;
+    @Mock private DossierAccessGuard dossierAccessGuard;
 
     @InjectMocks
     private InformationPreoccupanteServiceImpl service;
@@ -85,7 +87,7 @@ class InformationPreoccupanteServiceImplTest {
         Dossier dossier = Dossier.builder().id(dossierId).number("ASCE-2026-000001").build();
 
         when(informationPreoccupanteRepository.findById(info.getId())).thenReturn(Optional.of(info));
-        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierAccessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
         when(informationPreoccupanteDossierRepository
                 .existsByInformationPreoccupanteIdAndDossierId(info.getId(), dossierId))
                 .thenReturn(false);
@@ -107,7 +109,7 @@ class InformationPreoccupanteServiceImplTest {
         Dossier dossier = Dossier.builder().id(dossierId).number("ASCE-2026-000002").build();
 
         when(informationPreoccupanteRepository.findById(info.getId())).thenReturn(Optional.of(info));
-        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierAccessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
         when(informationPreoccupanteDossierRepository
                 .existsByInformationPreoccupanteIdAndDossierId(info.getId(), dossierId))
                 .thenReturn(false);
@@ -138,7 +140,7 @@ class InformationPreoccupanteServiceImplTest {
         Dossier dossier = Dossier.builder().id(dossierId).number("ASCE-2026-000003").build();
 
         when(informationPreoccupanteRepository.findById(info.getId())).thenReturn(Optional.of(info));
-        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierAccessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
         when(informationPreoccupanteDossierRepository
                 .existsByInformationPreoccupanteIdAndDossierId(info.getId(), dossierId))
                 .thenReturn(true);
@@ -220,5 +222,49 @@ class InformationPreoccupanteServiceImplTest {
 
         assertThatThrownBy(() -> service.classerSansSuite(info.getId()))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void declencherAutoSaisine_renseigneLesChampsDeRecevabiliteParDefaut() {
+        InformationPreoccupante info = buildInfo(StatutInformationPreoccupante.NOUVELLE);
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse created = DossierResponse.builder().id(dossierId).number("ASCE-2026-000006").build();
+        Dossier dossierRef = Dossier.builder().id(dossierId).number("ASCE-2026-000006").build();
+
+        when(informationPreoccupanteRepository.findById(info.getId())).thenReturn(Optional.of(info));
+        when(dossierService.submit(any(DossierCreateRequest.class), anyString())).thenReturn(created);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossierRef));
+        when(informationPreoccupanteRepository.save(any(InformationPreoccupante.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.declencherAutoSaisine(info.getId(), "127.0.0.1");
+
+        ArgumentCaptor<DossierCreateRequest> captor = ArgumentCaptor.forClass(DossierCreateRequest.class);
+        verify(dossierService).submit(captor.capture(), eq("127.0.0.1"));
+        DossierCreateRequest sent = captor.getValue();
+        assertThat(sent.getDecisionJusticeExistante()).isFalse();
+        assertThat(sent.getAutreInstitutionSaisie()).isFalse();
+    }
+
+    @Test
+    void rattacherDossier_verifieLeControleDaccesViaDossierAccessGuard() {
+        InformationPreoccupante info = buildInfo(StatutInformationPreoccupante.NOUVELLE);
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).number("ASCE-2026-000007").build();
+
+        when(informationPreoccupanteRepository.findById(info.getId())).thenReturn(Optional.of(info));
+        when(dossierAccessGuard.getDossierOrThrow(dossierId)).thenReturn(dossier);
+        when(informationPreoccupanteDossierRepository
+                .existsByInformationPreoccupanteIdAndDossierId(info.getId(), dossierId))
+                .thenReturn(false);
+        when(informationPreoccupanteDossierRepository.findByInformationPreoccupanteId(info.getId()))
+                .thenReturn(List.of());
+        when(informationPreoccupanteRepository.save(any(InformationPreoccupante.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.rattacherDossier(info.getId(), dossierId, null);
+
+        verify(dossierAccessGuard).getDossierOrThrow(dossierId);
+        verify(dossierAccessGuard).checkReadAccess(dossier);
     }
 }

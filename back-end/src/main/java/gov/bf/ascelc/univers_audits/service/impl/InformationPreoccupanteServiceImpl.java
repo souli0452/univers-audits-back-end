@@ -19,10 +19,12 @@ import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.InformationPreoccupanteService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,14 +32,17 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class InformationPreoccupanteServiceImpl implements InformationPreoccupanteService {
 
     private final InformationPreoccupanteRepository informationPreoccupanteRepository;
     private final InformationPreoccupanteDossierRepository informationPreoccupanteDossierRepository;
     private final DossierRepository dossierRepository;
     private final DossierService dossierService;
+    private final DossierAccessGuard dossierAccessGuard;
 
     @Override
+    @Transactional
     public InformationPreoccupanteResponse create(InformationPreoccupanteCreateRequest request) {
         InformationPreoccupante entity = InformationPreoccupante.builder()
                 .objet(request.getObjet())
@@ -69,6 +74,7 @@ public class InformationPreoccupanteServiceImpl implements InformationPreoccupan
     }
 
     @Override
+    @Transactional
     public InformationPreoccupanteResponse rattacherDossier(
             UUID informationPreoccupanteId, UUID dossierId, RattacherDossierRequest request) {
 
@@ -79,9 +85,8 @@ public class InformationPreoccupanteServiceImpl implements InformationPreoccupan
                     "Impossible de rattacher un dossier à une information classée sans suite.");
         }
 
-        Dossier dossier = dossierRepository.findById(dossierId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Dossier introuvable : " + dossierId));
+        Dossier dossier = dossierAccessGuard.getDossierOrThrow(dossierId);
+        dossierAccessGuard.checkReadAccess(dossier);
 
         if (informationPreoccupanteDossierRepository
                 .existsByInformationPreoccupanteIdAndDossierId(informationPreoccupanteId, dossierId)) {
@@ -107,6 +112,7 @@ public class InformationPreoccupanteServiceImpl implements InformationPreoccupan
     }
 
     @Override
+    @Transactional
     public DossierResponse declencherAutoSaisine(UUID informationPreoccupanteId, String ipAddress) {
 
         InformationPreoccupante info = getOrThrow(informationPreoccupanteId);
@@ -125,6 +131,8 @@ public class InformationPreoccupanteServiceImpl implements InformationPreoccupan
                 .autoReferralSource(info.getSource())
                 .object(info.getObjet())
                 .description(info.getDescription())
+                .decisionJusticeExistante(false)
+                .autreInstitutionSaisie(false)
                 .declarantData(DeclarantCreateRequest.builder()
                         .typeDeclarant(TypeDeclarant.ASCE_SELF_REFERRAL)
                         .build())
@@ -150,6 +158,7 @@ public class InformationPreoccupanteServiceImpl implements InformationPreoccupan
     }
 
     @Override
+    @Transactional
     public InformationPreoccupanteResponse classerSansSuite(UUID informationPreoccupanteId) {
 
         InformationPreoccupante info = getOrThrow(informationPreoccupanteId);
