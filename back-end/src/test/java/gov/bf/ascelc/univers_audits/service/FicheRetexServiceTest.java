@@ -197,4 +197,30 @@ class FicheRetexServiceTest {
         assertThatThrownBy(() -> service.obtenir(investigationId))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    @Test
+    void creer_refuseSiDossierConfidentielEtAgentNonHabilite() {
+        UUID investigationId = UUID.randomUUID();
+        Investigation investigation = buildInvestigation(investigationId, Instant.now());
+        investigation.getDossier().setIsConfidential(true);
+
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.creer(investigationId, buildRequest()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void obtenir_refuseSiDossierConfidentielEtAgentNonHabilite() {
+        UUID investigationId = UUID.randomUUID();
+        Investigation investigation = buildInvestigation(investigationId, Instant.now());
+        investigation.getDossier().setIsConfidential(true);
+
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.obtenir(investigationId))
+                .isInstanceOf(BusinessException.class);
+    }
 }

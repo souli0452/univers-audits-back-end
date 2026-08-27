@@ -143,4 +143,17 @@ class LeconAPartagerServiceTest {
         assertThat(result.getContent()).hasSize(1);
         verifyNoInteractions(accessGuard);
     }
+
+    @Test
+    void publier_refuseSiDossierConfidentielEtAgentNonHabilite() {
+        UUID investigationId = UUID.randomUUID();
+        Investigation investigation = buildInvestigation(investigationId);
+        investigation.getDossier().setIsConfidential(true);
+
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.publier(investigationId, buildRequest()))
+                .isInstanceOf(BusinessException.class);
+    }
 }

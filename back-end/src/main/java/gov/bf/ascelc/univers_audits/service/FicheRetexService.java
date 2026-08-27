@@ -36,6 +36,7 @@ public class FicheRetexService {
     public FicheRetexResponse creer(UUID investigationId, FicheRetexRequest request) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
+        checkNotConfidentialMasked(investigation);
 
         if (investigation.getCgeApprovedAt() == null) {
             throw new BusinessException(
@@ -81,6 +82,7 @@ public class FicheRetexService {
     public FicheRetexResponse obtenir(UUID investigationId) {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
+        checkNotConfidentialMasked(investigation);
 
         FicheRetex fiche = ficheRetexRepository.findByInvestigationId(investigationId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -114,5 +116,12 @@ public class FicheRetexService {
         return investigationRepository.findById(investigationId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Investigation introuvable : " + investigationId));
+    }
+
+    private void checkNotConfidentialMasked(Investigation investigation) {
+        if (Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            throw new BusinessException("Accès refusé — ce dossier est confidentiel.");
+        }
     }
 }

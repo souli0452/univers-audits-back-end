@@ -40,6 +40,7 @@ public class LeconAPartagerService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Investigation introuvable : " + investigationId));
         accessGuard.checkReadAccess(investigation.getDossier());
+        checkNotConfidentialMasked(investigation);
 
         FicheRetex fiche = ficheRetexRepository.findByInvestigationId(investigationId)
                 .orElseThrow(() -> new BusinessException(
@@ -79,5 +80,12 @@ public class LeconAPartagerService {
                 .investigationId(investigationId)
                 .createdAt(lecon.getCreatedAt())
                 .build();
+    }
+
+    private void checkNotConfidentialMasked(Investigation investigation) {
+        if (Boolean.TRUE.equals(investigation.getDossier().getIsConfidential())
+                && !accessGuard.canSeeConfidential()) {
+            throw new BusinessException("Accès refusé — ce dossier est confidentiel.");
+        }
     }
 }
