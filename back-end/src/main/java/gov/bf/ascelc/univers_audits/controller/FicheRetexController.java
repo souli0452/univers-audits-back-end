@@ -27,6 +27,8 @@ public class FicheRetexController {
             "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')";
     private static final String WRITE_ROLES =
             "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')";
+    private static final String PUBLISH_LECON_ROLES =
+            "hasAnyRole('CGE','CGEA','ADMIN_DDIC')";
 
     private final FicheRetexService ficheRetexService;
     private final LeconAPartagerService leconAPartagerService;
@@ -48,7 +50,7 @@ public class FicheRetexController {
     }
 
     @PostMapping("/publier-lecon")
-    @PreAuthorize(WRITE_ROLES)
+    @PreAuthorize(PUBLISH_LECON_ROLES)
     public ResponseEntity<LeconAPartagerResponse> publierLecon(
             @PathVariable UUID id,
             @Valid @RequestBody PublierLeconRequest request) {
