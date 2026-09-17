@@ -51,11 +51,13 @@ import gov.bf.ascelc.univers_audits.service.ChecklistDossierTravailService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -68,6 +70,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -98,6 +102,7 @@ class InvestigationServiceImplTest {
     @Mock private RapportEnqueteRepository       rapportEnqueteRepository;
     @Mock private NoteRecommandationsRepository   noteRecommandationsRepository;
     @Mock private ChecklistDossierTravailService checklistDossierTravailService;
+    @Mock(answer = Answers.CALLS_REAL_METHODS) private DeadlineCalculator deadlineCalculator;
 
     @InjectMocks
     private InvestigationServiceImpl service;
@@ -2084,5 +2089,78 @@ class InvestigationServiceImplTest {
 
         assertThat(result.getCgeApprobationDeadline())
                 .isEqualTo(cgeaApprovedAt.plusSeconds(20L * 24 * 3600));
+    }
+
+    @Test
+    void findById_delegatesToBusinessDaysForApprobationCgeWhenJoursOuvrablesTrue() {
+        // Ce test verifie uniquement le routage de resolveDeadline vers le bon calcul,
+        // pas le calcul lui-meme (deja couvert par DeadlineCalculatorTest).
+        Investigation investigation = buildCompletedInvestigation();
+        Instant cgeaApprovedAt = Instant.parse("2026-01-15T00:00:00Z");
+        investigation.setCgeaApprovedAt(cgeaApprovedAt);
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation))
+                .thenReturn(InvestigationResponse.builder().build());
+        when(parametreDelaiService.resolveDelaiJours("APPROBATION_CGE")).thenReturn(20);
+        when(parametreDelaiService.resolveJoursOuvrables("APPROBATION_CGE")).thenReturn(true);
+        // doReturn(...).when(...) plutot que when(...).thenReturn(...) : le mock a pour reponse
+        // par defaut CALLS_REAL_METHODS (pour laisser addCalendarDays fonctionner reellement dans
+        // les tests preexistants non modifies) ; when(...) invoquerait la vraie methode pendant
+        // l'enregistrement du stub avec des arguments matchers (null), ce qui leverait une NPE.
+        doReturn(Instant.parse("2026-02-14T00:00:00Z"))
+                .when(deadlineCalculator).addBusinessDays(any(), eq(20));
+
+        InvestigationResponse result = service.findById(investigation.getId());
+
+        assertThat(result.getCgeApprobationDeadline())
+                .isEqualTo(Instant.parse("2026-02-14T00:00:00Z"));
+        verify(deadlineCalculator).addBusinessDays(any(), eq(20));
+        verify(deadlineCalculator, never()).addCalendarDays(any(), anyInt());
+    }
+
+    @Test
+    void getPlan_delegatesToBusinessDaysForValidationPlanWhenJoursOuvrablesTrue() {
+        // Ce test verifie uniquement le routage de resolveDeadline vers le bon calcul,
+        // pas le calcul lui-meme (deja couvert par DeadlineCalculatorTest).
+        UUID investigationId = UUID.randomUUID();
+        Investigation investigation = Investigation.builder()
+                .id(investigationId)
+                .dossier(Dossier.builder().id(UUID.randomUUID()).build())
+                .build();
+        Agent currentAgent = Agent.builder().id(UUID.randomUUID()).build();
+        PlanInvestigation plan = PlanInvestigation.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .submittedBy(currentAgent)
+                .validatedAt(null)
+                .build();
+        Mandat mandat = Mandat.builder()
+                .dateDelivrance(Instant.parse("2026-01-01T00:00:00Z"))
+                .build();
+
+        when(planInvestigationRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.of(plan));
+        when(mandatRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.of(mandat));
+        when(parametreDelaiService.resolveDelaiJours("VALIDATION_PLAN_INVESTIGATION_DEI"))
+                .thenReturn(8);
+        when(parametreDelaiService.resolveJoursOuvrables("VALIDATION_PLAN_INVESTIGATION_DEI"))
+                .thenReturn(true);
+        // doReturn(...).when(...) plutot que when(...).thenReturn(...) : le mock a pour reponse
+        // par defaut CALLS_REAL_METHODS (pour laisser addCalendarDays fonctionner reellement dans
+        // les tests preexistants non modifies) ; when(...) invoquerait la vraie methode pendant
+        // l'enregistrement du stub avec des arguments matchers (null), ce qui leverait une NPE.
+        doReturn(Instant.parse("2026-01-14T00:00:00Z"))
+                .when(deadlineCalculator).addBusinessDays(any(), eq(8));
+
+        PlanInvestigationResponse response = service.getPlan(investigationId);
+
+        assertThat(response.getValidationDeadline())
+                .isEqualTo(Instant.parse("2026-01-14T00:00:00Z"));
+        verify(deadlineCalculator).addBusinessDays(any(), eq(8));
+        verify(deadlineCalculator, never()).addCalendarDays(any(), anyInt());
     }
 }

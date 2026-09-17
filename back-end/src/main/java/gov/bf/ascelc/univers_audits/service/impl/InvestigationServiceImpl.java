@@ -24,6 +24,7 @@ import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.service.SectionDossierTravailService;
 import gov.bf.ascelc.univers_audits.service.ChecklistDossierTravailService;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
@@ -60,6 +61,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final AgentContextResolver          agentContextResolver;
     private final DossierAuditRecorder          auditRecorder;
     private final ParametreDelaiService parametreDelaiService;
+    private final DeadlineCalculator deadlineCalculator;
     private final DossierHabilitationService habilitationService;
     private final PortalConfigService portalConfigService;
     private final MandatRepository               mandatRepository;
@@ -1295,7 +1297,10 @@ public class InvestigationServiceImpl implements InvestigationService {
     private Instant resolveDeadline(Instant from, String delaiCode) {
         try {
             int delaiJours = parametreDelaiService.resolveDelaiJours(delaiCode);
-            return from.plusSeconds((long) delaiJours * 24 * 3600);
+            boolean joursOuvrables = parametreDelaiService.resolveJoursOuvrables(delaiCode);
+            return joursOuvrables
+                    ? deadlineCalculator.addBusinessDays(from, delaiJours)
+                    : deadlineCalculator.addCalendarDays(from, delaiJours);
         } catch (ResourceNotFoundException e) {
             log.warn("Délai {} indisponible — échéance non calculée : {}", delaiCode, e.getMessage());
             return null;
@@ -1434,14 +1439,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .findByInvestigationId(investigationId)
                 .map(Mandat::getDateDelivrance);
         if (dateDelivrance.isPresent()) {
-            try {
-                int delaiJours = parametreDelaiService.resolveDelaiJours(
-                        "VALIDATION_PLAN_INVESTIGATION_DEI");
-                validationDeadline = dateDelivrance.get().plusSeconds((long) delaiJours * 24 * 3600);
-            } catch (ResourceNotFoundException e) {
-                log.warn("Délai VALIDATION_PLAN_INVESTIGATION_DEI indisponible — "
-                        + "échéance de validation non calculée : {}", e.getMessage());
-            }
+            validationDeadline = resolveDeadline(dateDelivrance.get(), "VALIDATION_PLAN_INVESTIGATION_DEI");
         }
 
         boolean overdue = validationDeadline != null
