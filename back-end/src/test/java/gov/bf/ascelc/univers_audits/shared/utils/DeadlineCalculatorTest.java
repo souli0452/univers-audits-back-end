@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.shared.utils;
 
+import gov.bf.ascelc.univers_audits.model.entity.JourFerie;
 import gov.bf.ascelc.univers_audits.repository.JourFerieRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -39,10 +41,12 @@ class DeadlineCalculatorTest {
     void addBusinessDays_skipsActiveJourFerie() {
         // Lundi 2027-01-04, jour ferie actif le mardi 2027-01-05
         Instant lundi = LocalDate.of(2027, 1, 4).atStartOfDay(ZoneOffset.UTC).toInstant();
-        when(jourFerieRepository.existsByDateAndActifTrue(LocalDate.of(2027, 1, 5)))
-                .thenReturn(true);
-        when(jourFerieRepository.existsByDateAndActifTrue(LocalDate.of(2027, 1, 6)))
-                .thenReturn(false);
+        JourFerie mardiFerieActif = JourFerie.builder()
+                .date(LocalDate.of(2027, 1, 5))
+                .actif(true)
+                .build();
+        when(jourFerieRepository.findByActifTrueOrderByDateAsc())
+                .thenReturn(List.of(mardiFerieActif));
 
         Instant result = calculator.addBusinessDays(lundi, 1);
 
@@ -54,9 +58,11 @@ class DeadlineCalculatorTest {
     @Test
     void addBusinessDays_ignoresInactiveJourFerie() {
         // Lundi 2027-01-04, jour ferie INACTIF le mardi -> compte comme jour ouvrable normal
+        // (findByActifTrueOrderByDateAsc ne renvoie jamais les jours fériés inactifs en production,
+        // donc le mardi n'apparait pas dans la liste retournée par le mock)
         Instant lundi = LocalDate.of(2027, 1, 4).atStartOfDay(ZoneOffset.UTC).toInstant();
-        when(jourFerieRepository.existsByDateAndActifTrue(LocalDate.of(2027, 1, 5)))
-                .thenReturn(false);
+        when(jourFerieRepository.findByActifTrueOrderByDateAsc())
+                .thenReturn(List.of());
 
         Instant result = calculator.addBusinessDays(lundi, 1);
 

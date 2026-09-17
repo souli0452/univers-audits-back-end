@@ -58,6 +58,11 @@ public class JourFerieServiceImpl implements JourFerieService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Jour férié introuvable : " + id));
 
+        if (!jourFerie.getDate().equals(request.getDate()) && repository.existsByDate(request.getDate())) {
+            throw new ConflictException(
+                    "Un jour férié existe déjà pour cette date : " + request.getDate());
+        }
+
         jourFerie.setDate(request.getDate());
         jourFerie.setLibelle(request.getLibelle());
         jourFerie.setActif(request.getActif());

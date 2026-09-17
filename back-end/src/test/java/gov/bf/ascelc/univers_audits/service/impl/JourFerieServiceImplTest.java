@@ -89,6 +89,53 @@ class JourFerieServiceImplTest {
     }
 
     @Test
+    void update_throwsConflictWhenNewDateAlreadyExistsOnAnotherRecord() {
+        UUID id = UUID.randomUUID();
+        JourFerie existing = JourFerie.builder()
+                .date(LocalDate.of(2027, 1, 1))
+                .libelle("Ancien libellé")
+                .actif(true)
+                .build();
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
+        when(repository.existsByDate(LocalDate.of(2027, 5, 1))).thenReturn(true);
+
+        JourFerieRequest request = JourFerieRequest.builder()
+                .date(LocalDate.of(2027, 5, 1))
+                .libelle("Nouveau libellé")
+                .actif(true)
+                .build();
+
+        assertThatThrownBy(() -> service.update(id, request))
+                .isInstanceOf(ConflictException.class);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void update_allowsUpdatingWithSameDate() {
+        UUID id = UUID.randomUUID();
+        JourFerie existing = JourFerie.builder()
+                .date(LocalDate.of(2027, 1, 1))
+                .libelle("Ancien libellé")
+                .actif(true)
+                .build();
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
+        when(repository.save(any(JourFerie.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        JourFerieRequest request = JourFerieRequest.builder()
+                .date(LocalDate.of(2027, 1, 1))
+                .libelle("Nouveau libellé")
+                .actif(true)
+                .build();
+
+        JourFerie result = service.update(id, request);
+
+        assertThat(result.getLibelle()).isEqualTo("Nouveau libellé");
+        verify(repository, never()).existsByDate(any());
+        verify(repository).save(existing);
+    }
+
+    @Test
     void update_throwsWhenIdUnknown() {
         UUID id = UUID.randomUUID();
         when(repository.findById(id)).thenReturn(Optional.empty());
