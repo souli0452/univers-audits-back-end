@@ -19,7 +19,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - asce-network
+      - asce-data
 
   keycloak:
     image: quay.io/keycloak/keycloak:25.0.2
@@ -49,7 +49,8 @@ services:
       - ./keycloak/import:/opt/keycloak/data/import
       - ./keycloak/themes/asce-lc:/opt/keycloak/themes/asce-lc
     networks:
-      - asce-network
+      - asce-data
+      - asce-frontend
 
 
   redis:
@@ -67,7 +68,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - asce-network
+      - asce-data
 
 volumes:
   asce_postgres_data:
@@ -78,6 +79,9 @@ volumes:
     driver: local
 
 networks:
-  asce-network:
+  asce-data:
     driver: bridge
-    name: asce-network
+    name: asce-data
+  asce-frontend:
+    driver: bridge
+    name: asce-frontend
