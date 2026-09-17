@@ -38,15 +38,18 @@ public class IndiceFraudeServiceImpl implements IndiceFraudeService {
     @Override
     @Transactional
     public IndiceFraude create(IndiceFraudeRequest request) {
-        if (repository.existsByCode(request.getCode())) {
+        String code = StringUtils.trimWhitespace(request.getCode());
+        String categorie = StringUtils.trimWhitespace(request.getCategorie());
+
+        if (repository.existsByCode(code)) {
             throw new ConflictException(
-                    "Un indice de fraude avec ce code existe déjà : " + request.getCode());
+                    "Un indice de fraude avec ce code existe déjà : " + code);
         }
 
         IndiceFraude indice = IndiceFraude.builder()
-                .code(request.getCode())
+                .code(code)
                 .libelle(request.getLibelle())
-                .categorie(request.getCategorie())
+                .categorie(categorie)
                 .description(request.getDescription())
                 .actif(request.getActif())
                 .ordre(request.getOrdre() != null ? request.getOrdre() : 0)
@@ -65,7 +68,7 @@ public class IndiceFraudeServiceImpl implements IndiceFraudeService {
                         "Indice de fraude introuvable : " + code));
 
         indice.setLibelle(request.getLibelle());
-        indice.setCategorie(request.getCategorie());
+        indice.setCategorie(StringUtils.trimWhitespace(request.getCategorie()));
         indice.setDescription(request.getDescription());
         indice.setActif(request.getActif());
         indice.setOrdre(request.getOrdre() != null ? request.getOrdre() : 0);

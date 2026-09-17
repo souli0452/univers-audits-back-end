@@ -80,6 +80,27 @@ class IndiceFraudeServiceImplTest {
     }
 
     @Test
+    void create_trimsCodeAndCategorieBeforePersisting() {
+        when(repository.existsByCode("MP_SURFACTURATION")).thenReturn(false);
+        when(repository.save(any(IndiceFraude.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        IndiceFraudeRequest request = IndiceFraudeRequest.builder()
+                .code("  MP_SURFACTURATION  ")
+                .libelle("Surfacturation sur marché public")
+                .categorie("  Marchés publics  ")
+                .actif(true)
+                .ordre(1)
+                .build();
+
+        IndiceFraude result = service.create(request);
+
+        assertThat(result.getCode()).isEqualTo("MP_SURFACTURATION");
+        assertThat(result.getCategorie()).isEqualTo("Marchés publics");
+        verify(repository).existsByCode("MP_SURFACTURATION");
+    }
+
+    @Test
     void create_throwsConflictWhenCodeAlreadyExists() {
         when(repository.existsByCode("MP_SURFACTURATION")).thenReturn(true);
 
