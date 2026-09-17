@@ -106,4 +106,38 @@ class ParametreDelaiServiceImplTest {
         assertThat(result.getValeurJours()).isEqualTo(10);
         verify(repository).save(existing);
     }
+
+    @Test
+    void resolveJoursOuvrables_returnsTrueFlag() {
+        ParametreDelai delai = ParametreDelai.builder()
+                .code("APPROBATION_CGE")
+                .valeurJours(20)
+                .joursOuvrables(true)
+                .actif(true)
+                .build();
+        when(repository.findByCode("APPROBATION_CGE")).thenReturn(Optional.of(delai));
+
+        assertThat(service.resolveJoursOuvrables("APPROBATION_CGE")).isTrue();
+    }
+
+    @Test
+    void resolveJoursOuvrables_returnsFalseFlag() {
+        ParametreDelai delai = ParametreDelai.builder()
+                .code("MISSION_SUIVI_PLAN_ACTIONS")
+                .valeurJours(365)
+                .joursOuvrables(false)
+                .actif(true)
+                .build();
+        when(repository.findByCode("MISSION_SUIVI_PLAN_ACTIONS")).thenReturn(Optional.of(delai));
+
+        assertThat(service.resolveJoursOuvrables("MISSION_SUIVI_PLAN_ACTIONS")).isFalse();
+    }
+
+    @Test
+    void resolveJoursOuvrables_throwsWhenCodeUnknown() {
+        when(repository.findByCode("INCONNU")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.resolveJoursOuvrables("INCONNU"))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
 }

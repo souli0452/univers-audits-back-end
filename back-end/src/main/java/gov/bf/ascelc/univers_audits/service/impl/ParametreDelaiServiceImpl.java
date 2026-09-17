@@ -35,6 +35,15 @@ public class ParametreDelaiServiceImpl implements ParametreDelaiService {
     }
 
     @Override
+    public boolean resolveJoursOuvrables(String code) {
+        ParametreDelai delai = repository.findByCode(code)
+                .filter(ParametreDelai::getActif)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Paramètre de délai introuvable ou inactif : " + code));
+        return Boolean.TRUE.equals(delai.getJoursOuvrables());
+    }
+
+    @Override
     public List<ParametreDelai> findAllActifs() {
         return repository.findByActifTrueOrderByCodeAsc();
     }

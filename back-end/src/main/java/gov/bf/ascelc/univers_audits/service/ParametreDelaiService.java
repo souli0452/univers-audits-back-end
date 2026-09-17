@@ -9,6 +9,8 @@ public interface ParametreDelaiService {
 
     int resolveDelaiJours(String code);
 
+    boolean resolveJoursOuvrables(String code);
+
     List<ParametreDelai> findAllActifs();
 
     List<ParametreDelai> findAll();
