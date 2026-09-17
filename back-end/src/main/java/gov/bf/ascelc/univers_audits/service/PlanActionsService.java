@@ -10,6 +10,7 @@ import gov.bf.ascelc.univers_audits.repository.PlanActionsRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ public class PlanActionsService {
     private final DossierAccessGuard accessGuard;
     private final AgentContextResolver agentContextResolver;
     private final ParametreDelaiService parametreDelaiService;
+    private final DeadlineCalculator deadlineCalculator;
 
     @Transactional
     public PlanActionsStatusResponse creer(UUID investigationId, PlanActionsRequest request) {
@@ -154,7 +156,10 @@ public class PlanActionsService {
     private Instant resolveDeadline(Instant from, String delaiCode) {
         try {
             int delaiJours = parametreDelaiService.resolveDelaiJours(delaiCode);
-            return from.plusSeconds((long) delaiJours * 24 * 3600);
+            boolean joursOuvrables = parametreDelaiService.resolveJoursOuvrables(delaiCode);
+            return joursOuvrables
+                    ? deadlineCalculator.addBusinessDays(from, delaiJours)
+                    : deadlineCalculator.addCalendarDays(from, delaiJours);
         } catch (ResourceNotFoundException e) {
             log.warn("Délai {} indisponible — échéance non calculée : {}", delaiCode, e.getMessage());
             return null;

@@ -9,10 +9,12 @@ import gov.bf.ascelc.univers_audits.repository.TransmissionAutoriteRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -23,6 +25,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +37,7 @@ class TransmissionAutoriteServiceTest {
     @Mock private DossierAccessGuard accessGuard;
     @Mock private AgentContextResolver agentContextResolver;
     @Mock private ParametreDelaiService parametreDelaiService;
+    @Mock(answer = Answers.CALLS_REAL_METHODS) private DeadlineCalculator deadlineCalculator;
 
     @InjectMocks
     private TransmissionAutoriteService service;
@@ -255,5 +260,35 @@ class TransmissionAutoriteServiceTest {
 
         assertThat(result.getRelanceDueAt()).isNull();
         assertThat(result.getRelanceOverdue()).isFalse();
+    }
+
+    @Test
+    void getOrThrow_delegatesToBusinessDaysWhenJoursOuvrablesTrue() {
+        // Ce test verifie uniquement le routage de resolveDeadline vers le bon calcul,
+        // pas le calcul lui-meme (deja couvert par DeadlineCalculatorTest).
+        Agent agent = Agent.builder().id(UUID.randomUUID()).firstName("Jean").lastName("Ouedraogo").build();
+        TransmissionAutorite transmission = TransmissionAutorite.builder()
+                .investigation(investigation)
+                .autoriteDestinataire("Procureur du Faso")
+                .transmittedAt(Instant.now())
+                .transmittedBy(agent)
+                .build();
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(transmissionAutoriteRepository.findByInvestigationId(investigationId))
+                .thenReturn(Optional.of(transmission));
+        when(parametreDelaiService.resolveDelaiJours("RELANCE_SUITES_TRANSMISSION")).thenReturn(30);
+        when(parametreDelaiService.resolveJoursOuvrables("RELANCE_SUITES_TRANSMISSION")).thenReturn(true);
+        // doReturn(...).when(...) plutot que when(...).thenReturn(...) : le mock a pour reponse
+        // par defaut CALLS_REAL_METHODS (pour laisser addCalendarDays fonctionner reellement dans
+        // les tests preexistants non modifies) ; when(...) invoquerait la vraie methode pendant
+        // l'enregistrement du stub avec des arguments matchers (null), ce qui leverait une NPE.
+        doReturn(Instant.parse("2027-02-01T00:00:00Z"))
+                .when(deadlineCalculator).addBusinessDays(any(), eq(30));
+
+        TransmissionAutoriteResponse result = service.getOrThrow(investigationId);
+
+        assertThat(result.getRelanceDueAt()).isEqualTo(Instant.parse("2027-02-01T00:00:00Z"));
+        verify(deadlineCalculator).addBusinessDays(any(), eq(30));
+        verify(deadlineCalculator, never()).addCalendarDays(any(), anyInt());
     }
 }

@@ -9,10 +9,12 @@ import gov.bf.ascelc.univers_audits.repository.PlanActionsRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -24,6 +26,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +39,7 @@ class MissionSuiviServiceTest {
     @Mock private DossierAccessGuard accessGuard;
     @Mock private AgentContextResolver agentContextResolver;
     @Mock private ParametreDelaiService parametreDelaiService;
+    @Mock(answer = Answers.CALLS_REAL_METHODS) private DeadlineCalculator deadlineCalculator;
 
     @InjectMocks
     private MissionSuiviService service;
@@ -254,5 +259,50 @@ class MissionSuiviServiceTest {
 
         assertThat(result.getMissionSuiviDueAt()).isNull();
         assertThat(result.isMissionSuiviOverdue()).isFalse();
+    }
+
+    @Test
+    void lister_delegatesToBusinessDaysWhenJoursOuvrablesTrue() {
+        // Ce test verifie uniquement le routage de resolveDeadline vers le bon calcul,
+        // pas le calcul lui-meme (deja couvert par DeadlineCalculatorTest).
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(planActionsRepository.findByInvestigationId(investigationId)).thenReturn(Optional.of(planActions));
+        when(missionSuiviRepository.findByInvestigationIdOrderByMissionDateDesc(investigationId))
+                .thenReturn(List.of());
+        when(parametreDelaiService.resolveDelaiJours("MISSION_SUIVI_PLAN_ACTIONS")).thenReturn(365);
+        when(parametreDelaiService.resolveJoursOuvrables("MISSION_SUIVI_PLAN_ACTIONS")).thenReturn(true);
+        // doReturn(...).when(...) plutot que when(...).thenReturn(...) : le mock a pour reponse
+        // par defaut CALLS_REAL_METHODS (pour laisser addCalendarDays fonctionner reellement dans
+        // les tests preexistants non modifies) ; when(...) invoquerait la vraie methode pendant
+        // l'enregistrement du stub avec des arguments matchers (null), ce qui leverait une NPE.
+        doReturn(Instant.parse("2027-02-01T00:00:00Z"))
+                .when(deadlineCalculator).addBusinessDays(any(), eq(365));
+
+        MissionSuiviListResponse result = service.lister(investigationId);
+
+        assertThat(result.getMissionSuiviDueAt()).isEqualTo(Instant.parse("2027-02-01T00:00:00Z"));
+        verify(deadlineCalculator).addBusinessDays(any(), eq(365));
+        verify(deadlineCalculator, never()).addCalendarDays(any(), anyInt());
+    }
+
+    @Test
+    void lister_delegatesToCalendarDaysWhenJoursOuvrablesFalse() {
+        // Non-regression : MISSION_SUIVI_PLAN_ACTIONS a joursOuvrables = false en donnee reelle
+        // (calcul calendaire "dans l'annee") — a couvrir explicitement, pas seulement deduire
+        // du test generique ci-dessus.
+        when(investigationRepository.findById(investigationId)).thenReturn(Optional.of(investigation));
+        when(planActionsRepository.findByInvestigationId(investigationId)).thenReturn(Optional.of(planActions));
+        when(missionSuiviRepository.findByInvestigationIdOrderByMissionDateDesc(investigationId))
+                .thenReturn(List.of());
+        when(parametreDelaiService.resolveDelaiJours("MISSION_SUIVI_PLAN_ACTIONS")).thenReturn(365);
+        when(parametreDelaiService.resolveJoursOuvrables("MISSION_SUIVI_PLAN_ACTIONS")).thenReturn(false);
+        doReturn(Instant.parse("2027-02-01T00:00:00Z"))
+                .when(deadlineCalculator).addCalendarDays(any(), eq(365));
+
+        MissionSuiviListResponse result = service.lister(investigationId);
+
+        assertThat(result.getMissionSuiviDueAt()).isEqualTo(Instant.parse("2027-02-01T00:00:00Z"));
+        verify(deadlineCalculator).addCalendarDays(any(), eq(365));
+        verify(deadlineCalculator, never()).addBusinessDays(any(), anyInt());
     }
 }
