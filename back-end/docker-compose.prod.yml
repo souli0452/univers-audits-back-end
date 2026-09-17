@@ -18,6 +18,22 @@ services:
     networks:
       - asce-data
 
+  postgres-backup:
+    image: postgres:16
+    container_name: asce_postgres_backup
+    restart: unless-stopped
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+    entrypoint: ["/bin/sh", "/backup-postgres.sh"]
+    volumes:
+      - ./scripts/backup-postgres.sh:/backup-postgres.sh:ro
+      - asce_postgres_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - asce-data
+
   keycloak:
     image: quay.io/keycloak/keycloak:25.0.2
     container_name: asce_keycloak
@@ -79,6 +95,7 @@ services:
 
 volumes:
   asce_postgres_data:
+  asce_postgres_backups:
   asce_keycloak_data:
   asce_redis_data:
 
