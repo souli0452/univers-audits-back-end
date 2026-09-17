@@ -2,13 +2,13 @@
 --changeset dev:009-create-jour-ferie
 
 CREATE TABLE jour_ferie (
-    id             UUID          PRIMARY KEY,
-    date           DATE          NOT NULL,
-    libelle        VARCHAR(300)  NOT NULL,
-    actif          BOOLEAN       NOT NULL DEFAULT TRUE,
-    version        BIGINT        NOT NULL DEFAULT 0,
-    created_at     TIMESTAMP     NOT NULL,
-    updated_at     TIMESTAMP,
+    id             UUID                      PRIMARY KEY,
+    date           DATE                      NOT NULL,
+    libelle        VARCHAR(300)              NOT NULL,
+    actif          BOOLEAN                   NOT NULL DEFAULT TRUE,
+    version        BIGINT                    NOT NULL DEFAULT 0,
+    created_at     TIMESTAMP(6) WITH TIME ZONE  NOT NULL,
+    updated_at     TIMESTAMP(6) WITH TIME ZONE,
     created_by_id  VARCHAR(100),
     updated_by_id  VARCHAR(100)
 );
