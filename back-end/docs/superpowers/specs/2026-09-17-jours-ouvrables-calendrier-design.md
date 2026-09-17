@@ -18,6 +18,29 @@ plus large que le seul calcul de date ». Redécoupé en 4 sous-chantiers le 202
    hiérarchie/supérieur dans le modèle de données actuel).
 4. Tableau des dossiers en dépassement par acteur.
 
+## Correction post-livraison (2026-09-17, trouvée en revue finale de branche)
+
+**La recherche ci-dessous n'était pas exhaustive.** La revue finale de branche a trouvé
+6 des 13 codes `ParametreDelai` marqués `joursOuvrables = TRUE` dont le calcul reste en
+jours calendaires après ce sous-chantier, invisibles à la recherche par grep initiale car
+ils vivent **dans des méthodes d'entité JPA** (`Dossier.java`, `DemandeDocuments.java`,
+`Investigation.java`), qui ne peuvent pas injecter `DeadlineCalculator` (bean Spring) :
+- `ACCUSE_RECEPTION`, `DEMANDE_COMPLEMENT` — calculés dans `Dossier.java` (consommés par
+  `isAcknowledgmentOverdue()`/`isComplementOverdue()`).
+- `DEMANDE_DOCUMENTS_INITIAL`, `DEMANDE_DOCUMENTS_RELANCE`, `DEMANDE_DOCUMENTS_SAISINE_
+  JUDICIAIRE` — calculés dans `DemandeDocuments.java` (`escalate()`,
+  `resetForAddressError()`).
+- `INVESTIGATION_DUREE_DEFAUT` — calculé dans `Investigation.java`.
+
+**Ce sous-chantier livre donc 7 des 13 codes en jours ouvrables réels** (les 5 sites
+identifiés ci-dessous, situés dans des services et non des entités, plus
+`MISSION_SUIVI_PLAN_ACTIONS` qui reste en calendaire par conception). Les 6 restants
+nécessitent un changement de conception (inverser le paramètre : passer un `Instant` déjà
+calculé aux méthodes d'entité plutôt qu'un `int` de jours) — **hors périmètre de ce
+sous-chantier**, à traiter comme sous-chantier de suivi dédié avant le sous-chantier 2/4
+(alertes J-3), puisque `Dossier.acknowledgment_deadline` et `DemandeDocuments.deadline`
+sont précisément les champs les plus susceptibles de vouloir une alerte J-3 cohérente.
+
 ## État actuel (recherche exhaustive avant conception)
 
 `ParametreDelai.joursOuvrables` (colonne booléenne, existe en base depuis le socle) n'est lu
@@ -193,3 +216,9 @@ l'intervalle) par rapport à aujourd'hui. C'est l'objet même de ce chantier.
 - Contenu réel du calendrier des jours fériés burkinabè pour les années à venir — le
   référentiel est livré vide (comme `Departement` l'a été), à peupler séparément une fois
   la liste officielle confirmée. Pas une donnée à deviner.
+- **Les 6 codes calculés dans des méthodes d'entité** (`ACCUSE_RECEPTION`,
+  `DEMANDE_COMPLEMENT`, `DEMANDE_DOCUMENTS_INITIAL`/`RELANCE`/`SAISINE_JUDICIAIRE`,
+  `INVESTIGATION_DUREE_DEFAUT`) — voir la section "Correction post-livraison" en tête de ce
+  document. Nécessitent un changement de conception (signature de méthode d'entité), pas
+  seulement un branchement mécanique — sous-chantier de suivi dédié, à traiter avant le
+  sous-chantier 2/4 (alertes J-3).
