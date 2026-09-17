@@ -37,14 +37,15 @@
   "duplicateEmailsAllowed" : false,
   "resetPasswordAllowed" : true,
   "editUsernameAllowed" : false,
-  "bruteForceProtected" : false,
+  "bruteForceProtected" : true,
   "permanentLockout" : false,
   "maxFailureWaitSeconds" : 900,
   "minimumQuickLoginWaitSeconds" : 60,
   "waitIncrementSeconds" : 60,
   "quickLoginCheckMilliSeconds" : 1000,
   "maxDeltaTimeSeconds" : 43200,
-  "failureFactor" : 30,
+  "failureFactor" : 5,
+  "passwordPolicy" : "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername and passwordHistory(5)",
   "roles" : {
     "realm" : [ {
       "id" : "f0039597-dba5-43d2-8339-9c8ac3c343a5",
@@ -452,7 +453,7 @@
       "credentialData" : "{\"hashIterations\":27500,\"algorithm\":\"pbkdf2-sha256\",\"additionalParameters\":{}}"
     } ],
     "disableableCredentialTypes" : [ ],
-    "requiredActions" : [ ],
+    "requiredActions" : [ "CONFIGURE_TOTP" ],
     "realmRoles" : [ "default-roles-asce-lc", "CGEA", "ADMIN_DDIC", "CGE", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP", "AGENT_BRPD" ],
     "notBefore" : 0,
     "groups" : [ ]
@@ -468,7 +469,7 @@
     "email" : "abdoulsiakourd@gmail.com",
     "credentials" : [ ],
     "disableableCredentialTypes" : [ ],
-    "requiredActions" : [ ],
+    "requiredActions" : [ "CONFIGURE_TOTP" ],
     "realmRoles" : [ "default-roles-asce-lc", "MEMBRE_CTADP" ],
     "notBefore" : 0,
     "groups" : [ ]
@@ -484,7 +485,7 @@
     "email" : "cheickahmedtidianetraore27@gmail.com",
     "credentials" : [ ],
     "disableableCredentialTypes" : [ ],
-    "requiredActions" : [ ],
+    "requiredActions" : [ "CONFIGURE_TOTP" ],
     "realmRoles" : [ "default-roles-asce-lc", "CGEA" ],
     "notBefore" : 0,
     "groups" : [ ]
@@ -506,7 +507,7 @@
       "credentialData" : "{\"hashIterations\":27500,\"algorithm\":\"pbkdf2-sha256\",\"additionalParameters\":{}}"
     } ],
     "disableableCredentialTypes" : [ ],
-    "requiredActions" : [ ],
+    "requiredActions" : [ "CONFIGURE_TOTP" ],
     "realmRoles" : [ "default-roles-asce-lc", "AGENT_BRPD" ],
     "notBefore" : 0,
     "groups" : [ ]
@@ -1951,7 +1952,7 @@
     "name" : "Configure OTP",
     "providerId" : "CONFIGURE_TOTP",
     "enabled" : true,
-    "defaultAction" : false,
+    "defaultAction" : true,
     "priority" : 10,
     "config" : { }
   }, {
