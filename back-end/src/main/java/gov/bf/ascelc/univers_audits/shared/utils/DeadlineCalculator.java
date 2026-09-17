@@ -8,6 +8,7 @@ import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 
 @Component
 @RequiredArgsConstructor
@@ -20,7 +21,8 @@ public class DeadlineCalculator {
      * ouvrables (ni samedi, ni dimanche, ni jour férié actif).
      */
     public Instant addBusinessDays(Instant from, int joursOuvrables) {
-        LocalDate current = from.atZone(ZoneOffset.UTC).toLocalDate();
+        ZonedDateTime fromZoned = from.atZone(ZoneOffset.UTC);
+        LocalDate current = fromZoned.toLocalDate();
         int remaining = joursOuvrables;
 
         while (remaining > 0) {
@@ -30,7 +32,7 @@ public class DeadlineCalculator {
             }
         }
 
-        return current.atStartOfDay(ZoneOffset.UTC).toInstant();
+        return current.atTime(fromZoned.toLocalTime()).atZone(ZoneOffset.UTC).toInstant();
     }
 
     /**

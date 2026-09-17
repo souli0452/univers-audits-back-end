@@ -74,6 +74,15 @@ class DeadlineCalculatorTest {
     }
 
     @Test
+    void addBusinessDays_preservesTimeOfDay() {
+        Instant lundiMidi = Instant.parse("2027-01-04T15:30:00Z");
+
+        Instant result = calculator.addBusinessDays(lundiMidi, 1);
+
+        assertThat(result).isEqualTo(Instant.parse("2027-01-05T15:30:00Z"));
+    }
+
+    @Test
     void addCalendarDays_simpleDelegation() {
         Instant from = Instant.parse("2027-01-01T10:00:00Z");
 
