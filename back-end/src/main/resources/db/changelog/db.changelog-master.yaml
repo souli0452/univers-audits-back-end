@@ -1,22 +1,4 @@
-﻿databaseChangeLog:
-  - include:
-      file: db/changelog/004-create-role-permission-tables.sql
-      relativeToChangelogFile: false
-  - include:
-      file: db/changelog/005-create-audit-tables.sql
-      relativeToChangelogFile: false
-  - include:
-      file: db/changelog/006-create-portal-config.sql
-      relativeToChangelogFile: false
-  - include:
-      file: db/changelog/001-add-priority-to-dossier.sql
-      relativeToChangelogFile: false
-  # includeAll doit rester en dernier : plusieurs migrations de ce dossier
-  # (003, 011, 012) referencent portal_config, cree seulement par l'include
-  # explicite ci-dessus. Sur une base neuve, executer includeAll en premier
-  # les fait echouer (table inexistante a ce stade). Sans impact sur un
-  # environnement deja deploye (portal_config y existe deja), mais casse le
-  # bootstrap CI/nouvel environnement.
+databaseChangeLog:
   - includeAll:
       path: db/changelog/migrations/
       relativeToChangelogFile: false
