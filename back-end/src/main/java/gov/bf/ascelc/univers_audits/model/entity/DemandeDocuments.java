@@ -58,16 +58,16 @@ public class DemandeDocuments extends AuditEntity {
         this.receivedAt = Instant.now();
     }
 
-    public void escalate(EscalationLevel newLevel, int deadlineDays) {
+    public void escalate(EscalationLevel newLevel, Instant sentAt, Instant deadline) {
         this.escalationLevel = newLevel;
-        this.sentAt = Instant.now();
-        this.deadline = sentAt.plusSeconds(deadlineDays * 24L * 3600);
+        this.sentAt = sentAt;
+        this.deadline = deadline;
     }
 
-    public void resetForAddressError(String newRecipientLabel, int deadlineDays) {
+    public void resetForAddressError(String newRecipientLabel, Instant sentAt, Instant deadline) {
         this.recipientLabel = newRecipientLabel;
-        this.sentAt = Instant.now();
-        this.deadline = sentAt.plusSeconds(deadlineDays * 24L * 3600);
+        this.sentAt = sentAt;
+        this.deadline = deadline;
     }
 
     public boolean isOverdue() {

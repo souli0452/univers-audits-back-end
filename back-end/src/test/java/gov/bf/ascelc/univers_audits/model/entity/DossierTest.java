@@ -11,21 +11,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DossierTest {
 
     @Test
-    void registerReception_setsDeadlinesFromGivenDelays() {
+    void registerReception_setsDeadlinesFromGivenInstants() {
         Dossier dossier = Dossier.builder().build();
         Agent agent = Agent.builder().build();
+        Instant receptionDate = Instant.parse("2026-01-01T00:00:00Z");
+        Instant acknowledgmentDeadline = receptionDate.plus(Duration.ofDays(7));
+        Instant additionalInfoDeadline = receptionDate.plus(Duration.ofDays(14));
 
-        Instant before = Instant.now();
-        dossier.registerReception(agent, 7, 14);
-        Instant after = Instant.now();
+        dossier.registerReception(agent, receptionDate, acknowledgmentDeadline, additionalInfoDeadline);
 
-        assertThat(dossier.getReceptionDate()).isBetween(before, after);
-        assertThat(dossier.getAcknowledgmentDeadline())
-                .isCloseTo(dossier.getReceptionDate().plus(Duration.ofDays(7)),
-                        org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.SECONDS));
-        assertThat(dossier.getAdditionalInfoDeadline())
-                .isCloseTo(dossier.getReceptionDate().plus(Duration.ofDays(14)),
-                        org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.SECONDS));
+        assertThat(dossier.getReceptionDate()).isEqualTo(receptionDate);
+        assertThat(dossier.getAcknowledgmentDeadline()).isEqualTo(acknowledgmentDeadline);
+        assertThat(dossier.getAdditionalInfoDeadline()).isEqualTo(additionalInfoDeadline);
         assertThat(dossier.getStatus()).isEqualTo(DossierStatus.RECU);
         assertThat(dossier.getAgentInCharge()).isEqualTo(agent);
     }

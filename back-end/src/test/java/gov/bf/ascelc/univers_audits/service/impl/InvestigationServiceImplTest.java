@@ -887,6 +887,8 @@ class InvestigationServiceImplTest {
         when(investigationMapper.toResponse(investigation))
                 .thenReturn(InvestigationResponse.builder().build());
         when(agentContextResolver.getCurrentAgent()).thenReturn(cge);
+        doReturn(Instant.parse("2026-02-15T00:00:00Z"))
+                .when(deadlineCalculator).addBusinessDays(any(), eq(30));
 
         service.start(investigation.getId(), "127.0.0.1");
 
@@ -921,6 +923,8 @@ class InvestigationServiceImplTest {
         when(investigationMapper.toResponse(investigation))
                 .thenReturn(InvestigationResponse.builder().build());
         when(agentContextResolver.getCurrentAgent()).thenReturn(cge);
+        doReturn(Instant.parse("2026-02-15T00:00:00Z"))
+                .when(deadlineCalculator).addBusinessDays(any(), eq(30));
 
         service.start(investigation.getId(), "127.0.0.1");
 
@@ -1114,6 +1118,8 @@ class InvestigationServiceImplTest {
         when(investigationMapper.toResponse(investigation))
                 .thenReturn(InvestigationResponse.builder().build());
         when(agentContextResolver.getCurrentAgent()).thenReturn(cge);
+        doReturn(Instant.parse("2026-02-15T00:00:00Z"))
+                .when(deadlineCalculator).addBusinessDays(any(), eq(30));
 
         service.start(investigation.getId(), "127.0.0.1");
 

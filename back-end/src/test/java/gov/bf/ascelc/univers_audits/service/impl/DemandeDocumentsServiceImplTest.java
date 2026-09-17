@@ -12,9 +12,11 @@ import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,6 +37,7 @@ class DemandeDocumentsServiceImplTest {
     @Mock private DemandeDocumentsRepository demandeDocumentsRepository;
     @Mock private InvestigationRepository investigationRepository;
     @Mock private ParametreDelaiService parametreDelaiService;
+    @Mock(answer = Answers.CALLS_REAL_METHODS) private DeadlineCalculator deadlineCalculator;
     @Mock private DossierDetailsMapper mapper;
     @Mock private AgentContextResolver agentContextResolver;
     @Mock private DossierAccessGuard accessGuard;
@@ -182,6 +185,37 @@ class DemandeDocumentsServiceImplTest {
         service.escalate(demande.getId());
 
         assertThat(demande.getEscalationLevel()).isEqualTo(EscalationLevel.SAISINE_JUDICIAIRE);
+    }
+
+    @Test
+    void escalate_usesBusinessDaysWhenParametreDelaiFlagsIt() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        DemandeDocuments demande = DemandeDocuments.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .escalationLevel(EscalationLevel.INITIAL)
+                .received(false)
+                .deadline(Instant.now().minusSeconds(3600))
+                .build();
+        Instant relanceDeadline = Instant.parse("2026-01-20T00:00:00Z");
+
+        when(demandeDocumentsRepository.findById(demande.getId()))
+                .thenReturn(Optional.of(demande));
+        when(parametreDelaiService.resolveDelaiJours("DEMANDE_DOCUMENTS_RELANCE"))
+                .thenReturn(7);
+        when(parametreDelaiService.resolveJoursOuvrables("DEMANDE_DOCUMENTS_RELANCE"))
+                .thenReturn(true);
+        doReturn(relanceDeadline).when(deadlineCalculator).addBusinessDays(any(), eq(7));
+        when(demandeDocumentsRepository.save(any(DemandeDocuments.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(DemandeDocuments.class)))
+                .thenReturn(DemandeDocumentsResponse.builder().build());
+
+        service.escalate(demande.getId());
+
+        assertThat(demande.getDeadline()).isEqualTo(relanceDeadline);
+        verify(deadlineCalculator, never()).addCalendarDays(any(), anyInt());
     }
 
     @Test

@@ -22,6 +22,7 @@ import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.NatureSaisineResolver;
@@ -64,6 +65,7 @@ public class DossierServiceImpl implements DossierService {
     private final PortalConfigService           portalConfigService;
     private final EtudeOpportuniteRepository    etudeOpportuniteRepository;
     private final DecisionCGERepository         decisionCGERepository;
+    private final DeadlineCalculator            deadlineCalculator;
 
 
     // ════════════════════════════════════════════════════════════
@@ -259,11 +261,10 @@ public class DossierServiceImpl implements DossierService {
 
         String number = generateUniqueNumber();
         dossier.setNumber(number);
-        int accuseReceptionJours = parametreDelaiService
-                .resolveDelaiJours("ACCUSE_RECEPTION");
-        int demandeComplementJours = parametreDelaiService
-                .resolveDelaiJours("DEMANDE_COMPLEMENT");
-        dossier.registerReception(agent, accuseReceptionJours, demandeComplementJours);
+        Instant receptionDate = Instant.now();
+        Instant acknowledgmentDeadline = resolveDeadline(receptionDate, "ACCUSE_RECEPTION");
+        Instant additionalInfoDeadline = resolveDeadline(receptionDate, "DEMANDE_COMPLEMENT");
+        dossier.registerReception(agent, receptionDate, acknowledgmentDeadline, additionalInfoDeadline);
 
         habilitationService.grant(dossier, agent, HabilitationSource.AGENT_IN_CHARGE,
                 agent, "Agent en charge du dossier (enregistrement BRPD)");
@@ -898,6 +899,14 @@ public class DossierServiceImpl implements DossierService {
         return dossierRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Dossier introuvable : " + id));
+    }
+
+    private Instant resolveDeadline(Instant from, String delaiCode) {
+        int delaiJours = parametreDelaiService.resolveDelaiJours(delaiCode);
+        boolean joursOuvrables = parametreDelaiService.resolveJoursOuvrables(delaiCode);
+        return joursOuvrables
+                ? deadlineCalculator.addBusinessDays(from, delaiJours)
+                : deadlineCalculator.addCalendarDays(from, delaiJours);
     }
 
     private void validateTransition(Dossier dossier, DossierStatus target) {

@@ -14,6 +14,7 @@ import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
     private final DemandeDocumentsRepository demandeDocumentsRepository;
     private final InvestigationRepository    investigationRepository;
     private final ParametreDelaiService      parametreDelaiService;
+    private final DeadlineCalculator         deadlineCalculator;
     private final DossierDetailsMapper       mapper;
     private final AgentContextResolver       agentContextResolver;
     private final DossierAccessGuard         accessGuard;
@@ -43,8 +45,8 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
         Investigation investigation = getInvestigationOrThrow(investigationId);
         accessGuard.checkReadAccess(investigation.getDossier());
 
-        int deadlineDays = parametreDelaiService.resolveDelaiJours(delaiCodeFor(EscalationLevel.INITIAL));
         Instant sentAt = Instant.now();
+        Instant deadline = resolveDeadline(sentAt, delaiCodeFor(EscalationLevel.INITIAL));
 
         DemandeDocuments demande = DemandeDocuments.builder()
                 .investigation(investigation)
@@ -52,7 +54,7 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
                 .documentsRequested(request.getDocumentsRequested())
                 .requestedBy(agentContextResolver.getCurrentAgent())
                 .sentAt(sentAt)
-                .deadline(sentAt.plusSeconds(deadlineDays * 24L * 3600))
+                .deadline(deadline)
                 .build();
 
         DemandeDocuments saved = demandeDocumentsRepository.save(demande);
@@ -89,8 +91,9 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
             throw new BusinessException("Cette demande est déjà au niveau d'escalade maximal (saisine judiciaire)");
         }
 
-        int deadlineDays = parametreDelaiService.resolveDelaiJours(delaiCodeFor(nextLevel));
-        demande.escalate(nextLevel, deadlineDays);
+        Instant sentAt = Instant.now();
+        Instant deadline = resolveDeadline(sentAt, delaiCodeFor(nextLevel));
+        demande.escalate(nextLevel, sentAt, deadline);
 
         DemandeDocuments saved = demandeDocumentsRepository.save(demande);
         log.info("Demande de documents escaladée — id: {}, niveau: {}", id, nextLevel);
@@ -110,9 +113,9 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
                             + "corrigée pour adresse erronée");
         }
 
-        int deadlineDays = parametreDelaiService.resolveDelaiJours(
-                delaiCodeFor(demande.getEscalationLevel()));
-        demande.resetForAddressError(request.getCorrectedRecipientLabel(), deadlineDays);
+        Instant sentAt = Instant.now();
+        Instant deadline = resolveDeadline(sentAt, delaiCodeFor(demande.getEscalationLevel()));
+        demande.resetForAddressError(request.getCorrectedRecipientLabel(), sentAt, deadline);
 
         DemandeDocuments saved = demandeDocumentsRepository.save(demande);
         log.info("Demande de documents corrigée pour adresse erronée — id: {}", id);
@@ -133,6 +136,14 @@ public class DemandeDocumentsServiceImpl implements DemandeDocumentsService {
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+    }
+
+    private Instant resolveDeadline(Instant from, String delaiCode) {
+        int delaiJours = parametreDelaiService.resolveDelaiJours(delaiCode);
+        boolean joursOuvrables = parametreDelaiService.resolveJoursOuvrables(delaiCode);
+        return joursOuvrables
+                ? deadlineCalculator.addBusinessDays(from, delaiJours)
+                : deadlineCalculator.addCalendarDays(from, delaiJours);
     }
 
     private String delaiCodeFor(EscalationLevel level) {

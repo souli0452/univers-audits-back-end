@@ -232,14 +232,13 @@ public class Dossier extends AuditEntity {
     // ── Méthodes métier ───────────────────────────────────────────
 
     public void registerReception(Agent agent,
-                                   int accuseReceptionJours,
-                                   int demandeComplementJours) {
-        this.receptionDate        = Instant.now();
-        this.agentInCharge        = agent;
-        this.acknowledgmentDeadline =
-                receptionDate.plusSeconds(accuseReceptionJours * 24L * 3600);
-        this.additionalInfoDeadline =
-                receptionDate.plusSeconds(demandeComplementJours * 24L * 3600);
+                                   Instant receptionDate,
+                                   Instant acknowledgmentDeadline,
+                                   Instant additionalInfoDeadline) {
+        this.receptionDate          = receptionDate;
+        this.agentInCharge          = agent;
+        this.acknowledgmentDeadline = acknowledgmentDeadline;
+        this.additionalInfoDeadline = additionalInfoDeadline;
         this.status = DossierStatus.RECU;
     }
 

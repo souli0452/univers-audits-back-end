@@ -119,10 +119,9 @@ public class Investigation extends AuditEntity {
     private List<Attachment> collectedEvidence = new ArrayList<>();
 
 
-    public void start() {
-        this.startDate = Instant.now();
-        this.plannedEndDate = startDate
-                .plusSeconds((long) plannedDurationDays * 24 * 3600);
+    public void start(Instant startDate, Instant plannedEndDate) {
+        this.startDate = startDate;
+        this.plannedEndDate = plannedEndDate;
         this.status = InvestigationStatus.IN_PROGRESS;
     }
 

@@ -36,12 +36,14 @@ import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.NatureSaisineResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -60,6 +62,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -84,6 +87,7 @@ class DossierServiceImplTest {
     @Mock private PortalConfigService portalConfigService;
     @Mock private EtudeOpportuniteRepository etudeOpportuniteRepository;
     @Mock private DecisionCGERepository decisionCGERepository;
+    @Mock(answer = Answers.CALLS_REAL_METHODS) private DeadlineCalculator deadlineCalculator;
 
     @InjectMocks
     private DossierServiceImpl service;
@@ -331,7 +335,7 @@ class DossierServiceImplTest {
                 dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
                 notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
                 natureSaisineResolver, realGuard, habilitationService, portalConfigService,
-                etudeOpportuniteRepository, decisionCGERepository);
+                etudeOpportuniteRepository, decisionCGERepository, deadlineCalculator);
 
         assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
                 .doesNotThrowAnyException();
@@ -359,6 +363,37 @@ class DossierServiceImplTest {
 
         verify(habilitationService).grant(dossier, agent, HabilitationSource.AGENT_IN_CHARGE,
                 agent, "Agent en charge du dossier (enregistrement BRPD)");
+    }
+
+    @Test
+    void registerReception_usesBusinessDaysWhenParametreDelaiFlagsIt() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).matricule("M001").build();
+        StatusTransitionRequest request = StatusTransitionRequest.builder().build();
+        Instant acknowledgment = Instant.parse("2026-01-10T00:00:00Z");
+        Instant additionalInfo = Instant.parse("2026-01-20T00:00:00Z");
+
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(parametreDelaiService.resolveDelaiJours("ACCUSE_RECEPTION")).thenReturn(5);
+        when(parametreDelaiService.resolveDelaiJours("DEMANDE_COMPLEMENT")).thenReturn(10);
+        when(parametreDelaiService.resolveJoursOuvrables("ACCUSE_RECEPTION")).thenReturn(true);
+        when(parametreDelaiService.resolveJoursOuvrables("DEMANDE_COMPLEMENT")).thenReturn(true);
+        doReturn(acknowledgment).when(deadlineCalculator).addBusinessDays(any(), eq(5));
+        doReturn(additionalInfo).when(deadlineCalculator).addBusinessDays(any(), eq(10));
+        when(dossierRepository.countByReceptionDateBetween(any(), any())).thenReturn(0L);
+        when(accessCodeGenerator.generateDossierNumber(anyInt(), anyInt())).thenReturn("2026-0001");
+        when(dossierRepository.existsByNumber(anyString())).thenReturn(false);
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasRole(anyString())).thenReturn(false);
+
+        service.registerReception(dossierId, request, "127.0.0.1");
+
+        assertThat(dossier.getAcknowledgmentDeadline()).isEqualTo(acknowledgment);
+        assertThat(dossier.getAdditionalInfoDeadline()).isEqualTo(additionalInfo);
+        verify(deadlineCalculator, never()).addCalendarDays(any(), anyInt());
     }
 
     @Test

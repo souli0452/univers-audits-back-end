@@ -247,7 +247,10 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Le plan d'investigation n'a pas encore été validé par le DEI.");
         }
 
-        inv.start();
+        Instant startDate = Instant.now();
+        Instant plannedEndDate = deadlineCalculator.addBusinessDays(
+                startDate, inv.getPlannedDurationDays());
+        inv.start(startDate, plannedEndDate);
         Investigation saved = investigationRepository.save(inv);
 
         sectionDossierTravailService.creerSectionsFixes(inv.getDossier());
