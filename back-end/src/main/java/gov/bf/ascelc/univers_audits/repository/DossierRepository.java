@@ -135,6 +135,43 @@ public interface DossierRepository
             """)
     List<Dossier> findOverdueInvestigations(@Param("now") Instant now);
 
+    @Query("""
+            SELECT d FROM Dossier d
+            WHERE d.acknowledgmentDeadline BETWEEN :now AND :in3Days
+            AND d.status NOT IN (
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.CLOS,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.CLASSE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.IRRECEVABLE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.TRANSFERE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.ORIENTEE_ADMINISTRATIF
+            )
+            ORDER BY d.acknowledgmentDeadline ASC
+            """)
+    List<Dossier> findAcknowledgmentsDueWithin(
+            @Param("now") Instant now, @Param("in3Days") Instant in3Days);
+
+    @Query("""
+            SELECT d FROM Dossier d
+            WHERE d.status = gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_ATTENTE_COMPLEMENT
+            AND d.additionalInfoDeadline BETWEEN :now AND :in3Days
+            ORDER BY d.additionalInfoDeadline ASC
+            """)
+    List<Dossier> findComplementsDueWithin(
+            @Param("now") Instant now, @Param("in3Days") Instant in3Days);
+
+    @Query("""
+            SELECT d FROM Dossier d
+            JOIN Investigation i ON i.dossier.id = d.id
+            WHERE d.status = gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_INVESTIGATION
+            AND i.status IN (
+                gov.bf.ascelc.univers_audits.enums.InvestigationStatus.INITIATED,
+                gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS
+            )
+            AND COALESCE(i.extendedDeadline, i.plannedEndDate) BETWEEN :now AND :in3Days
+            ORDER BY i.plannedEndDate ASC
+            """)
+    List<Dossier> findInvestigationsDueWithin(
+            @Param("now") Instant now, @Param("in3Days") Instant in3Days);
 
     @Query("""
             SELECT d.status, COUNT(d)

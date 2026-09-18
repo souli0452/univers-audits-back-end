@@ -33,6 +33,14 @@ public class Notification extends AuditEntity {
     @JoinColumn(name = "case_id", nullable = false)
     private Dossier dossier;
 
+    // Nulle pour tous les types d'alerte sauf DEMANDE_DOCUMENTS_ALERT/
+    // DEMANDE_DOCUMENTS_ALERT_J3 — une investigation peut avoir plusieurs
+    // demandes de documents concurrentes, dedupliquer uniquement par dossier
+    // supprimerait a tort l'alerte d'une deuxieme demande.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "demande_documents_id")
+    private DemandeDocuments demandeDocuments;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 35)
     private NotificationType type;

@@ -112,6 +112,8 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     boolean existsByDossierIdAndType(UUID dossierId, NotificationType type);
 
+    boolean existsByDemandeDocumentsIdAndType(UUID demandeDocumentsId, NotificationType type);
+
     @Query("""
             SELECT COUNT(n)
             FROM Notification n
