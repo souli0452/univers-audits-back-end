@@ -10,6 +10,7 @@ import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
+import gov.bf.ascelc.univers_audits.repository.DemandeDocumentsRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
@@ -45,6 +46,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final DossierAccessGuard     accessGuard;
     private final PortalConfigService    portalConfigService;
     private final DeadlineCalculator     deadlineCalculator;
+    private final DemandeDocumentsRepository demandeDocumentsRepository;
 
 
     @Override
@@ -423,10 +425,81 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
 
-        log.info("[Notification] Alertes traitées — {} AR, {} compléments, {} investigations",
+        List<gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments> overdueDemandeDocuments =
+                demandeDocumentsRepository.findOverdue(now);
+
+        for (var demande : overdueDemandeDocuments) {
+            gov.bf.ascelc.univers_audits.model.entity.Dossier dossier =
+                    demande.getInvestigation().getDossier();
+            boolean alreadyAlerted = notificationRepository
+                    .existsByDemandeDocumentsIdAndType(
+                            demande.getId(),
+                            NotificationType.DEMANDE_DOCUMENTS_ALERT);
+
+            if (!alreadyAlerted) {
+                Notification alert = Notification.builder()
+                        .dossier(dossier)
+                        .demandeDocuments(demande)
+                        .type(NotificationType.DEMANDE_DOCUMENTS_ALERT)
+                        .channel(NotificationChannel.PORTAL)
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_demande_documents",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_demande_documents",
+                                Map.of("numero", dossier.getNumber())))
+                        .scheduledAt(Instant.now())
+                        .build();
+
+                notificationRepository.save(alert);
+                log.warn("[Notification] Alerte demande de documents créée — dossier: {}",
+                        dossier.getNumber());
+            }
+        }
+
+        List<gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments> dueDemandeDocuments =
+                demandeDocumentsRepository.findDueWithin(now, in3Days);
+
+        for (var demande : dueDemandeDocuments) {
+            gov.bf.ascelc.univers_audits.model.entity.Dossier dossier =
+                    demande.getInvestigation().getDossier();
+            boolean alreadyAlerted = notificationRepository
+                    .existsByDemandeDocumentsIdAndType(
+                            demande.getId(),
+                            NotificationType.DEMANDE_DOCUMENTS_ALERT_J3);
+
+            if (!alreadyAlerted) {
+                Notification alert = Notification.builder()
+                        .dossier(dossier)
+                        .demandeDocuments(demande)
+                        .type(NotificationType.DEMANDE_DOCUMENTS_ALERT_J3)
+                        .channel(NotificationChannel.PORTAL)
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_demande_documents_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_demande_documents_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .scheduledAt(Instant.now())
+                        .build();
+
+                notificationRepository.save(alert);
+                log.warn("[Notification] Alerte demande de documents J-3 créée — dossier: {}",
+                        dossier.getNumber());
+            }
+        }
+
+        log.info("[Notification] Alertes traitées — {} AR, {} compléments, {} investigations, "
+                        + "{} AR J-3, {} compléments J-3, {} investigations J-3, "
+                        + "{} demandes documents, {} demandes documents J-3",
                 overdueAcknowledgments.size(),
                 overdueComplements.size(),
-                overdueInvestigations.size());
+                overdueInvestigations.size(),
+                dueAcknowledgments.size(),
+                dueComplements.size(),
+                dueInvestigations.size(),
+                overdueDemandeDocuments.size(),
+                dueDemandeDocuments.size());
     }
 
 
