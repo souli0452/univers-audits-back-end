@@ -14,6 +14,7 @@ import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
+import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -43,6 +44,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final DossierDetailsMapper   detailsMapper;
     private final DossierAccessGuard     accessGuard;
     private final PortalConfigService    portalConfigService;
+    private final DeadlineCalculator     deadlineCalculator;
 
 
     @Override
@@ -244,8 +246,11 @@ public class NotificationServiceImpl implements NotificationService {
     public void sendDeadlineAlerts() {
         log.info("[Notification] Envoi des alertes de délai dépassé...");
 
+        Instant now = Instant.now();
+        Instant in3Days = deadlineCalculator.addCalendarDays(now, 3);
+
         List<Dossier> overdueAcknowledgments =
-                dossierRepository.findOverdueAcknowledgments(Instant.now());
+                dossierRepository.findOverdueAcknowledgments(now);
 
         for (Dossier dossier : overdueAcknowledgments) {
             boolean alreadyAlerted = notificationRepository
@@ -327,6 +332,93 @@ public class NotificationServiceImpl implements NotificationService {
 
                 notificationRepository.save(alert);
                 log.warn("[Notification] Alerte investigation créée — dossier: {}",
+                        dossier.getNumber());
+            }
+        }
+
+        List<Dossier> dueAcknowledgments =
+                dossierRepository.findAcknowledgmentsDueWithin(now, in3Days);
+
+        for (Dossier dossier : dueAcknowledgments) {
+            boolean alreadyAlerted = notificationRepository
+                    .existsByDossierIdAndType(
+                            dossier.getId(),
+                            NotificationType.DEADLINE_ALERT_J3);
+
+            if (!alreadyAlerted) {
+                Notification alert = Notification.builder()
+                        .dossier(dossier)
+                        .type(NotificationType.DEADLINE_ALERT_J3)
+                        .channel(NotificationChannel.PORTAL)
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_ar_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_ar_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .scheduledAt(Instant.now())
+                        .build();
+
+                notificationRepository.save(alert);
+                log.warn("[Notification] Alerte AR J-3 créée — dossier: {}",
+                        dossier.getNumber());
+            }
+        }
+
+        List<Dossier> dueComplements =
+                dossierRepository.findComplementsDueWithin(now, in3Days);
+
+        for (Dossier dossier : dueComplements) {
+            boolean alreadyAlerted = notificationRepository
+                    .existsByDossierIdAndType(
+                            dossier.getId(),
+                            NotificationType.COMPLEMENT_ALERT_J3);
+
+            if (!alreadyAlerted) {
+                Notification alert = Notification.builder()
+                        .dossier(dossier)
+                        .type(NotificationType.COMPLEMENT_ALERT_J3)
+                        .channel(NotificationChannel.PORTAL)
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_complement_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_complement_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .scheduledAt(Instant.now())
+                        .build();
+
+                notificationRepository.save(alert);
+                log.warn("[Notification] Alerte complément J-3 créée — dossier: {}",
+                        dossier.getNumber());
+            }
+        }
+
+        List<Dossier> dueInvestigations =
+                dossierRepository.findInvestigationsDueWithin(now, in3Days);
+
+        for (Dossier dossier : dueInvestigations) {
+            boolean alreadyAlerted = notificationRepository
+                    .existsByDossierIdAndType(
+                            dossier.getId(),
+                            NotificationType.INVESTIGATION_ALERT_J3);
+
+            if (!alreadyAlerted) {
+                Notification alert = Notification.builder()
+                        .dossier(dossier)
+                        .type(NotificationType.INVESTIGATION_ALERT_J3)
+                        .channel(NotificationChannel.PORTAL)
+                        .subject(portalConfigService.resolveNotificationText(
+                                "notif_subject_deadline_investigation_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .content(portalConfigService.resolveNotificationText(
+                                "notif_content_deadline_investigation_j3",
+                                Map.of("numero", dossier.getNumber())))
+                        .scheduledAt(Instant.now())
+                        .build();
+
+                notificationRepository.save(alert);
+                log.warn("[Notification] Alerte investigation J-3 créée — dossier: {}",
                         dossier.getNumber());
             }
         }
