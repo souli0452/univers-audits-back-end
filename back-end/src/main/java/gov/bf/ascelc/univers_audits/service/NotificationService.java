@@ -42,4 +42,7 @@ public interface NotificationService {
 
 
     void sendDeadlineAlerts();
+
+
+    void escaladeVersSuperieurs();
 }

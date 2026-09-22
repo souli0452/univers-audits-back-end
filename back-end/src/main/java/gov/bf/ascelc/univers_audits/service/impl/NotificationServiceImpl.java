@@ -7,13 +7,18 @@ import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
 import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DemandeDocumentsRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
+import gov.bf.ascelc.univers_audits.service.KeycloakAdminService;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
+import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
@@ -28,8 +33,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,6 +55,9 @@ public class NotificationServiceImpl implements NotificationService {
     private final PortalConfigService    portalConfigService;
     private final DeadlineCalculator     deadlineCalculator;
     private final DemandeDocumentsRepository demandeDocumentsRepository;
+    private final InvestigationRepository    investigationRepository;
+    private final ParametreDelaiService      parametreDelaiService;
+    private final KeycloakAdminService       keycloakAdminService;
 
 
     @Override
@@ -504,6 +515,104 @@ public class NotificationServiceImpl implements NotificationService {
                 dueDemandeDocuments.size());
     }
 
+
+
+    @Override
+    @Scheduled(cron = "0 30 8 * * MON-FRI")
+    @Transactional
+    public void escaladeVersSuperieurs() {
+        log.info("[Notification] Escalade automatique vers CGEA/CGE...");
+
+        int delaiGraceJours = parametreDelaiService.resolveDelaiJours("ESCALADE_DELAI_GRACE");
+        Instant graceThreshold = deadlineCalculator.addCalendarDays(Instant.now(), -delaiGraceJours);
+
+        List<Agent> superieurs = resolveSuperieurs();
+        if (superieurs.isEmpty()) {
+            log.warn("[Notification] Aucun agent CGEA/CGE résolu — escalade ignorée pour ce passage");
+            return;
+        }
+
+        int escaladesAR = escaladeDossiers(
+                dossierRepository.findAcknowledgmentsOverdueBeyondGrace(graceThreshold),
+                NotificationType.ESCALADE_AR,
+                "notif_subject_escalade_ar", "notif_content_escalade_ar", superieurs);
+
+        int escaladesComplement = escaladeDossiers(
+                dossierRepository.findComplementsOverdueBeyondGrace(graceThreshold),
+                NotificationType.ESCALADE_COMPLEMENT,
+                "notif_subject_escalade_complement", "notif_content_escalade_complement", superieurs);
+
+        List<Dossier> dossiersInvestigation = investigationRepository
+                .findOverdueBeyondGrace(graceThreshold).stream()
+                .map(Investigation::getDossier)
+                .toList();
+        int escaladesInvestigation = escaladeDossiers(
+                dossiersInvestigation,
+                NotificationType.ESCALADE_INVESTIGATION,
+                "notif_subject_escalade_investigation", "notif_content_escalade_investigation", superieurs);
+
+        log.info("[Notification] Escalades traitées — {} AR, {} compléments, {} investigations",
+                escaladesAR, escaladesComplement, escaladesInvestigation);
+    }
+
+    private List<Agent> resolveSuperieurs() {
+        Set<String> keycloakIds = new LinkedHashSet<>();
+        keycloakIds.addAll(keycloakAdminService.getUserIdsByRole("CGEA"));
+        keycloakIds.addAll(keycloakAdminService.getUserIdsByRole("CGE"));
+
+        List<Agent> superieurs = new ArrayList<>();
+        for (String keycloakId : keycloakIds) {
+            agentRepository.findByKeycloakId(keycloakId)
+                    .filter(Agent::getActif)
+                    .ifPresent(superieurs::add);
+        }
+        return superieurs;
+    }
+
+    private int escaladeDossiers(List<Dossier> dossiers, NotificationType type,
+                                  String subjectKey, String contentKey, List<Agent> superieurs) {
+        int count = 0;
+        for (Dossier dossier : dossiers) {
+            boolean dejaEscalade = notificationRepository
+                    .existsByDossierIdAndType(dossier.getId(), type);
+            if (!dejaEscalade) {
+                creerEscalades(dossier, null, type, subjectKey, contentKey, superieurs);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void creerEscalades(Dossier dossier, DemandeDocuments demande,
+                                 NotificationType type, String subjectKey, String contentKey,
+                                 List<Agent> superieurs) {
+        Map<String, String> placeholders = Map.of(
+                "numero", dossier.getNumber(),
+                "agentEnCharge", nomAgentEnCharge(dossier));
+
+        String subject = portalConfigService.resolveNotificationText(subjectKey, placeholders);
+        String content = portalConfigService.resolveNotificationText(contentKey, placeholders);
+
+        for (Agent superieur : superieurs) {
+            Notification escalade = Notification.builder()
+                    .dossier(dossier)
+                    .demandeDocuments(demande)
+                    .type(type)
+                    .channel(NotificationChannel.PORTAL)
+                    .recipient(superieur.getKeycloakId())
+                    .subject(subject)
+                    .content(content)
+                    .scheduledAt(Instant.now())
+                    .build();
+            notificationRepository.save(escalade);
+        }
+        log.warn("[Notification] Escalade {} créée — dossier: {}", type, dossier.getNumber());
+    }
+
+    private String nomAgentEnCharge(Dossier dossier) {
+        Agent agent = dossier.getAgentInCharge();
+        return agent != null ? agent.getNomComplet() : "agent non identifié";
+    }
 
 
     private void doSend(Notification notif) {

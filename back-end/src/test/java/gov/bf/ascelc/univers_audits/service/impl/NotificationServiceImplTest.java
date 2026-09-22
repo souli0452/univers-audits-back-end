@@ -2,13 +2,17 @@ package gov.bf.ascelc.univers_audits.service.impl;
 
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
+import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DemandeDocumentsRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
+import gov.bf.ascelc.univers_audits.service.KeycloakAdminService;
+import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
 import gov.bf.ascelc.univers_audits.shared.utils.DeadlineCalculator;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -41,6 +45,9 @@ class NotificationServiceImplTest {
     @Mock private PortalConfigService portalConfigService;
     @Mock(answer = Answers.CALLS_REAL_METHODS) private DeadlineCalculator deadlineCalculator;
     @Mock private DemandeDocumentsRepository demandeDocumentsRepository;
+    @Mock private InvestigationRepository investigationRepository;
+    @Mock private ParametreDelaiService parametreDelaiService;
+    @Mock private KeycloakAdminService keycloakAdminService;
 
     @InjectMocks
     private NotificationServiceImpl service;
@@ -57,6 +64,12 @@ class NotificationServiceImplTest {
         lenient().when(demandeDocumentsRepository.findDueWithin(any(), any())).thenReturn(List.of());
         lenient().when(portalConfigService.resolveNotificationText(anyString(), anyMap()))
                 .thenReturn("texte");
+        lenient().when(parametreDelaiService.resolveDelaiJours("ESCALADE_DELAI_GRACE"))
+                .thenReturn(3);
+        lenient().when(keycloakAdminService.getUserIdsByRole(anyString())).thenReturn(List.of());
+        lenient().when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of());
+        lenient().when(dossierRepository.findComplementsOverdueBeyondGrace(any())).thenReturn(List.of());
+        lenient().when(investigationRepository.findOverdueBeyondGrace(any())).thenReturn(List.of());
     }
 
     // ── Non-régression : les 3 blocs "à échéance dépassée" existants ──
@@ -276,5 +289,162 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(argThat(n ->
                 n.getType() == NotificationType.DEMANDE_DOCUMENTS_ALERT
                         && n.getDemandeDocuments() == demande));
+    }
+
+    // ── Nouveau : escalade automatique vers CGEA/CGE ──
+
+    private Agent buildSuperieur(String keycloakId, String matricule) {
+        return Agent.builder()
+                .id(UUID.randomUUID())
+                .keycloakId(keycloakId)
+                .matricule(matricule)
+                .firstName("Prénom")
+                .lastName("Nom")
+                .actif(true)
+                .build();
+    }
+
+    @Test
+    void escaladeVersSuperieurs_notifieChaqueSuperieurResoluPourUnDepassementAR() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0020").build();
+        Agent cgea = buildSuperieur("kc-cgea", "M100");
+        Agent cge = buildSuperieur("kc-cge", "M101");
+        when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of(dossier));
+        when(keycloakAdminService.getUserIdsByRole("CGEA")).thenReturn(List.of("kc-cgea"));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cgea")).thenReturn(java.util.Optional.of(cgea));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_AR
+                        && n.getDossier() == dossier
+                        && "kc-cgea".equals(n.getRecipient())));
+        verify(notificationRepository).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_AR
+                        && n.getDossier() == dossier
+                        && "kc-cge".equals(n.getRecipient())));
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_escalade_ar"), anyMap());
+        verify(portalConfigService).resolveNotificationText(eq("notif_content_escalade_ar"), anyMap());
+    }
+
+    @Test
+    void escaladeVersSuperieurs_dedupliqueUnAgentCumulantCgeaEtCge() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0021").build();
+        Agent cumulard = buildSuperieur("kc-cumulard", "M102");
+        when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of(dossier));
+        when(keycloakAdminService.getUserIdsByRole("CGEA")).thenReturn(List.of("kc-cumulard"));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cumulard"));
+        when(agentRepository.findByKeycloakId("kc-cumulard")).thenReturn(java.util.Optional.of(cumulard));
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository, times(1)).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_AR
+                        && "kc-cumulard".equals(n.getRecipient())));
+    }
+
+    @Test
+    void escaladeVersSuperieurs_notifieChaqueSuperieurPourUnDepassementComplement() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0022").build();
+        Agent cge = buildSuperieur("kc-cge", "M103");
+        when(dossierRepository.findComplementsOverdueBeyondGrace(any())).thenReturn(List.of(dossier));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_COMPLEMENT
+                        && n.getDossier() == dossier
+                        && "kc-cge".equals(n.getRecipient())));
+    }
+
+    @Test
+    void escaladeVersSuperieurs_resoutLeDossierDUneInvestigationEtNotifie() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0023").build();
+        Investigation investigation = Investigation.builder()
+                .id(UUID.randomUUID()).dossier(dossier).build();
+        Agent cge = buildSuperieur("kc-cge", "M104");
+        when(investigationRepository.findOverdueBeyondGrace(any())).thenReturn(List.of(investigation));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_INVESTIGATION
+                        && n.getDossier() == dossier
+                        && "kc-cge".equals(n.getRecipient())));
+    }
+
+    @Test
+    void escaladeVersSuperieurs_doesNotDuplicateAlreadyEscaladedDossier() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0024").build();
+        Agent cge = buildSuperieur("kc-cge", "M105");
+        when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of(dossier));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+        when(notificationRepository.existsByDossierIdAndType(
+                dossier.getId(), NotificationType.ESCALADE_AR)).thenReturn(true);
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository, never()).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_AR));
+    }
+
+    @Test
+    void escaladeVersSuperieurs_ignoreUnAgentKeycloakSansCorrespondanceEnBase() {
+        // Le seul keycloakId resolu par Keycloak n'a pas d'Agent correspondant
+        // en base -> resolveSuperieurs() renvoie une liste vide -> la garde de
+        // sortie anticipee empeche toute requete d'echeance et toute sauvegarde.
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-inconnu"));
+        when(agentRepository.findByKeycloakId("kc-inconnu")).thenReturn(java.util.Optional.empty());
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository, never()).save(any());
+        verify(dossierRepository, never()).findAcknowledgmentsOverdueBeyondGrace(any());
+    }
+
+    @Test
+    void escaladeVersSuperieurs_ignoreUnAgentInactif() {
+        // Meme raisonnement : le seul keycloakId resolu correspond a un Agent
+        // inactif, filtre par resolveSuperieurs() -> liste vide -> sortie
+        // anticipee.
+        Agent inactif = buildSuperieur("kc-inactif", "M106");
+        inactif.setActif(false);
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-inactif"));
+        when(agentRepository.findByKeycloakId("kc-inactif")).thenReturn(java.util.Optional.of(inactif));
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository, never()).save(any());
+        verify(dossierRepository, never()).findAcknowledgmentsOverdueBeyondGrace(any());
+    }
+
+    @Test
+    void escaladeVersSuperieurs_neInterrogeAucuneEcheanceSiAucunSuperieurResolu() {
+        // Garde de sortie anticipee : sans agent CGEA/CGE resolu, inutile
+        // d'interroger les echeances (rien ne pourrait etre notifie).
+        service.escaladeVersSuperieurs();
+
+        verify(dossierRepository, never()).findAcknowledgmentsOverdueBeyondGrace(any());
+        verify(parametreDelaiService).resolveDelaiJours("ESCALADE_DELAI_GRACE");
+    }
+
+    @Test
+    void escaladeVersSuperieurs_calculeLeSeuilAvecLeDelaiConfigure() {
+        Agent cge = buildSuperieur("kc-cge", "M110");
+        when(parametreDelaiService.resolveDelaiJours("ESCALADE_DELAI_GRACE")).thenReturn(5);
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+
+        service.escaladeVersSuperieurs();
+
+        verify(dossierRepository).findAcknowledgmentsOverdueBeyondGrace(any());
+        verify(parametreDelaiService).resolveDelaiJours("ESCALADE_DELAI_GRACE");
     }
 }
