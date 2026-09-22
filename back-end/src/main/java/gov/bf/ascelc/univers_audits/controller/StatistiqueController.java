@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
 import gov.bf.ascelc.univers_audits.service.StatistiqueService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
@@ -14,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -47,6 +49,13 @@ public class StatistiqueController {
         return ResponseEntity.ok(statistiqueService.getDashboard(start, end));
     }
 
+
+    @GetMapping("/depassements-par-acteur")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    public ResponseEntity<List<ActeurDepassementResponse>> getDepassementsParActeur() {
+        log.info("Tableau des dossiers en dépassement par acteur");
+        return ResponseEntity.ok(statistiqueService.getDepassementsParActeur());
+    }
 
     @GetMapping("/quarterly")
     @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")

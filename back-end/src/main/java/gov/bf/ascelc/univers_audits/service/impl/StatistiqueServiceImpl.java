@@ -1,8 +1,16 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.TypeDepassement;
+import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DepassementItemResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
+import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments;
+import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.repository.DecisionCGERepository;
+import gov.bf.ascelc.univers_audits.repository.DemandeDocumentsRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
@@ -18,10 +26,14 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -35,6 +47,7 @@ public class StatistiqueServiceImpl implements StatistiqueService {
     private final SeanceCtadpDossierRepository seanceCtadpDossierRepository;
     private final DecisionCGERepository        decisionCgeRepository;
     private final TargetedPartyRepository      targetedPartyRepository;
+    private final DemandeDocumentsRepository   demandeDocumentsRepository;
 
     private static final ZoneId OUAGA_TZ = ZoneId.of("Africa/Ouagadougou");
     private static final List<DossierStatus> STATUTS_RECEVABLES = List.of(
@@ -44,6 +57,96 @@ public class StatistiqueServiceImpl implements StatistiqueService {
             DossierStatus.DECISION_RENDUE,
             DossierStatus.CLOS
     );
+
+    @Override
+    public List<ActeurDepassementResponse> getDepassementsParActeur() {
+        log.info("[Stats] Calcul du tableau des dépassements par acteur");
+
+        Instant now = Instant.now();
+        Map<UUID, Agent> agents = new LinkedHashMap<>();
+        Map<UUID, List<DepassementItemResponse>> itemsByAgent = new LinkedHashMap<>();
+
+        for (Dossier dossier : dossierRepository.findOverdueAcknowledgments(now)) {
+            addDepassement(agents, itemsByAgent, dossier.getAgentInCharge(),
+                    DepassementItemResponse.builder()
+                            .dossierId(dossier.getId())
+                            .numero(dossier.getNumber())
+                            .type(TypeDepassement.ACCUSE_RECEPTION)
+                            .echeance(dossier.getAcknowledgmentDeadline())
+                            .joursDeRetard(joursDeRetard(dossier.getAcknowledgmentDeadline(), now))
+                            .build());
+        }
+
+        for (Dossier dossier : dossierRepository.findOverdueComplementRequests(now)) {
+            addDepassement(agents, itemsByAgent, dossier.getAgentInCharge(),
+                    DepassementItemResponse.builder()
+                            .dossierId(dossier.getId())
+                            .numero(dossier.getNumber())
+                            .type(TypeDepassement.COMPLEMENT)
+                            .echeance(dossier.getAdditionalInfoDeadline())
+                            .joursDeRetard(joursDeRetard(dossier.getAdditionalInfoDeadline(), now))
+                            .build());
+        }
+
+        for (Investigation investigation : investigationRepository.findOverdue(now)) {
+            Dossier dossier = investigation.getDossier();
+            Instant echeance = investigation.getExtendedDeadline() != null
+                    ? investigation.getExtendedDeadline()
+                    : investigation.getPlannedEndDate();
+            addDepassement(agents, itemsByAgent, dossier.getAgentInCharge(),
+                    DepassementItemResponse.builder()
+                            .dossierId(dossier.getId())
+                            .numero(dossier.getNumber())
+                            .type(TypeDepassement.INVESTIGATION)
+                            .echeance(echeance)
+                            .joursDeRetard(joursDeRetard(echeance, now))
+                            .build());
+        }
+
+        for (DemandeDocuments demande : demandeDocumentsRepository.findOverdue(now)) {
+            Dossier dossier = demande.getInvestigation().getDossier();
+            addDepassement(agents, itemsByAgent, dossier.getAgentInCharge(),
+                    DepassementItemResponse.builder()
+                            .dossierId(dossier.getId())
+                            .numero(dossier.getNumber())
+                            .type(TypeDepassement.DEMANDE_DOCUMENTS)
+                            .echeance(demande.getDeadline())
+                            .joursDeRetard(joursDeRetard(demande.getDeadline(), now))
+                            .build());
+        }
+
+        List<ActeurDepassementResponse> result = new ArrayList<>();
+        for (Map.Entry<UUID, List<DepassementItemResponse>> entry : itemsByAgent.entrySet()) {
+            Agent agent = agents.get(entry.getKey());
+            result.add(ActeurDepassementResponse.builder()
+                    .agentId(agent.getId())
+                    .matricule(agent.getMatricule())
+                    .nomComplet(agent.getNomComplet())
+                    .departementLibelle(agent.getDepartement() != null
+                            ? agent.getDepartement().getLibelle() : null)
+                    .dossiersEnDepassement(entry.getValue())
+                    .build());
+        }
+        result.sort(Comparator.comparing(ActeurDepassementResponse::getNomComplet));
+        return result;
+    }
+
+    private void addDepassement(Map<UUID, Agent> agents,
+                                 Map<UUID, List<DepassementItemResponse>> itemsByAgent,
+                                 Agent agent, DepassementItemResponse item) {
+        if (agent == null) {
+            return;
+        }
+        agents.putIfAbsent(agent.getId(), agent);
+        itemsByAgent.computeIfAbsent(agent.getId(), id -> new ArrayList<>()).add(item);
+    }
+
+    private long joursDeRetard(Instant echeance, Instant now) {
+        if (echeance == null) {
+            return 0;
+        }
+        return Math.max(0, ChronoUnit.DAYS.between(echeance, now));
+    }
 
     @Override
     public StatistiqueResponse getDashboard(Instant start, Instant end) {

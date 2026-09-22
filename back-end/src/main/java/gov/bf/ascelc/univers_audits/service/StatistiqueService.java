@@ -1,8 +1,10 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 public interface StatistiqueService {
@@ -14,4 +16,6 @@ public interface StatistiqueService {
     StatistiqueResponse getAnnualStats(int year);
 
     Map<String, Object> getPublicStats();
+
+    List<ActeurDepassementResponse> getDepassementsParActeur();
 }

@@ -1,7 +1,15 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
+import gov.bf.ascelc.univers_audits.enums.TypeDepassement;
+import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
+import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments;
+import gov.bf.ascelc.univers_audits.model.entity.Departement;
+import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.repository.DecisionCGERepository;
+import gov.bf.ascelc.univers_audits.repository.DemandeDocumentsRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
@@ -14,10 +22,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +41,7 @@ class StatistiqueServiceImplTest {
     @Mock private SeanceCtadpDossierRepository seanceCtadpDossierRepository;
     @Mock private DecisionCGERepository decisionCgeRepository;
     @Mock private TargetedPartyRepository targetedPartyRepository;
+    @Mock private DemandeDocumentsRepository demandeDocumentsRepository;
 
     @InjectMocks
     private StatistiqueServiceImpl service;
@@ -93,6 +105,121 @@ class StatistiqueServiceImplTest {
                         org.mockito.ArgumentMatchers.eq(start),
                         org.mockito.ArgumentMatchers.eq(end)))
                 .thenReturn(0L);
+
+        // Stubs par defaut pour getDepassementsParActeur — listes vides
+        lenient().when(dossierRepository.findOverdueAcknowledgments(any())).thenReturn(List.of());
+        lenient().when(dossierRepository.findOverdueComplementRequests(any())).thenReturn(List.of());
+        lenient().when(investigationRepository.findOverdue(any())).thenReturn(List.of());
+        lenient().when(demandeDocumentsRepository.findOverdue(any())).thenReturn(List.of());
+    }
+
+    private Agent buildAgent(String matricule, String nomComplet, String departementLibelle) {
+        String[] noms = nomComplet.split(" ", 2);
+        return Agent.builder()
+                .id(UUID.randomUUID())
+                .matricule(matricule)
+                .firstName(noms[0])
+                .lastName(noms.length > 1 ? noms[1] : "")
+                .departement(Departement.builder().libelle(departementLibelle).build())
+                .build();
+    }
+
+    @Test
+    void getDepassementsParActeur_regroupeUnDepassementARParAgent() {
+        Agent agent = buildAgent("M001", "Awa Ouedraogo", "DEI");
+        Instant deadline = Instant.now().minus(Duration.ofDays(5));
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID())
+                .number("2026-0001")
+                .agentInCharge(agent)
+                .acknowledgmentDeadline(deadline)
+                .build();
+        when(dossierRepository.findOverdueAcknowledgments(any())).thenReturn(List.of(dossier));
+
+        List<ActeurDepassementResponse> result = service.getDepassementsParActeur();
+
+        assertThat(result).hasSize(1);
+        ActeurDepassementResponse row = result.get(0);
+        assertThat(row.getMatricule()).isEqualTo("M001");
+        assertThat(row.getNomComplet()).isEqualTo("Awa Ouedraogo");
+        assertThat(row.getDepartementLibelle()).isEqualTo("DEI");
+        assertThat(row.getDossiersEnDepassement()).hasSize(1);
+        assertThat(row.getDossiersEnDepassement().get(0).getType())
+                .isEqualTo(TypeDepassement.ACCUSE_RECEPTION);
+        assertThat(row.getDossiersEnDepassement().get(0).getNumero()).isEqualTo("2026-0001");
+        assertThat(row.getDossiersEnDepassement().get(0).getJoursDeRetard()).isGreaterThanOrEqualTo(5);
+    }
+
+    @Test
+    void getDepassementsParActeur_regroupePlusieursDepassementsDuMemeAgent() {
+        Agent agent = buildAgent("M002", "Issouf Sawadogo", "DAC");
+        Dossier dossierAR = Dossier.builder()
+                .id(UUID.randomUUID()).number("2026-0002").agentInCharge(agent)
+                .acknowledgmentDeadline(Instant.now().minus(Duration.ofDays(2))).build();
+        Dossier dossierComplement = Dossier.builder()
+                .id(UUID.randomUUID()).number("2026-0003").agentInCharge(agent)
+                .additionalInfoDeadline(Instant.now().minus(Duration.ofDays(1))).build();
+        when(dossierRepository.findOverdueAcknowledgments(any())).thenReturn(List.of(dossierAR));
+        when(dossierRepository.findOverdueComplementRequests(any())).thenReturn(List.of(dossierComplement));
+
+        List<ActeurDepassementResponse> result = service.getDepassementsParActeur();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getDossiersEnDepassement()).hasSize(2);
+        assertThat(result.get(0).getDossiersEnDepassement())
+                .extracting(gov.bf.ascelc.univers_audits.model.dto.response.DepassementItemResponse::getType)
+                .containsExactlyInAnyOrder(TypeDepassement.ACCUSE_RECEPTION, TypeDepassement.COMPLEMENT);
+    }
+
+    @Test
+    void getDepassementsParActeur_resoutLeDossierDUneDemandeDocumentsViaLInvestigation() {
+        Agent agent = buildAgent("M003", "Fatou Kabore", "DIP");
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID()).number("2026-0004").agentInCharge(agent).build();
+        Investigation investigation = Investigation.builder()
+                .id(UUID.randomUUID()).dossier(dossier).build();
+        DemandeDocuments demande = DemandeDocuments.builder()
+                .id(UUID.randomUUID())
+                .investigation(investigation)
+                .deadline(Instant.now().minus(Duration.ofDays(3)))
+                .build();
+        when(demandeDocumentsRepository.findOverdue(any())).thenReturn(List.of(demande));
+
+        List<ActeurDepassementResponse> result = service.getDepassementsParActeur();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getMatricule()).isEqualTo("M003");
+        assertThat(result.get(0).getDossiersEnDepassement().get(0).getType())
+                .isEqualTo(TypeDepassement.DEMANDE_DOCUMENTS);
+        assertThat(result.get(0).getDossiersEnDepassement().get(0).getNumero()).isEqualTo("2026-0004");
+    }
+
+    @Test
+    void getDepassementsParActeur_preferLExtendedDeadlineSurLePlannedEndDatePourUneInvestigation() {
+        Agent agent = buildAgent("M004", "Boureima Zongo", "DSRAJ");
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID()).number("2026-0005").agentInCharge(agent).build();
+        Instant plannedEndDate = Instant.now().minus(Duration.ofDays(10));
+        Instant extendedDeadline = Instant.now().minus(Duration.ofDays(1));
+        Investigation investigation = Investigation.builder()
+                .id(UUID.randomUUID())
+                .dossier(dossier)
+                .plannedEndDate(plannedEndDate)
+                .extendedDeadline(extendedDeadline)
+                .build();
+        when(investigationRepository.findOverdue(any())).thenReturn(List.of(investigation));
+
+        List<ActeurDepassementResponse> result = service.getDepassementsParActeur();
+
+        assertThat(result.get(0).getDossiersEnDepassement().get(0).getEcheance())
+                .isEqualTo(extendedDeadline);
+    }
+
+    @Test
+    void getDepassementsParActeur_renvoieListeVideSansDepassement() {
+        List<ActeurDepassementResponse> result = service.getDepassementsParActeur();
+
+        assertThat(result).isEmpty();
     }
 
     @Test
