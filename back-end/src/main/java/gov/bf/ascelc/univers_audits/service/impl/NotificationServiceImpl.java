@@ -551,8 +551,31 @@ public class NotificationServiceImpl implements NotificationService {
                 NotificationType.ESCALADE_INVESTIGATION,
                 "notif_subject_escalade_investigation", "notif_content_escalade_investigation", superieurs);
 
-        log.info("[Notification] Escalades traitées — {} AR, {} compléments, {} investigations",
-                escaladesAR, escaladesComplement, escaladesInvestigation);
+        int escaladesDemandeDocuments = escaladeDemandesDocuments(
+                demandeDocumentsRepository.findOverdueBeyondGrace(graceThreshold), superieurs);
+
+        log.info("[Notification] Escalades traitées — {} AR, {} compléments, {} investigations, "
+                        + "{} demandes documents",
+                escaladesAR, escaladesComplement, escaladesInvestigation, escaladesDemandeDocuments);
+    }
+
+    private int escaladeDemandesDocuments(List<DemandeDocuments> demandes, List<Agent> superieurs) {
+        int count = 0;
+        for (DemandeDocuments demande : demandes) {
+            boolean dejaEscalade = notificationRepository
+                    .existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                            demande.getId(),
+                            NotificationType.ESCALADE_DEMANDE_DOCUMENTS,
+                            demande.getSentAt());
+            if (!dejaEscalade) {
+                creerEscalades(demande.getInvestigation().getDossier(), demande,
+                        NotificationType.ESCALADE_DEMANDE_DOCUMENTS,
+                        "notif_subject_escalade_demande_documents",
+                        "notif_content_escalade_demande_documents", superieurs);
+                count++;
+            }
+        }
+        return count;
     }
 
     private List<Agent> resolveSuperieurs() {

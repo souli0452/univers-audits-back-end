@@ -70,6 +70,7 @@ class NotificationServiceImplTest {
         lenient().when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of());
         lenient().when(dossierRepository.findComplementsOverdueBeyondGrace(any())).thenReturn(List.of());
         lenient().when(investigationRepository.findOverdueBeyondGrace(any())).thenReturn(List.of());
+        lenient().when(demandeDocumentsRepository.findOverdueBeyondGrace(any())).thenReturn(List.of());
     }
 
     // ── Non-régression : les 3 blocs "à échéance dépassée" existants ──
@@ -446,5 +447,71 @@ class NotificationServiceImplTest {
 
         verify(dossierRepository).findAcknowledgmentsOverdueBeyondGrace(any());
         verify(parametreDelaiService).resolveDelaiJours("ESCALADE_DELAI_GRACE");
+    }
+
+    @Test
+    void escaladeVersSuperieurs_notifieChaqueSuperieurPourUneDemandeDocumentsEnDepassement() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0027").build();
+        DemandeDocuments demande = buildDemande(dossier);
+        Agent cge = buildSuperieur("kc-cge", "M107");
+        when(demandeDocumentsRepository.findOverdueBeyondGrace(any())).thenReturn(List.of(demande));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_DEMANDE_DOCUMENTS
+                        && n.getDossier() == dossier
+                        && n.getDemandeDocuments() == demande
+                        && "kc-cge".equals(n.getRecipient())));
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_escalade_demande_documents"), anyMap());
+        verify(portalConfigService).resolveNotificationText(eq("notif_content_escalade_demande_documents"), anyMap());
+    }
+
+    @Test
+    void escaladeVersSuperieurs_doesNotDuplicateDemandeDocumentsEscaladeeDansLeMemeCycle() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0028").build();
+        DemandeDocuments demande = buildDemande(dossier);
+        Agent cge = buildSuperieur("kc-cge", "M108");
+        when(demandeDocumentsRepository.findOverdueBeyondGrace(any())).thenReturn(List.of(demande));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+        when(notificationRepository.existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                eq(demande.getId()), eq(NotificationType.ESCALADE_DEMANDE_DOCUMENTS), any()))
+                .thenReturn(true);
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository, never()).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_DEMANDE_DOCUMENTS));
+    }
+
+    @Test
+    void escaladeVersSuperieurs_reEscaladeApresUnNouveauCycleDeSentAt() {
+        // Meme raisonnement que sendDeadlineAlerts_reAlertsDemandeDocumentsAfterEscalationResetsSentAt
+        // (sous-chantier precedent) : une DemandeDocuments escaladee manuellement
+        // (RELANCE, SOMMATION...) reinitialise sentAt sur la meme ligne. La
+        // dedup doit s'appuyer sur le sentAt COURANT, pas sur l'existence a vie
+        // d'une notification ESCALADE_DEMANDE_DOCUMENTS pour cet id.
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0029").build();
+        Instant currentCycleSentAt = Instant.now();
+        DemandeDocuments demande = buildDemande(dossier);
+        demande.setSentAt(currentCycleSentAt);
+        Agent cge = buildSuperieur("kc-cge", "M109");
+        when(demandeDocumentsRepository.findOverdueBeyondGrace(any())).thenReturn(List.of(demande));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+        when(notificationRepository.existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                eq(demande.getId()), eq(NotificationType.ESCALADE_DEMANDE_DOCUMENTS), eq(currentCycleSentAt)))
+                .thenReturn(false);
+
+        service.escaladeVersSuperieurs();
+
+        verify(notificationRepository).existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                demande.getId(), NotificationType.ESCALADE_DEMANDE_DOCUMENTS, currentCycleSentAt);
+        verify(notificationRepository).save(argThat(n ->
+                n.getType() == NotificationType.ESCALADE_DEMANDE_DOCUMENTS
+                        && n.getDemandeDocuments() == demande));
     }
 }
