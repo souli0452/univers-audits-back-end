@@ -81,6 +81,16 @@ public class AgentController {
         return ResponseEntity.ok(agentService.getAvailableKeycloakRoles());
     }
 
+    @GetMapping("/by-role/{roleName}")
+    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
+    public ResponseEntity<List<AgentSummaryResponse>> findByRole(@PathVariable String roleName) {
+        return ResponseEntity.ok(
+                agentService.findActiveByKeycloakRole(roleName).stream()
+                        .map(agentMapper::toSummaryResponse)
+                        .toList()
+        );
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
     public ResponseEntity<AgentResponse> findById(@PathVariable UUID id) {

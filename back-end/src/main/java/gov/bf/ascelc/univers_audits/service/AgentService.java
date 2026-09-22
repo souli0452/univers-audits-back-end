@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +45,16 @@ public class AgentService {
         Agent agent = findById(agentId);
         if (agent.getKeycloakId() == null) return List.of();
         return keycloakAdminService.getUserRoles(agent.getKeycloakId());
+    }
+
+    public List<Agent> findActiveByKeycloakRole(String roleName) {
+        List<Agent> result = new ArrayList<>();
+        for (String keycloakId : keycloakAdminService.getUserIdsByRole(roleName)) {
+            agentRepository.findByKeycloakId(keycloakId)
+                    .filter(Agent::getActif)
+                    .ifPresent(result::add);
+        }
+        return result;
     }
 
     @Transactional
