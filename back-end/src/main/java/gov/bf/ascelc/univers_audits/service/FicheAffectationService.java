@@ -1,10 +1,12 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation;
 import gov.bf.ascelc.univers_audits.enums.NotificationChannel;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.enums.TypeDesignation;
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationCreateRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Departement;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
@@ -99,6 +101,64 @@ public class FicheAffectationService {
         log.info("Fiche d'affectation renseignée (section CGEA) — dossier: {}, type: {}",
                 dossierId, request.getTypeDesignation());
         return saved;
+    }
+
+    @Transactional
+    public FicheAffectation suivre(UUID dossierId, FicheAffectationSuiviRequest request) {
+        FicheAffectation fiche = getFicheOrThrow(dossierId);
+        checkSuiviAccess(fiche);
+
+        if (request.getEtatAvancement() == EtatAvancementAffectation.AUTRE
+                && (request.getEtatAvancementPrecision() == null
+                    || request.getEtatAvancementPrecision().isBlank())) {
+            throw new BusinessException(
+                    "Une précision est requise quand l'état d'avancement est \"Autre\".");
+        }
+
+        fiche.setDateRetour(Instant.now());
+        fiche.setEtatAvancement(request.getEtatAvancement());
+        fiche.setEtatAvancementPrecision(request.getEtatAvancementPrecision());
+        fiche.setCommentairesSuivi(request.getCommentairesSuivi());
+        fiche.setAgentSuivi(getCurrentAgentOrThrow());
+
+        FicheAffectation saved = ficheAffectationRepository.save(fiche);
+        log.info("Fiche d'affectation — suivi renseigné — dossier: {}, état: {}",
+                dossierId, request.getEtatAvancement());
+        return saved;
+    }
+
+    public FicheAffectation getOrThrow(UUID dossierId) {
+        FicheAffectation fiche = getFicheOrThrow(dossierId);
+        checkSuiviAccess(fiche);
+        return fiche;
+    }
+
+    private void checkSuiviAccess(FicheAffectation fiche) {
+        if (accessGuard.canSeeConfidential()) {
+            return; // CGE/CGEA/ADMIN_DDIC : accès toujours autorisé
+        }
+        if (fiche.getTypeDesignation() == null) {
+            throw new BusinessException(
+                    "Accès refusé — la section d'affectation n'a pas encore été renseignée par le CGEA");
+        }
+        String keycloakId = securityUtils.getCurrentKeycloakId()
+                .orElseThrow(() -> new BusinessException("Agent non authentifié"));
+        Agent agent = agentRepository.findByKeycloakId(keycloakId)
+                .orElseThrow(() -> new BusinessException(
+                        "Agent introuvable. Contactez l'administrateur DDIC."));
+
+        boolean autorise = switch (fiche.getTypeDesignation()) {
+            case DEPARTEMENT -> fiche.getDepartementDesigne() != null
+                    && agent.getDepartement() != null
+                    && agent.getDepartement().getId().equals(fiche.getDepartementDesigne().getId());
+            case AGENT_CJ -> fiche.getAgentDesigne() != null
+                    && agent.getId().equals(fiche.getAgentDesigne().getId());
+            case BRPD -> securityUtils.hasRole("AGENT_BRPD");
+        };
+        if (!autorise) {
+            throw new BusinessException(
+                    "Accès refusé — ce dossier ne vous a pas été affecté via la fiche d'affectation");
+        }
     }
 
     private List<Agent> resolveDestinataires(FicheAffectationAffectationRequest request) {

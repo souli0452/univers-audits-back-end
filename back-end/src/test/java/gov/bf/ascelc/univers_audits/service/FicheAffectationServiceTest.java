@@ -258,4 +258,196 @@ class FicheAffectationServiceTest {
         assertThat(result.getAgentDesigne()).isNull();
         verify(notificationRepository, times(1)).save(any());
     }
+
+    @Test
+    void suivre_agentDuDepartementDesigne_estAutorise() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(UUID.randomUUID()).code("DEI").build();
+        Agent agentDuDepartement = Agent.builder()
+                .id(UUID.randomUUID()).keycloakId("kc-dep")
+                .departement(dei).build();
+        FicheAffectation fiche = FicheAffectation.builder()
+                .dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                .departementDesigne(dei)
+                .build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-dep"));
+        when(agentRepository.findByKeycloakId("kc-dep")).thenReturn(Optional.of(agentDuDepartement));
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                        .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.CLOTURE)
+                        .commentairesSuivi("Investigation menée à son terme")
+                        .build();
+
+        FicheAffectation result = service.suivre(dossierId, request);
+
+        assertThat(result.getEtatAvancement())
+                .isEqualTo(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.CLOTURE);
+        assertThat(result.getAgentSuivi()).isEqualTo(agentDuDepartement);
+        assertThat(result.getDateRetour()).isNotNull();
+    }
+
+    @Test
+    void suivre_agentDunAutreDepartement_estRejete() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(UUID.randomUUID()).code("DEI").build();
+        gov.bf.ascelc.univers_audits.model.entity.Departement dac =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(UUID.randomUUID()).code("DAC").build();
+        Agent agentDac = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-dac").departement(dac).build();
+        FicheAffectation fiche = FicheAffectation.builder()
+                .dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                .departementDesigne(dei)
+                .build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-dac"));
+        when(agentRepository.findByKeycloakId("kc-dac")).thenReturn(Optional.of(agentDac));
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                        .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.EN_COURS)
+                        .build();
+
+        assertThatThrownBy(() -> service.suivre(dossierId, request))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void suivre_agentDesigneNommeHorsDepartement_estAutorise() {
+        Agent conseillerDesigne = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-cj").build();
+        FicheAffectation fiche = FicheAffectation.builder()
+                .dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.AGENT_CJ)
+                .agentDesigne(conseillerDesigne)
+                .build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-cj"));
+        when(agentRepository.findByKeycloakId("kc-cj")).thenReturn(Optional.of(conseillerDesigne));
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                        .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.EN_COURS)
+                        .build();
+
+        FicheAffectation result = service.suivre(dossierId, request);
+
+        assertThat(result.getAgentSuivi()).isEqualTo(conseillerDesigne);
+    }
+
+    @Test
+    void suivre_roleAgentBrpd_estAutoriseQuandBrpdDesigne() {
+        FicheAffectation fiche = FicheAffectation.builder()
+                .dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.BRPD)
+                .build();
+        Agent agentBrpd = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-brpd").build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-brpd"));
+        when(agentRepository.findByKeycloakId("kc-brpd")).thenReturn(Optional.of(agentBrpd));
+        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(true);
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                        .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.EN_COURS)
+                        .build();
+
+        FicheAffectation result = service.suivre(dossierId, request);
+
+        assertThat(result.getAgentSuivi()).isEqualTo(agentBrpd);
+    }
+
+    @Test
+    void suivre_roleprivilegie_estToujoursAutorise() {
+        FicheAffectation fiche = FicheAffectation.builder()
+                .dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.BRPD)
+                .build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        stubAgentCourant();
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                        .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.EN_COURS)
+                        .build();
+
+        FicheAffectation result = service.suivre(dossierId, request);
+
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    void suivre_etatAutreSansPrecision_estRejete() {
+        FicheAffectation fiche = FicheAffectation.builder()
+                .dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.BRPD)
+                .build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                        .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.AUTRE)
+                        .build();
+
+        assertThatThrownBy(() -> service.suivre(dossierId, request))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void suivre_sectionCgeaPasEncoreRenseignee_estRejetePourNonPrivilegie() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build(); // typeDesignation == null
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                        .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.EN_COURS)
+                        .build();
+
+        assertThatThrownBy(() -> service.suivre(dossierId, request))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void getOrThrow_appliqueLaMemeAutorisationDynamiqueQueSuivre() {
+        FicheAffectation fiche = FicheAffectation.builder()
+                .dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.BRPD)
+                .build();
+        Agent agentNonBrpd = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-autre").build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-autre"));
+        when(agentRepository.findByKeycloakId("kc-autre")).thenReturn(Optional.of(agentNonBrpd));
+        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getOrThrow(dossierId))
+                .isInstanceOf(BusinessException.class);
+    }
 }
