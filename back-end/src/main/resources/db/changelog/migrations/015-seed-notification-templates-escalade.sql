@@ -21,7 +21,7 @@ INSERT INTO portal_config
 )
 VALUES
 (gen_random_uuid(), 'notif_subject_escalade_ar',
- 'ESCALADE : Accusé de réception toujours en retard — {numero}',
+ 'ESCALADE : Accusé de réception toujours en retard — {numero} ({agentEnCharge})',
  'Escalade AR — sujet',
  'Alerte automatique vers CGEA/CGE quand un dossier reste en dépassement de délai d''accusé de réception au-delà du délai de grâce. Utilisez {numero} pour le numéro du dossier et {agentEnCharge} pour le nom de l''agent en charge.',
  'TEXT', 'NOTIFICATIONS', now(), 0),
@@ -32,7 +32,7 @@ VALUES
  'TEXT', 'NOTIFICATIONS', now(), 0),
 
 (gen_random_uuid(), 'notif_subject_escalade_complement',
- 'ESCALADE : Complément d''information toujours en retard — {numero}',
+ 'ESCALADE : Complément d''information toujours en retard — {numero} ({agentEnCharge})',
  'Escalade complément — sujet',
  'Alerte automatique vers CGEA/CGE quand un dossier reste en attente de complément d''information au-delà du délai de grâce. Utilisez {numero} pour le numéro du dossier et {agentEnCharge} pour le nom de l''agent en charge.',
  'TEXT', 'NOTIFICATIONS', now(), 0),
@@ -43,7 +43,7 @@ VALUES
  'TEXT', 'NOTIFICATIONS', now(), 0),
 
 (gen_random_uuid(), 'notif_subject_escalade_investigation',
- 'ESCALADE : Investigation toujours en dépassement — {numero}',
+ 'ESCALADE : Investigation toujours en dépassement — {numero} ({agentEnCharge})',
  'Escalade investigation — sujet',
  'Alerte automatique vers CGEA/CGE quand une investigation dépasse son échéance au-delà du délai de grâce. Utilisez {numero} pour le numéro du dossier et {agentEnCharge} pour le nom de l''agent en charge.',
  'TEXT', 'NOTIFICATIONS', now(), 0),
@@ -54,7 +54,7 @@ VALUES
  'TEXT', 'NOTIFICATIONS', now(), 0),
 
 (gen_random_uuid(), 'notif_subject_escalade_demande_documents',
- 'ESCALADE : Demande de documents toujours sans réponse — {numero}',
+ 'ESCALADE : Demande de documents toujours sans réponse — {numero} ({agentEnCharge})',
  'Escalade demande documents — sujet',
  'Alerte automatique vers CGEA/CGE quand une demande de documents reste sans réponse au-delà du délai de grâce. Utilisez {numero} pour le numéro du dossier et {agentEnCharge} pour le nom de l''agent en charge.',
  'TEXT', 'NOTIFICATIONS', now(), 0),
