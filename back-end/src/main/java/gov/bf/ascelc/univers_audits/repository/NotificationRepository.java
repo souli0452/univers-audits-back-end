@@ -112,8 +112,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     boolean existsByDossierIdAndType(UUID dossierId, NotificationType type);
 
-    boolean existsByDemandeDocumentsIdAndType(UUID demandeDocumentsId, NotificationType type);
-
     // Une DemandeDocuments passe par plusieurs cycles d'escalade sur la même
     // ligne (INITIAL -> RELANCE -> SOMMATION -> SAISINE_JUDICIAIRE), chaque
     // escalade réarmant sentAt/deadline. Une alerte créée avant le sentAt

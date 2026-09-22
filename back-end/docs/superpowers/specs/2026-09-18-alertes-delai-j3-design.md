@@ -220,8 +220,9 @@ mocks `NotificationRepository`/`DossierRepository`/`DemandeDocumentsRepository`/
 
 ## Correction post-livraison (revue finale de branche)
 
-La revue finale de branche (Opus) a trouvé 1 Critical et 3 Important, tous
-corrigés dans une vague de fix unique avant merge :
+La revue finale de branche (Opus) a trouvé 1 Critical et 3 Important (l'un
+d'eux, l'index manquant, regroupé dans le même correctif que le Critical
+ci-dessous), tous corrigés dans une vague de fix unique avant merge :
 
 1. **Critical** : le CHECK constraint SQL `notification_type_check` (figé dans
    `001-baseline-schema.sql` au moment de la régénération du schéma de
