@@ -9,7 +9,6 @@ import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DemandeDocumentsRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
-import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.KeycloakAdminService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -45,7 +44,6 @@ class NotificationServiceImplTest {
     @Mock private PortalConfigService portalConfigService;
     @Mock(answer = Answers.CALLS_REAL_METHODS) private DeadlineCalculator deadlineCalculator;
     @Mock private DemandeDocumentsRepository demandeDocumentsRepository;
-    @Mock private InvestigationRepository investigationRepository;
     @Mock private ParametreDelaiService parametreDelaiService;
     @Mock private KeycloakAdminService keycloakAdminService;
 
@@ -69,7 +67,7 @@ class NotificationServiceImplTest {
         lenient().when(keycloakAdminService.getUserIdsByRole(anyString())).thenReturn(List.of());
         lenient().when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of());
         lenient().when(dossierRepository.findComplementsOverdueBeyondGrace(any())).thenReturn(List.of());
-        lenient().when(investigationRepository.findOverdueBeyondGrace(any())).thenReturn(List.of());
+        lenient().when(dossierRepository.findInvestigationsOverdueBeyondGrace(any())).thenReturn(List.of());
         lenient().when(demandeDocumentsRepository.findOverdueBeyondGrace(any())).thenReturn(List.of());
     }
 
@@ -363,12 +361,10 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    void escaladeVersSuperieurs_resoutLeDossierDUneInvestigationEtNotifie() {
+    void escaladeVersSuperieurs_notifieChaqueSuperieurPourUneInvestigationEnDepassement() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0023").build();
-        Investigation investigation = Investigation.builder()
-                .id(UUID.randomUUID()).dossier(dossier).build();
         Agent cge = buildSuperieur("kc-cge", "M104");
-        when(investigationRepository.findOverdueBeyondGrace(any())).thenReturn(List.of(investigation));
+        when(dossierRepository.findInvestigationsOverdueBeyondGrace(any())).thenReturn(List.of(dossier));
         when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
         when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
 
@@ -513,5 +509,50 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(argThat(n ->
                 n.getType() == NotificationType.ESCALADE_DEMANDE_DOCUMENTS
                         && n.getDemandeDocuments() == demande));
+    }
+
+    @Test
+    void escaladeVersSuperieurs_neCrachePasSiLeDelaiDeGraceEstIndisponible() {
+        when(parametreDelaiService.resolveDelaiJours("ESCALADE_DELAI_GRACE"))
+                .thenThrow(new gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException(
+                        "Paramètre de délai introuvable ou inactif : ESCALADE_DELAI_GRACE"));
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> service.escaladeVersSuperieurs())
+                .doesNotThrowAnyException();
+
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void escaladeVersSuperieurs_transmetLeNumeroEtLAgentEnChargeDansLesPlaceholders() {
+        Agent agentEnCharge = buildSuperieur("kc-titulaire", "M200");
+        agentEnCharge.setFirstName("Awa");
+        agentEnCharge.setLastName("Ouedraogo");
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID()).number("2026-0030").agentInCharge(agentEnCharge).build();
+        Agent cge = buildSuperieur("kc-cge", "M201");
+        when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of(dossier));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+
+        service.escaladeVersSuperieurs();
+
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_escalade_ar"), argThat(m ->
+                "2026-0030".equals(m.get("numero")) && "Awa Ouedraogo".equals(m.get("agentEnCharge"))));
+    }
+
+    @Test
+    void escaladeVersSuperieurs_utiliseUnRepliQuandAucunAgentEnChargeAssigne() {
+        Dossier dossier = Dossier.builder()
+                .id(UUID.randomUUID()).number("2026-0031").agentInCharge(null).build();
+        Agent cge = buildSuperieur("kc-cge", "M202");
+        when(dossierRepository.findAcknowledgmentsOverdueBeyondGrace(any())).thenReturn(List.of(dossier));
+        when(keycloakAdminService.getUserIdsByRole("CGE")).thenReturn(List.of("kc-cge"));
+        when(agentRepository.findByKeycloakId("kc-cge")).thenReturn(java.util.Optional.of(cge));
+
+        service.escaladeVersSuperieurs();
+
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_escalade_ar"), argThat(m ->
+                "agent non identifié".equals(m.get("agentEnCharge"))));
     }
 }

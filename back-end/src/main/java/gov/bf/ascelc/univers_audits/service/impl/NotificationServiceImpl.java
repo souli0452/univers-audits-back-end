@@ -9,12 +9,10 @@ import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.DemandeDocuments;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
-import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DemandeDocumentsRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
-import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.service.KeycloakAdminService;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
@@ -55,7 +53,6 @@ public class NotificationServiceImpl implements NotificationService {
     private final PortalConfigService    portalConfigService;
     private final DeadlineCalculator     deadlineCalculator;
     private final DemandeDocumentsRepository demandeDocumentsRepository;
-    private final InvestigationRepository    investigationRepository;
     private final ParametreDelaiService      parametreDelaiService;
     private final KeycloakAdminService       keycloakAdminService;
 
@@ -523,7 +520,14 @@ public class NotificationServiceImpl implements NotificationService {
     public void escaladeVersSuperieurs() {
         log.info("[Notification] Escalade automatique vers CGEA/CGE...");
 
-        int delaiGraceJours = parametreDelaiService.resolveDelaiJours("ESCALADE_DELAI_GRACE");
+        int delaiGraceJours;
+        try {
+            delaiGraceJours = parametreDelaiService.resolveDelaiJours("ESCALADE_DELAI_GRACE");
+        } catch (ResourceNotFoundException e) {
+            log.error("[Notification] Délai de grâce d'escalade indisponible — escalade ignorée pour ce passage : {}",
+                    e.getMessage());
+            return;
+        }
         Instant graceThreshold = deadlineCalculator.addCalendarDays(Instant.now(), -delaiGraceJours);
 
         List<Agent> superieurs = resolveSuperieurs();
@@ -542,12 +546,8 @@ public class NotificationServiceImpl implements NotificationService {
                 NotificationType.ESCALADE_COMPLEMENT,
                 "notif_subject_escalade_complement", "notif_content_escalade_complement", superieurs);
 
-        List<Dossier> dossiersInvestigation = investigationRepository
-                .findOverdueBeyondGrace(graceThreshold).stream()
-                .map(Investigation::getDossier)
-                .toList();
         int escaladesInvestigation = escaladeDossiers(
-                dossiersInvestigation,
+                dossierRepository.findInvestigationsOverdueBeyondGrace(graceThreshold),
                 NotificationType.ESCALADE_INVESTIGATION,
                 "notif_subject_escalade_investigation", "notif_content_escalade_investigation", superieurs);
 
@@ -629,7 +629,8 @@ public class NotificationServiceImpl implements NotificationService {
                     .build();
             notificationRepository.save(escalade);
         }
-        log.warn("[Notification] Escalade {} créée — dossier: {}", type, dossier.getNumber());
+        log.warn("[Notification] Escalade {} créée — dossier: {}, destinataires: {}",
+                type, dossier.getNumber(), superieurs.size());
     }
 
     private String nomAgentEnCharge(Dossier dossier) {

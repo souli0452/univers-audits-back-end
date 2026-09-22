@@ -198,6 +198,20 @@ public interface DossierRepository
             @Param("graceThreshold") Instant graceThreshold);
 
     @Query("""
+            SELECT d FROM Dossier d
+            JOIN Investigation i ON i.dossier.id = d.id
+            WHERE d.status = gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_INVESTIGATION
+            AND i.status IN (
+                gov.bf.ascelc.univers_audits.enums.InvestigationStatus.INITIATED,
+                gov.bf.ascelc.univers_audits.enums.InvestigationStatus.IN_PROGRESS
+            )
+            AND COALESCE(i.extendedDeadline, i.plannedEndDate) < :graceThreshold
+            ORDER BY i.plannedEndDate ASC
+            """)
+    List<Dossier> findInvestigationsOverdueBeyondGrace(
+            @Param("graceThreshold") Instant graceThreshold);
+
+    @Query("""
             SELECT d.status, COUNT(d)
             FROM Dossier d
             GROUP BY d.status
