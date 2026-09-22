@@ -174,6 +174,30 @@ public interface DossierRepository
             @Param("now") Instant now, @Param("in3Days") Instant in3Days);
 
     @Query("""
+            SELECT d FROM Dossier d
+            WHERE d.acknowledgmentDeadline < :graceThreshold
+            AND d.status NOT IN (
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.CLOS,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.CLASSE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.IRRECEVABLE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.TRANSFERE,
+                gov.bf.ascelc.univers_audits.enums.DossierStatus.ORIENTEE_ADMINISTRATIF
+            )
+            ORDER BY d.acknowledgmentDeadline ASC
+            """)
+    List<Dossier> findAcknowledgmentsOverdueBeyondGrace(
+            @Param("graceThreshold") Instant graceThreshold);
+
+    @Query("""
+            SELECT d FROM Dossier d
+            WHERE d.status = gov.bf.ascelc.univers_audits.enums.DossierStatus.EN_ATTENTE_COMPLEMENT
+            AND d.additionalInfoDeadline < :graceThreshold
+            ORDER BY d.additionalInfoDeadline ASC
+            """)
+    List<Dossier> findComplementsOverdueBeyondGrace(
+            @Param("graceThreshold") Instant graceThreshold);
+
+    @Query("""
             SELECT d.status, COUNT(d)
             FROM Dossier d
             GROUP BY d.status

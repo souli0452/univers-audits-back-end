@@ -206,6 +206,28 @@ public class KeycloakAdminService {
                 .toList();
     }
 
+    /**
+     * Retourne les keycloakId de tous les utilisateurs affectés au rôle
+     * realm donné. Ne lève jamais — un rôle introuvable ou une erreur
+     * Keycloak transitoire renvoie une liste vide plutôt que de faire
+     * échouer l'appelant (typiquement un job planifié qui ne doit pas
+     * planter à cause d'un souci Keycloak passager).
+     */
+    public List<String> getUserIdsByRole(String roleName) {
+        try {
+            return realmResource().roles().get(roleName).getUserMembers()
+                    .stream()
+                    .map(UserRepresentation::getId)
+                    .toList();
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            log.warn("Rôle Keycloak introuvable : {}", roleName);
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Erreur lecture des membres du rôle '{}': {}", roleName, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
     public List<String> getUserRoles(String keycloakId) {
         if (keycloakId == null || keycloakId.isBlank()) return Collections.emptyList();
         try {

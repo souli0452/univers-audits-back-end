@@ -81,6 +81,23 @@ public interface InvestigationRepository
     List<Investigation> findOverdue(@Param("now") Instant now);
 
     @Query("""
+            SELECT DISTINCT i FROM Investigation i
+            LEFT JOIN FETCH i.dossier
+            WHERE i.status = 'IN_PROGRESS'
+            AND (
+                (i.extendedDeadline IS NOT NULL
+                 AND i.extendedDeadline < :graceThreshold)
+                OR
+                (i.extendedDeadline IS NULL
+                 AND i.plannedEndDate IS NOT NULL
+                 AND i.plannedEndDate < :graceThreshold)
+            )
+            ORDER BY i.plannedEndDate ASC
+            """)
+    List<Investigation> findOverdueBeyondGrace(
+            @Param("graceThreshold") Instant graceThreshold);
+
+    @Query("""
             SELECT i.status, COUNT(i)
             FROM Investigation i
             GROUP BY i.status

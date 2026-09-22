@@ -35,4 +35,15 @@ public interface DemandeDocumentsRepository extends JpaRepository<DemandeDocumen
             """)
     List<DemandeDocuments> findDueWithin(
             @Param("now") Instant now, @Param("in3Days") Instant in3Days);
+
+    @Query("""
+            SELECT dd FROM DemandeDocuments dd
+            JOIN FETCH dd.investigation i
+            JOIN FETCH i.dossier
+            WHERE dd.received = false
+            AND dd.deadline < :graceThreshold
+            ORDER BY dd.deadline ASC
+            """)
+    List<DemandeDocuments> findOverdueBeyondGrace(
+            @Param("graceThreshold") Instant graceThreshold);
 }
