@@ -28,6 +28,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -123,5 +125,137 @@ class FicheAffectationServiceTest {
 
         assertThatThrownBy(() -> service.creer(dossierId, request))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void affecter_departementEligible_metAJourLaFicheEtNotifieLesAgentsDuDepartement() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        UUID departementId = UUID.randomUUID();
+        Agent agentDep1 = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-dep-1").actif(true).build();
+        Agent agentDep2Inactif = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-dep-2").actif(false).build();
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(departementId).code("DEI").libelle("Enquête et Investigation")
+                        .agents(java.util.List.of(agentDep1, agentDep2Inactif))
+                        .build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(departementRepository.findById(departementId)).thenReturn(Optional.of(dei));
+        stubAgentCourant();
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(portalConfigService.resolveNotificationText(eq("notif_subject_affectation_dossier"), any()))
+                .thenReturn("sujet");
+        when(portalConfigService.resolveNotificationText(eq("notif_content_affectation_dossier"), any()))
+                .thenReturn("contenu");
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                        .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                        .departementDesigneId(departementId)
+                        .build();
+
+        FicheAffectation result = service.affecter(dossierId, request);
+
+        assertThat(result.getDepartementDesigne()).isEqualTo(dei);
+        assertThat(result.getAgentCgea()).isEqualTo(agentCourant);
+        assertThat(result.getDateImputation()).isNotNull();
+        // Un seul agent actif dans le département -> une seule notification créée
+        verify(notificationRepository, times(1)).save(any());
+    }
+
+    @Test
+    void affecter_departementNonEligible_estRejete() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        UUID departementId = UUID.randomUUID();
+        gov.bf.ascelc.univers_audits.model.entity.Departement dsi =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(departementId).code("DSI").libelle("Systèmes d'information")
+                        .build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(departementRepository.findById(departementId)).thenReturn(Optional.of(dsi));
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                        .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                        .departementDesigneId(departementId)
+                        .build();
+
+        assertThatThrownBy(() -> service.affecter(dossierId, request))
+                .isInstanceOf(BusinessException.class);
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    void affecter_agentCjValideEtActif_estAccepteEtNotifieSeul() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        UUID agentCjId = UUID.randomUUID();
+        Agent conseiller = Agent.builder().id(agentCjId).keycloakId("kc-cj").actif(true).build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(agentRepository.findById(agentCjId)).thenReturn(Optional.of(conseiller));
+        when(keycloakAdminService.getUserRoles("kc-cj")).thenReturn(java.util.List.of("CONSEILLER_JURIDIQUE"));
+        stubAgentCourant();
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(portalConfigService.resolveNotificationText(anyString(), any())).thenReturn("texte");
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                        .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.AGENT_CJ)
+                        .agentDesigneId(agentCjId)
+                        .build();
+
+        FicheAffectation result = service.affecter(dossierId, request);
+
+        assertThat(result.getAgentDesigne()).isEqualTo(conseiller);
+        verify(notificationRepository, times(1)).save(any());
+    }
+
+    @Test
+    void affecter_agentSansRoleConseillerJuridique_estRejete() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        UUID agentId = UUID.randomUUID();
+        Agent autreAgent = Agent.builder().id(agentId).keycloakId("kc-autre").actif(true).build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(agentRepository.findById(agentId)).thenReturn(Optional.of(autreAgent));
+        when(keycloakAdminService.getUserRoles("kc-autre")).thenReturn(java.util.List.of("AGENT_BRPD"));
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                        .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.AGENT_CJ)
+                        .agentDesigneId(agentId)
+                        .build();
+
+        assertThatThrownBy(() -> service.affecter(dossierId, request))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void affecter_brpd_resoutLesDestinatairesViaKeycloakEtNeCibleAucuneEntiteLocale() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        Agent agentBrpd = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-brpd").actif(true).build();
+
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(keycloakAdminService.getUserIdsByRole("AGENT_BRPD")).thenReturn(java.util.List.of("kc-brpd"));
+        when(agentRepository.findByKeycloakId("kc-brpd")).thenReturn(Optional.of(agentBrpd));
+        stubAgentCourant();
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(portalConfigService.resolveNotificationText(anyString(), any())).thenReturn("texte");
+
+        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest request =
+                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                        .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.BRPD)
+                        .build();
+
+        FicheAffectation result = service.affecter(dossierId, request);
+
+        assertThat(result.getTypeDesignation()).isEqualTo(gov.bf.ascelc.univers_audits.enums.TypeDesignation.BRPD);
+        assertThat(result.getDepartementDesigne()).isNull();
+        assertThat(result.getAgentDesigne()).isNull();
+        verify(notificationRepository, times(1)).save(any());
     }
 }

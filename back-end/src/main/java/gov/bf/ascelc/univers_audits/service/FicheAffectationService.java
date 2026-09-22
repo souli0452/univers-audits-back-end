@@ -1,9 +1,15 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.enums.NotificationChannel;
+import gov.bf.ascelc.univers_audits.enums.NotificationType;
+import gov.bf.ascelc.univers_audits.enums.TypeDesignation;
+import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationCreateRequest;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.model.entity.Departement;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.FicheAffectation;
+import gov.bf.ascelc.univers_audits.model.entity.Notification;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DepartementRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
@@ -20,6 +26,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -36,6 +46,8 @@ public class FicheAffectationService {
     private final KeycloakAdminService keycloakAdminService;
     private final SecurityUtils securityUtils;
     private final DossierAccessGuard accessGuard;
+
+    private static final Set<String> DEPARTEMENTS_ELIGIBLES = Set.of("DEI", "DAC");
 
     @Transactional
     public FicheAffectation creer(UUID dossierId, FicheAffectationCreateRequest request) {
@@ -60,6 +72,124 @@ public class FicheAffectationService {
         FicheAffectation saved = ficheAffectationRepository.save(fiche);
         log.info("Fiche d'affectation créée — dossier: {}", dossierId);
         return saved;
+    }
+
+    @Transactional
+    public FicheAffectation affecter(UUID dossierId, FicheAffectationAffectationRequest request) {
+        FicheAffectation fiche = getFicheOrThrow(dossierId);
+        accessGuard.checkReadAccess(fiche.getDossier());
+
+        List<Agent> destinataires = resolveDestinataires(request);
+
+        fiche.setTypeDesignation(request.getTypeDesignation());
+        fiche.setDepartementDesigne(
+                request.getTypeDesignation() == TypeDesignation.DEPARTEMENT
+                        ? getDepartementEligibleOrThrow(request.getDepartementDesigneId())
+                        : null);
+        fiche.setAgentDesigne(
+                request.getTypeDesignation() == TypeDesignation.AGENT_CJ
+                        ? getConseillerJuridiqueOrThrow(request.getAgentDesigneId())
+                        : null);
+        fiche.setObservationsCgea(request.getObservationsCgea());
+        fiche.setAgentCgea(getCurrentAgentOrThrow());
+        fiche.setDateImputation(Instant.now());
+
+        FicheAffectation saved = ficheAffectationRepository.save(fiche);
+        notifierDestinataires(saved, destinataires);
+        log.info("Fiche d'affectation renseignée (section CGEA) — dossier: {}, type: {}",
+                dossierId, request.getTypeDesignation());
+        return saved;
+    }
+
+    private List<Agent> resolveDestinataires(FicheAffectationAffectationRequest request) {
+        return switch (request.getTypeDesignation()) {
+            case DEPARTEMENT -> getDepartementEligibleOrThrow(request.getDepartementDesigneId())
+                    .getAgents().stream().filter(Agent::getActif).toList();
+            case AGENT_CJ -> List.of(getConseillerJuridiqueOrThrow(request.getAgentDesigneId()));
+            case BRPD -> resolveActiveAgentsByRole("AGENT_BRPD");
+        };
+    }
+
+    private void notifierDestinataires(FicheAffectation fiche, List<Agent> destinataires) {
+        if (destinataires.isEmpty()) {
+            log.warn("[FicheAffectation] Aucun destinataire résolu pour la notification — dossier: {}",
+                    fiche.getDossier().getId());
+            return;
+        }
+        Map<String, String> placeholders = Map.of(
+                "numero", fiche.getDossier().getNumber(),
+                "departementOuAgent", libelleDesignation(fiche));
+        String subject = portalConfigService.resolveNotificationText(
+                "notif_subject_affectation_dossier", placeholders);
+        String content = portalConfigService.resolveNotificationText(
+                "notif_content_affectation_dossier", placeholders);
+
+        for (Agent destinataire : destinataires) {
+            Notification notification = Notification.builder()
+                    .dossier(fiche.getDossier())
+                    .type(NotificationType.AFFECTATION_DOSSIER)
+                    .channel(NotificationChannel.PORTAL)
+                    .recipient(destinataire.getKeycloakId())
+                    .subject(subject)
+                    .content(content)
+                    .scheduledAt(Instant.now())
+                    .build();
+            notificationRepository.save(notification);
+        }
+        log.info("[FicheAffectation] Notification d'affectation envoyée — dossier: {}, destinataires: {}",
+                fiche.getDossier().getId(), destinataires.size());
+    }
+
+    private String libelleDesignation(FicheAffectation fiche) {
+        return switch (fiche.getTypeDesignation()) {
+            case DEPARTEMENT -> "Département " + fiche.getDepartementDesigne().getLibelle();
+            case AGENT_CJ -> fiche.getAgentDesigne().getNomComplet() + " (Conseiller Juridique)";
+            case BRPD -> "BRPD";
+        };
+    }
+
+    private List<Agent> resolveActiveAgentsByRole(String roleName) {
+        List<Agent> agents = new ArrayList<>();
+        for (String keycloakId : keycloakAdminService.getUserIdsByRole(roleName)) {
+            agentRepository.findByKeycloakId(keycloakId)
+                    .filter(Agent::getActif)
+                    .ifPresent(agents::add);
+        }
+        return agents;
+    }
+
+    private Departement getDepartementEligibleOrThrow(UUID departementId) {
+        if (departementId == null) {
+            throw new BusinessException(
+                    "Le département désigné est requis quand le type de désignation est DEPARTEMENT.");
+        }
+        Departement departement = departementRepository.findById(departementId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Département introuvable : " + departementId));
+        if (!DEPARTEMENTS_ELIGIBLES.contains(departement.getCode())) {
+            throw new BusinessException(
+                    "Seuls les départements DEI et DAC peuvent être désignés via la fiche d'affectation, reçu : "
+                            + departement.getCode());
+        }
+        return departement;
+    }
+
+    private Agent getConseillerJuridiqueOrThrow(UUID agentId) {
+        if (agentId == null) {
+            throw new BusinessException(
+                    "L'agent désigné est requis quand le type de désignation est AGENT_CJ.");
+        }
+        Agent agent = agentRepository.findById(agentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agent introuvable : " + agentId));
+        if (!Boolean.TRUE.equals(agent.getActif())) {
+            throw new BusinessException("L'agent désigné doit être actif : " + agentId);
+        }
+        if (agent.getKeycloakId() == null
+                || !keycloakAdminService.getUserRoles(agent.getKeycloakId()).contains("CONSEILLER_JURIDIQUE")) {
+            throw new BusinessException(
+                    "L'agent désigné doit avoir le rôle Conseiller Juridique : " + agentId);
+        }
+        return agent;
     }
 
     private Agent getCurrentAgentOrThrow() {
