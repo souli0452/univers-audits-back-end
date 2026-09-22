@@ -246,7 +246,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Scheduled(cron = "0 0 8 * * MON-FRI")
     @Transactional
     public void sendDeadlineAlerts() {
-        log.info("[Notification] Envoi des alertes de délai dépassé...");
+        log.info("[Notification] Envoi des alertes de délai (échéance dépassée et J-3)...");
 
         Instant now = Instant.now();
         Instant in3Days = deadlineCalculator.addCalendarDays(now, 3);
@@ -281,7 +281,7 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         List<Dossier> overdueComplements =
-                dossierRepository.findOverdueComplementRequests(Instant.now());
+                dossierRepository.findOverdueComplementRequests(now);
 
         for (Dossier dossier : overdueComplements) {
             boolean alreadyAlerted = notificationRepository
@@ -310,7 +310,7 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         List<Dossier> overdueInvestigations =
-                dossierRepository.findOverdueInvestigations(Instant.now());
+                dossierRepository.findOverdueInvestigations(now);
 
         for (Dossier dossier : overdueInvestigations) {
             boolean alreadyAlerted = notificationRepository
@@ -432,9 +432,10 @@ public class NotificationServiceImpl implements NotificationService {
             gov.bf.ascelc.univers_audits.model.entity.Dossier dossier =
                     demande.getInvestigation().getDossier();
             boolean alreadyAlerted = notificationRepository
-                    .existsByDemandeDocumentsIdAndType(
+                    .existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
                             demande.getId(),
-                            NotificationType.DEMANDE_DOCUMENTS_ALERT);
+                            NotificationType.DEMANDE_DOCUMENTS_ALERT,
+                            demande.getSentAt());
 
             if (!alreadyAlerted) {
                 Notification alert = Notification.builder()
@@ -464,9 +465,10 @@ public class NotificationServiceImpl implements NotificationService {
             gov.bf.ascelc.univers_audits.model.entity.Dossier dossier =
                     demande.getInvestigation().getDossier();
             boolean alreadyAlerted = notificationRepository
-                    .existsByDemandeDocumentsIdAndType(
+                    .existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
                             demande.getId(),
-                            NotificationType.DEMANDE_DOCUMENTS_ALERT_J3);
+                            NotificationType.DEMANDE_DOCUMENTS_ALERT_J3,
+                            demande.getSentAt());
 
             if (!alreadyAlerted) {
                 Notification alert = Notification.builder()

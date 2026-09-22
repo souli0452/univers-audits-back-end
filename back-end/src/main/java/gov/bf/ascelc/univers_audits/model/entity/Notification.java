@@ -25,7 +25,10 @@ import java.time.Instant;
                 columnList = "status"),
         // Alertes de dépassement de délai
         @Index(name = "idx_notification_scheduled",
-                columnList = "scheduled_at")
+                columnList = "scheduled_at"),
+        // Dedup des alertes de demande de documents
+        @Index(name = "idx_notification_demande_documents",
+                columnList = "demande_documents_id")
 })
 public class Notification extends AuditEntity {
 

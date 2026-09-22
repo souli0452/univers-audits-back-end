@@ -20,12 +20,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -116,6 +118,8 @@ class NotificationServiceImplTest {
 
         verify(notificationRepository).save(argThat(n ->
                 n.getType() == NotificationType.DEADLINE_ALERT_J3 && n.getDossier() == dossier));
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_deadline_ar_j3"), anyMap());
+        verify(portalConfigService).resolveNotificationText(eq("notif_content_deadline_ar_j3"), anyMap());
     }
 
     @Test
@@ -127,6 +131,8 @@ class NotificationServiceImplTest {
 
         verify(notificationRepository).save(argThat(n ->
                 n.getType() == NotificationType.COMPLEMENT_ALERT_J3 && n.getDossier() == dossier));
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_deadline_complement_j3"), anyMap());
+        verify(portalConfigService).resolveNotificationText(eq("notif_content_deadline_complement_j3"), anyMap());
     }
 
     @Test
@@ -138,6 +144,8 @@ class NotificationServiceImplTest {
 
         verify(notificationRepository).save(argThat(n ->
                 n.getType() == NotificationType.INVESTIGATION_ALERT_J3 && n.getDossier() == dossier));
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_deadline_investigation_j3"), anyMap());
+        verify(portalConfigService).resolveNotificationText(eq("notif_content_deadline_investigation_j3"), anyMap());
     }
 
     @Test
@@ -164,6 +172,7 @@ class NotificationServiceImplTest {
                 .id(UUID.randomUUID())
                 .investigation(investigation)
                 .received(false)
+                .sentAt(Instant.now())
                 .build();
     }
 
@@ -179,6 +188,8 @@ class NotificationServiceImplTest {
                 n.getType() == NotificationType.DEMANDE_DOCUMENTS_ALERT
                         && n.getDossier() == dossier
                         && n.getDemandeDocuments() == demande));
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_deadline_demande_documents"), anyMap());
+        verify(portalConfigService).resolveNotificationText(eq("notif_content_deadline_demande_documents"), anyMap());
     }
 
     @Test
@@ -193,6 +204,8 @@ class NotificationServiceImplTest {
                 n.getType() == NotificationType.DEMANDE_DOCUMENTS_ALERT_J3
                         && n.getDossier() == dossier
                         && n.getDemandeDocuments() == demande));
+        verify(portalConfigService).resolveNotificationText(eq("notif_subject_deadline_demande_documents_j3"), anyMap());
+        verify(portalConfigService).resolveNotificationText(eq("notif_content_deadline_demande_documents_j3"), anyMap());
     }
 
     @Test
@@ -200,8 +213,9 @@ class NotificationServiceImplTest {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0011").build();
         DemandeDocuments demande = buildDemande(dossier);
         when(demandeDocumentsRepository.findOverdue(any())).thenReturn(List.of(demande));
-        when(notificationRepository.existsByDemandeDocumentsIdAndType(
-                demande.getId(), NotificationType.DEMANDE_DOCUMENTS_ALERT)).thenReturn(true);
+        when(notificationRepository.existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                eq(demande.getId()), eq(NotificationType.DEMANDE_DOCUMENTS_ALERT), any()))
+                .thenReturn(true);
 
         service.sendDeadlineAlerts();
 
@@ -220,10 +234,12 @@ class NotificationServiceImplTest {
         DemandeDocuments secondDemande = buildDemande(dossier);
         when(demandeDocumentsRepository.findOverdue(any()))
                 .thenReturn(List.of(firstDemande, secondDemande));
-        when(notificationRepository.existsByDemandeDocumentsIdAndType(
-                firstDemande.getId(), NotificationType.DEMANDE_DOCUMENTS_ALERT)).thenReturn(true);
-        when(notificationRepository.existsByDemandeDocumentsIdAndType(
-                secondDemande.getId(), NotificationType.DEMANDE_DOCUMENTS_ALERT)).thenReturn(false);
+        when(notificationRepository.existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                eq(firstDemande.getId()), eq(NotificationType.DEMANDE_DOCUMENTS_ALERT), any()))
+                .thenReturn(true);
+        when(notificationRepository.existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                eq(secondDemande.getId()), eq(NotificationType.DEMANDE_DOCUMENTS_ALERT), any()))
+                .thenReturn(false);
 
         service.sendDeadlineAlerts();
 
@@ -232,5 +248,33 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(argThat(n ->
                 n.getType() == NotificationType.DEMANDE_DOCUMENTS_ALERT
                         && n.getDemandeDocuments() == secondDemande));
+    }
+
+    @Test
+    void sendDeadlineAlerts_reAlertsDemandeDocumentsAfterEscalationResetsSentAt() {
+        // Une DemandeDocuments escaladee (RELANCE, SOMMATION, ...) reutilise
+        // la MEME ligne avec un nouveau sentAt/deadline. Le dedup doit donc
+        // s'appuyer sur existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter
+        // avec le sentAt COURANT de la demande (pas juste l'id+type), pour
+        // qu'une alerte de l'ancien cycle ne supprime pas l'alerte du
+        // nouveau cycle. Ce test verifie que le service appelle bien le bon
+        // parametre de recence et cree l'alerte quand la requete renvoie
+        // false (comme le ferait la vraie requete apres une escalade).
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).number("2026-0013").build();
+        Instant currentCycleSentAt = Instant.now();
+        DemandeDocuments demande = buildDemande(dossier);
+        demande.setSentAt(currentCycleSentAt);
+        when(demandeDocumentsRepository.findOverdue(any())).thenReturn(List.of(demande));
+        when(notificationRepository.existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                eq(demande.getId()), eq(NotificationType.DEMANDE_DOCUMENTS_ALERT), eq(currentCycleSentAt)))
+                .thenReturn(false);
+
+        service.sendDeadlineAlerts();
+
+        verify(notificationRepository).existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter(
+                demande.getId(), NotificationType.DEMANDE_DOCUMENTS_ALERT, currentCycleSentAt);
+        verify(notificationRepository).save(argThat(n ->
+                n.getType() == NotificationType.DEMANDE_DOCUMENTS_ALERT
+                        && n.getDemandeDocuments() == demande));
     }
 }

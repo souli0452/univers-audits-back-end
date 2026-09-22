@@ -17,6 +17,8 @@ public interface DemandeDocumentsRepository extends JpaRepository<DemandeDocumen
 
     @Query("""
             SELECT dd FROM DemandeDocuments dd
+            JOIN FETCH dd.investigation i
+            JOIN FETCH i.dossier
             WHERE dd.received = false
             AND dd.deadline < :now
             ORDER BY dd.deadline ASC
@@ -25,6 +27,8 @@ public interface DemandeDocumentsRepository extends JpaRepository<DemandeDocumen
 
     @Query("""
             SELECT dd FROM DemandeDocuments dd
+            JOIN FETCH dd.investigation i
+            JOIN FETCH i.dossier
             WHERE dd.received = false
             AND dd.deadline BETWEEN :now AND :in3Days
             ORDER BY dd.deadline ASC
