@@ -217,3 +217,43 @@ mocks `NotificationRepository`/`DossierRepository`/`DemandeDocumentsRepository`/
 - Le canal d'envoi réel (email/SMS) des alertes — ces alertes utilisent
   `NotificationChannel.PORTAL` comme l'existant, aucun changement de canal
   demandé ni nécessaire ici.
+
+## Correction post-livraison (revue finale de branche)
+
+La revue finale de branche (Opus) a trouvé 1 Critical et 3 Important, tous
+corrigés dans une vague de fix unique avant merge :
+
+1. **Critical** : le CHECK constraint SQL `notification_type_check` (figé dans
+   `001-baseline-schema.sql` au moment de la régénération du schéma de
+   référence, 2026-09-17) ne connaissait que les 11 valeurs `NotificationType`
+   d'alors — les 5 valeurs ajoutées par ce sous-chantier étaient rejetées à
+   l'insertion, annulant la transaction complète de `sendDeadlineAlerts()`
+   (y compris les 3 alertes "à échéance" préexistantes du même run). Corrigé
+   par une nouvelle migration (`013`) élargissant le constraint + ajoutant
+   l'index manquant sur `notification.demande_documents_id`.
+2. **Important** : la déduplication `DemandeDocuments` par `(id, type)` seul
+   supprimait définitivement le re-déclenchement après une escalade (qui
+   réinitialise `sentAt`/`deadline` sur la même ligne) — corrigé en ajoutant
+   la récence (`existsByDemandeDocumentsIdAndTypeAndCreatedAtAfter`, comparé
+   à `demande.getSentAt()`).
+3. **Important** : aucun test ne persistait réellement une `Notification`
+   contre le vrai schéma (100% Mockito) — c'est directement ce qui a permis
+   au Critical #1 de passer inaperçu à travers les 4 revues de tâche. Corrigé
+   par un test d'intégration dédié (`NotificationTypePersistenceTest`) qui
+   persiste une notification de chacun des 5 nouveaux types contre la vraie
+   base, plus des assertions de clé `portal_config` exacte sur les tests
+   existants.
+
+**Limitation connue, non corrigée (décision explicite, hors périmètre de la
+vague de fix)** : le même défaut de déduplication touche potentiellement les
+2 alertes J-3 côté `Dossier`/`Investigation` — `Investigation.extendedDeadline`
+(une prolongation d'investigation) et `Dossier.additionalInfoDeadline` (une
+nouvelle demande de complément après un premier cycle) peuvent également être
+réinitialisées sur la même ligne, et la dédup `(dossier, type)` ne re-déclenche
+pas l'alerte J-3 pour le nouveau cycle. Contrairement à `DemandeDocuments` (dont
+l'escalade est le cas d'usage principal justifiant la correction immédiate),
+ces deux cas sont plus rares en pratique (une prolongation ou une deuxième
+demande de complément) et corriger les trois en une seule vague de fix aurait
+dépassé le principe "un seul fix wave" du processus SDD. À traiter si le besoin
+se confirme en usage réel — probablement en généralisant le même correctif
+(dédup par récence plutôt que par type seul) aux 2 cas restants.

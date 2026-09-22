@@ -779,7 +779,7 @@ CREATE TABLE public.notification (
     error_message text,
     CONSTRAINT notification_channel_check CHECK (((channel)::text = ANY ((ARRAY['EMAIL'::character varying, 'SMS'::character varying, 'POSTAL_MAIL'::character varying, 'PORTAL'::character varying])::text[]))),
     CONSTRAINT notification_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'SENT'::character varying, 'FAILED'::character varying, 'CANCELLED'::character varying])::text[]))),
-    CONSTRAINT notification_type_check CHECK (((type)::text = ANY ((ARRAY['RECEIPT_B4'::character varying, 'ACKNOWLEDGMENT_B5'::character varying, 'COMPLEMENT_REQUEST'::character varying, 'INADMISSIBILITY_DECISION'::character varying, 'TRANSFER_DECISION'::character varying, 'FINAL_DECISION'::character varying, 'DEADLINE_ALERT'::character varying, 'INTERNAL_ALERT'::character varying, 'STATUS_UPDATE'::character varying, 'INVESTIGATION_ALERT'::character varying, 'INVESTIGATION_ASSIGNMENT'::character varying, 'DEADLINE_ALERT_J3'::character varying, 'COMPLEMENT_ALERT_J3'::character varying, 'INVESTIGATION_ALERT_J3'::character varying, 'DEMANDE_DOCUMENTS_ALERT'::character varying, 'DEMANDE_DOCUMENTS_ALERT_J3'::character varying])::text[])))
+    CONSTRAINT notification_type_check CHECK (((type)::text = ANY ((ARRAY['RECEIPT_B4'::character varying, 'ACKNOWLEDGMENT_B5'::character varying, 'COMPLEMENT_REQUEST'::character varying, 'INADMISSIBILITY_DECISION'::character varying, 'TRANSFER_DECISION'::character varying, 'FINAL_DECISION'::character varying, 'DEADLINE_ALERT'::character varying, 'INTERNAL_ALERT'::character varying, 'STATUS_UPDATE'::character varying, 'INVESTIGATION_ALERT'::character varying, 'INVESTIGATION_ASSIGNMENT'::character varying])::text[])))
 );
 
 
