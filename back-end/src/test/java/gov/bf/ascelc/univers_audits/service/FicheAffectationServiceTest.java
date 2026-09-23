@@ -114,6 +114,21 @@ class FicheAffectationServiceTest {
     }
 
     @Test
+    void creer_rejetteSiDossierNonReceptionne() {
+        Dossier dossierNonReceptionne = Dossier.builder().id(dossierId).number(null).build();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossierNonReceptionne));
+
+        FicheAffectationCreateRequest request = FicheAffectationCreateRequest.builder()
+                .decisionCge(DecisionCgeAffectation.AFFECTATION_DIRECTE_CGEA)
+                .build();
+
+        assertThatThrownBy(() -> service.creer(dossierId, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("doit être réceptionné");
+        verify(ficheAffectationRepository, never()).save(any());
+    }
+
+    @Test
     void creer_rejetteSiAgentCourantIntrouvable() {
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(ficheAffectationRepository.existsByDossierId(dossierId)).thenReturn(false);
@@ -124,7 +139,8 @@ class FicheAffectationServiceTest {
                 .build();
 
         assertThatThrownBy(() -> service.creer(dossierId, request))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Agent non authentifié");
     }
 
     @Test
@@ -183,7 +199,8 @@ class FicheAffectationServiceTest {
                         .build();
 
         assertThatThrownBy(() -> service.affecter(dossierId, request))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("DEI et DAC");
         verify(notificationRepository, never()).save(any());
     }
 
@@ -230,7 +247,8 @@ class FicheAffectationServiceTest {
                         .build();
 
         assertThatThrownBy(() -> service.affecter(dossierId, request))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Conseiller Juridique");
     }
 
     @Test
@@ -320,7 +338,8 @@ class FicheAffectationServiceTest {
                         .build();
 
         assertThatThrownBy(() -> service.suivre(dossierId, request))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("ne vous a pas été affecté");
     }
 
     @Test
@@ -414,7 +433,8 @@ class FicheAffectationServiceTest {
                         .build();
 
         assertThatThrownBy(() -> service.suivre(dossierId, request))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("précision");
     }
 
     @Test
@@ -430,7 +450,8 @@ class FicheAffectationServiceTest {
                         .build();
 
         assertThatThrownBy(() -> service.suivre(dossierId, request))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("pas encore été renseignée");
     }
 
     @Test
@@ -448,6 +469,7 @@ class FicheAffectationServiceTest {
         when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(false);
 
         assertThatThrownBy(() -> service.getOrThrow(dossierId))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("ne vous a pas été affecté");
     }
 }

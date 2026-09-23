@@ -50,7 +50,12 @@ class NotificationTypePersistenceTest {
             "COMPLEMENT_ALERT_J3",
             "INVESTIGATION_ALERT_J3",
             "DEMANDE_DOCUMENTS_ALERT",
-            "DEMANDE_DOCUMENTS_ALERT_J3"
+            "DEMANDE_DOCUMENTS_ALERT_J3",
+            "AFFECTATION_DOSSIER",
+            "ESCALADE_AR",
+            "ESCALADE_COMPLEMENT",
+            "ESCALADE_INVESTIGATION",
+            "ESCALADE_DEMANDE_DOCUMENTS"
     })
     void notification_persistsSuccessfullyForEachNewAlertType(NotificationType type) {
         Dossier dossier = Dossier.builder()

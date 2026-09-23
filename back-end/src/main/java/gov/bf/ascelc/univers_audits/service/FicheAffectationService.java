@@ -56,6 +56,11 @@ public class FicheAffectationService {
         Dossier dossier = getDossierOrThrow(dossierId);
         accessGuard.checkReadAccess(dossier);
 
+        if (dossier.getNumber() == null) {
+            throw new BusinessException(
+                    "Le dossier doit être réceptionné (numéro attribué) avant de créer une fiche d'affectation.");
+        }
+
         if (ficheAffectationRepository.existsByDossierId(dossierId)) {
             throw new ConflictException(
                     "Une fiche d'affectation existe déjà pour ce dossier : " + dossierId);
