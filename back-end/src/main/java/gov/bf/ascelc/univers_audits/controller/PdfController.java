@@ -78,6 +78,21 @@ public class PdfController {
                 .body(pdf);
     }
 
+    @GetMapping("/resume-cloture/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> exportResumeCloture(
+            @PathVariable UUID id) {
+
+        log.info("Export résumé de clôture dossier {}", id);
+        byte[] pdf = pdfExportService.exportResumeCloture(id);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"resume-cloture-" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
     @GetMapping("/reponse-motivee/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> exportReponseMotivee(

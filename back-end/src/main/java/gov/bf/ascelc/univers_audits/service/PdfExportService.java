@@ -16,7 +16,10 @@ import com.itextpdf.layout.properties.UnitValue;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.InvestigationSummaryResponse;
+import gov.bf.ascelc.univers_audits.model.entity.FicheAffectation;
 import gov.bf.ascelc.univers_audits.model.entity.StatusHistory;
+import gov.bf.ascelc.univers_audits.repository.FicheAffectationRepository;
 import gov.bf.ascelc.univers_audits.repository.StatusHistoryRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AsceLcInstitutionalInfo;
@@ -37,6 +40,7 @@ public class PdfExportService {
 
     private final DossierService dossierService;
     private final StatusHistoryRepository statusHistoryRepository;
+    private final FicheAffectationRepository ficheAffectationRepository;
 
     private static final DeviceRgb VERT_ASCE  = new DeviceRgb(26,  107, 60);
     private static final DeviceRgb VERT_CLAIR = new DeviceRgb(240, 249, 244);
@@ -228,6 +232,194 @@ public class PdfExportService {
             log.error("Erreur export réponse motivée dossier {}: {}", dossierId, e.getMessage());
             throw new RuntimeException("Erreur génération réponse motivée: " + e.getMessage());
         }
+    }
+
+    /**
+     * Document interne de synthèse à l'archivage, distinct des trois
+     * courriers citoyens ci-dessus (récépissé/accusé/réponse motivée) :
+     * une page condensant tout le cycle de vie du dossier (décision,
+     * affectation, investigation, motif de clôture) pour un agent qui
+     * n'a pas suivi l'affaire depuis le début.
+     */
+    public byte[] exportResumeCloture(UUID dossierId) {
+
+        DossierResponse dossier = dossierService.findById(dossierId);
+
+        if (dossier.getStatus() != gov.bf.ascelc.univers_audits.enums.DossierStatus.CLOS
+                && dossier.getStatus() != gov.bf.ascelc.univers_audits.enums.DossierStatus.CLASSE) {
+            throw new BusinessException(
+                    "Le résumé de clôture n'est disponible qu'une fois le dossier clos ou classé");
+        }
+
+        StatusHistory dernierMouvement = statusHistoryRepository
+                .findFirstByDossierIdOrderByChangedAtDesc(dossierId)
+                .orElse(null);
+
+        FicheAffectation fiche = ficheAffectationRepository
+                .findByDossierId(dossierId)
+                .orElse(null);
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            PdfWriter   writer = new PdfWriter(baos);
+            PdfDocument pdf    = new PdfDocument(writer);
+            Document    doc    = new Document(pdf, PageSize.A4);
+            doc.setMargins(40, 40, 40, 40);
+
+            PdfFont fontBold   = PdfFontFactory.createFont("Helvetica-Bold");
+            PdfFont fontNormal = PdfFontFactory.createFont("Helvetica");
+
+            addHeader(doc, dossier, fontBold, fontNormal);
+            addResumeClotureBody(doc, dossier, dernierMouvement, fiche, fontBold, fontNormal);
+            addRecepisseFooter(doc, fontBold, fontNormal);
+
+            doc.close();
+            return baos.toByteArray();
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Erreur export résumé de clôture dossier {}: {}", dossierId, e.getMessage());
+            throw new RuntimeException("Erreur génération résumé de clôture: " + e.getMessage());
+        }
+    }
+
+    private void addResumeClotureBody(Document doc, DossierResponse dossier,
+                                      StatusHistory dernierMouvement, FicheAffectation fiche,
+                                      PdfFont fontBold, PdfFont fontNormal) {
+
+        doc.add(sectionTitle("Synthèse du dossier", fontBold));
+
+        Table infos = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setMarginBottom(12);
+
+        addInfoCell(infos, "Type", getTypeLabel(dossier.getType() != null ? dossier.getType().name() : ""),
+                fontBold, fontNormal);
+        addInfoCell(infos, "Canal de réception",
+                getModeLabel(dossier.getSubmissionMode() != null ? dossier.getSubmissionMode().name() : ""),
+                fontBold, fontNormal);
+
+        DeclarantResponse declarant = dossier.getDeclarant();
+        String deposantLabel;
+        if (declarant == null) {
+            deposantLabel = "— (auto-saisine)";
+        } else if (Boolean.TRUE.equals(dossier.getAnonymous())) {
+            deposantLabel = "Anonyme";
+        } else if (declarant.getDisplayName() != null && !declarant.getDisplayName().isBlank()) {
+            deposantLabel = declarant.getDisplayName();
+        } else {
+            deposantLabel = "—";
+        }
+        addInfoCell(infos, "Déclarant", deposantLabel, fontBold, fontNormal);
+        addInfoCell(infos, "Objet", dossier.getObject() != null ? dossier.getObject() : "—",
+                fontBold, fontNormal);
+
+        addInfoCell(infos, "Date de soumission",
+                dossier.getCreatedAt() != null ? FMT_DATE.format(dossier.getCreatedAt()) : "—",
+                fontBold, fontNormal);
+        addInfoCell(infos, "Date de réception",
+                dossier.getReceptionDate() != null ? FMT_DATE.format(dossier.getReceptionDate()) : "—",
+                fontBold, fontNormal);
+        addInfoCell(infos, "Date de clôture",
+                dossier.getClosingDate() != null ? FMT_DATE.format(dossier.getClosingDate()) : "—",
+                fontBold, fontNormal);
+
+        String duree = "—";
+        if (dossier.getCreatedAt() != null && dossier.getClosingDate() != null) {
+            long jours = java.time.Duration.between(
+                    dossier.getCreatedAt(), dossier.getClosingDate()).toDays();
+            duree = jours + " jour(s)";
+        }
+        addInfoCell(infos, "Durée totale de traitement", duree, fontBold, fontNormal);
+
+        doc.add(infos);
+
+        doc.add(sectionTitle("Décision finale", fontBold));
+        if (dossier.getDecisionCGE() != null) {
+            Table decision = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                    .setWidth(UnitValue.createPercentValue(100))
+                    .setMarginBottom(12);
+            addInfoCell(decision, "Recommandation CTADP",
+                    getRecommandationLabel(dossier.getDecisionCGE().getDecision()),
+                    fontBold, fontNormal);
+            addInfoCell(decision, "Date de décision",
+                    dossier.getDecisionCGE().getDateDecision() != null
+                            ? FMT_DATE.format(dossier.getDecisionCGE().getDateDecision()) : "—",
+                    fontBold, fontNormal);
+            doc.add(decision);
+            String motifDecision = dossier.getDecisionCGE().getMotif();
+            if (motifDecision != null && !motifDecision.isBlank()) {
+                doc.add(new Paragraph(motifDecision)
+                        .setFont(fontNormal).setFontSize(10)
+                        .setFontColor(new DeviceRgb(40, 40, 40)).setMarginBottom(12));
+            }
+        } else {
+            doc.add(new Paragraph("Aucune décision CGE enregistrée.")
+                    .setFont(fontNormal).setFontSize(10)
+                    .setFontColor(TEXTE_GRIS).setMarginBottom(12));
+        }
+
+        if (fiche != null) {
+            doc.add(sectionTitle("Affectation", fontBold));
+            Table aff = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                    .setWidth(UnitValue.createPercentValue(100))
+                    .setMarginBottom(12);
+            String cible = "—";
+            if (fiche.getTypeDesignation() != null) {
+                cible = switch (fiche.getTypeDesignation()) {
+                    case DEPARTEMENT -> fiche.getDepartementDesigne() != null
+                            ? fiche.getDepartementDesigne().getLibelle() : "Département";
+                    case AGENT_CJ -> fiche.getAgentDesigne() != null
+                            ? fiche.getAgentDesigne().getNomComplet() : "Conseiller juridique";
+                    case BRPD -> "BRPD";
+                };
+            }
+            addInfoCell(aff, "Affecté à", cible, fontBold, fontNormal);
+            addInfoCell(aff, "État d'avancement final",
+                    fiche.getEtatAvancement() != null
+                            ? switch (fiche.getEtatAvancement()) {
+                                case EN_COURS -> "En cours";
+                                case CLOTURE  -> "Clôturé";
+                                case AUTRE    -> fiche.getEtatAvancementPrecision() != null
+                                        ? fiche.getEtatAvancementPrecision() : "Autre";
+                            }
+                            : "—",
+                    fontBold, fontNormal);
+            doc.add(aff);
+        }
+
+        InvestigationSummaryResponse investigation = dossier.getInvestigation();
+        if (investigation != null) {
+            doc.add(sectionTitle("Investigation", fontBold));
+            Table inv = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
+                    .setWidth(UnitValue.createPercentValue(100))
+                    .setMarginBottom(12);
+            addInfoCell(inv, "Statut",
+                    investigation.getStatus() != null ? investigation.getStatus().name() : "—",
+                    fontBold, fontNormal);
+            addInfoCell(inv, "Équipe", investigation.getMemberCount() + " membre(s)",
+                    fontBold, fontNormal);
+            doc.add(inv);
+        }
+
+        doc.add(sectionTitle("Motif de clôture", fontBold));
+        String motifCloture = dernierMouvement != null && dernierMouvement.getReason() != null
+                && !dernierMouvement.getReason().isBlank()
+                ? dernierMouvement.getReason() : "Non renseigné.";
+        doc.add(new Paragraph(motifCloture)
+                .setFont(fontNormal).setFontSize(10)
+                .setFontColor(new DeviceRgb(40, 40, 40)));
+    }
+
+    private String getRecommandationLabel(RecommandationCtadp r) {
+        if (r == null) return "—";
+        return switch (r) {
+            case VALIDATION_INVESTIGATION -> "Validation investigation";
+            case CLASSEMENT -> "Classement sans suite";
+            case TRANSMISSION_INSTITUTION_PARTENAIRE -> "Transmission à une institution partenaire";
+            case ORIENTATION_ADMINISTRATIVE -> "Orientation administrative";
+        };
     }
 
     private void addRecepisseHeader(Document doc, DossierResponse dossier,
