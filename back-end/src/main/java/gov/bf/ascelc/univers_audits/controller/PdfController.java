@@ -64,6 +64,20 @@ public class PdfController {
                 .body(pdf);
     }
 
+    @GetMapping("/public/recepisse/{accessCode}")
+    public ResponseEntity<byte[]> exportRecepissePublic(
+            @PathVariable String accessCode) {
+
+        log.info("Export public récépissé — code: {}", accessCode);
+        byte[] pdf = pdfExportService.exportRecepisseByAccessCode(accessCode);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"recepisse-" + accessCode + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
     @GetMapping("/reponse-motivee/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> exportReponseMotivee(

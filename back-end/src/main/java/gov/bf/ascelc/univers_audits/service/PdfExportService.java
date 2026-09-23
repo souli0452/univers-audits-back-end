@@ -107,7 +107,23 @@ public class PdfExportService {
         // confidentialité — le récépissé ne doit jamais exposer plus que
         // l'API JSON, exactement comme exportDossier.
         DossierResponse dossier = dossierService.findById(dossierId);
+        return buildRecepissePdf(dossier);
+    }
 
+    /**
+     * Variante publique, pour le portail citoyen : findByAccessCode ne
+     * contrôle aucun rôle agent (le code de suivi B4 fait office de preuve
+     * de propriété, comme pour le suivi public) mais masque déjà
+     * étudeOpportunite/decisionCGE — absents du récépissé, donc sans impact
+     * ici. Ne pas réutiliser ce chemin pour l'accusé de réception, qui a
+     * besoin de decisionCGE.
+     */
+    public byte[] exportRecepisseByAccessCode(String accessCode) {
+        DossierResponse dossier = dossierService.findByAccessCode(accessCode);
+        return buildRecepissePdf(dossier);
+    }
+
+    private byte[] buildRecepissePdf(DossierResponse dossier) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
             PdfWriter   writer = new PdfWriter(baos);
@@ -126,7 +142,7 @@ public class PdfExportService {
             return baos.toByteArray();
 
         } catch (Exception e) {
-            log.error("Erreur export récépissé dossier {}: {}", dossierId, e.getMessage());
+            log.error("Erreur export récépissé dossier {}: {}", dossier.getId(), e.getMessage());
             throw new RuntimeException("Erreur génération récépissé: " + e.getMessage());
         }
     }

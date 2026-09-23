@@ -57,6 +57,12 @@ public class SecurityConfig {
                                 "/api/v1/config/types-declarant").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/config/enums").permitAll()
+                        // Récépissé de dépôt : le code de suivi B4 fait office de
+                        // preuve de propriété, comme pour /dossiers/public/track.
+                        // L'accusé de réception reste authentifié (dépend de la
+                        // décision CGE, non exposée sur le portail public).
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/pdf/public/recepisse/**").permitAll()
 
                         // ── Actuator ──────────────────────────────────
                         .requestMatchers("/actuator/health").permitAll()
