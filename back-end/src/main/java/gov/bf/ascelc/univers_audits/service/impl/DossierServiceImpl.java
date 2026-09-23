@@ -190,6 +190,12 @@ public class DossierServiceImpl implements DossierService {
         if (dossier.getIsConfidential() == null) {
             dossier.setIsConfidential(false);
         }
+        if (dossier.getAutreInstitutionSaisie() == null) {
+            dossier.setAutreInstitutionSaisie(false);
+        }
+        if (dossier.getDecisionJusticeExistante() == null) {
+            dossier.setDecisionJusticeExistante(false);
+        }
 
         boolean protectionRequested = declarant != null
                 && Boolean.TRUE.equals(declarant.getProtectionRequested());
