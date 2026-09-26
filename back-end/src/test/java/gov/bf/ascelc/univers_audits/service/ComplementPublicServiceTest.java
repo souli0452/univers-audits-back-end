@@ -195,6 +195,20 @@ class ComplementPublicServiceTest {
     }
 
     @Test
+    void submitComplement_un_code_copie_avec_des_espaces_fonctionne_aussi_pour_les_fichiers() {
+        givenDossierEnAttente(null);
+        List<MultipartFile> files = List.of(fichier("a.pdf"));
+        // Le garde d'accès compare le code exactement : il doit recevoir celui du dossier, pas la saisie brute.
+        when(attachmentStorageService.upload(dossierId.toString(), files, "ABCD1234",
+                null, null, null, null)).thenReturn(List.of(recu("a.pdf")));
+
+        ComplementSubmissionResponse r = service.submitComplement(
+                "  ABCD1234  ", "Message", files, "10.0.0.1", NOW);
+
+        assertThat(r.filesUploaded()).isEqualTo(1);
+    }
+
+    @Test
     void submitComplement_apres_l_echeance_est_accepte_et_marque_en_retard() {
         givenDossierEnAttente(Instant.parse("2026-09-25T23:59:59Z"));
 

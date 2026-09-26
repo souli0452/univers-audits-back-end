@@ -102,7 +102,7 @@ public class ComplementPublicService {
         // contrôlés. Le statut est encore EN_ATTENTE_COMPLEMENT, donc le dépôt est autorisé.
         int uploaded = attached.isEmpty() ? 0
                 : attachmentStorageService.upload(dossier.getId().toString(), attached,
-                        accessCode, null, null, null, null).size();
+                        dossier.getAccessCode(), null, null, null, null).size();
 
         String content = (late ? "Reçu en retard (échéance du " + DAY.format(deadline) + ") — " : "")
                 + (text.isEmpty() ? "Pièces jointes uniquement (" + uploaded + " fichier(s))." : text);
