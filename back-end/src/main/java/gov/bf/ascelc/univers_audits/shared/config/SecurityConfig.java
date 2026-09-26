@@ -40,6 +40,10 @@ public class SecurityConfig {
                         // ── Endpoints publics (sans token) ────────────
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/dossiers/public/track/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/dossiers/public/complement/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/dossiers/public/complement/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/dossiers/public/submit").permitAll()
                         // Upload public autorisé (dépôt de pièces jointes lors de la

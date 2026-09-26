@@ -16,6 +16,8 @@ public class RateLimitProperties {
     private Rule track = new Rule(20, 1);
     private Rule attachmentUpload = new Rule(10, 10);
     private Rule statsPublic = new Rule(60, 1);
+    private Rule complementRead = new Rule(20, 1);
+    private Rule complementSubmit = new Rule(5, 10);
 
     @Data
     @NoArgsConstructor

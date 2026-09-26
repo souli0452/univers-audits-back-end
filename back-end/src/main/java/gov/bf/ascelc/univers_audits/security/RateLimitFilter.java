@@ -61,7 +61,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         Duration.ofMinutes(properties.getAttachmentUpload().getRefillMinutes())),
                 new RouteRule("GET", "/api/v1/stats/public", "statsPublic",
                         properties.getStatsPublic().getCapacity(),
-                        Duration.ofMinutes(properties.getStatsPublic().getRefillMinutes()))
+                        Duration.ofMinutes(properties.getStatsPublic().getRefillMinutes())),
+                new RouteRule("GET", "/api/v1/dossiers/public/complement/**", "complementRead",
+                        properties.getComplementRead().getCapacity(),
+                        Duration.ofMinutes(properties.getComplementRead().getRefillMinutes())),
+                new RouteRule("POST", "/api/v1/dossiers/public/complement/**", "complementSubmit",
+                        properties.getComplementSubmit().getCapacity(),
+                        Duration.ofMinutes(properties.getComplementSubmit().getRefillMinutes()))
         );
     }
 

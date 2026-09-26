@@ -126,6 +126,35 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void doFilter_limite_la_lecture_du_complement_a_20_par_minute() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/api/v1/dossiers/public/complement/ABCD1234");
+        request.setRemoteAddr("10.0.0.1");
+        when(rateLimiter.tryConsume(anyString(), anyInt(), any(Duration.class)))
+                .thenReturn(new RateLimiter.RateLimitResult(true, 0));
+
+        filter.doFilterInternal(request, new MockHttpServletResponse(), filterChain);
+
+        verify(rateLimiter).tryConsume(anyString(), eq(20), eq(Duration.ofMinutes(1)));
+    }
+
+    @Test
+    void doFilter_limite_l_envoi_du_complement_a_5_par_10_minutes_et_bloque_avec_429() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                "/api/v1/dossiers/public/complement/ABCD1234");
+        request.setRemoteAddr("10.0.0.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(rateLimiter.tryConsume(anyString(), anyInt(), any(Duration.class)))
+                .thenReturn(new RateLimiter.RateLimitResult(false, 30));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(rateLimiter).tryConsume(anyString(), eq(5), eq(Duration.ofMinutes(10)));
+        assertThat(response.getStatus()).isEqualTo(429);
+        verify(filterChain, never()).doFilter(any(), any());
+    }
+
+    @Test
     void doFilter_laisseSurPasserRouteNonCouverte() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/config/enums");
         MockHttpServletResponse response = new MockHttpServletResponse();
