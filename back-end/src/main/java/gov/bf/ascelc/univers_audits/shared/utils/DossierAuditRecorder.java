@@ -38,6 +38,25 @@ public class DossierAuditRecorder {
         observationRepository.save(obs);
     }
 
+    /**
+     * Observation déposée par le déclarant lui-même (portail public). L'auteur est obligatoire en
+     * base : il reçoit l'agent qui a émis la demande, mais le nom affiché est celui du déclarant.
+     */
+    public void addDeclarantObservation(Dossier dossier, ObservationType type,
+                                        String content, Agent technicalAuthor,
+                                        String displayName) {
+        Observation obs = Observation.builder()
+                .dossier(dossier)
+                .type(type)
+                .content(content)
+                .confidential(false)
+                .author(technicalAuthor)
+                .authorFullName(displayName)
+                .statusSnapshot(dossier.getStatus())
+                .build();
+        observationRepository.save(obs);
+    }
+
     public void recordStatusChange(Dossier dossier, DossierStatus previous,
                                    DossierStatus next, String reason,
                                    Agent agent, String ipAddress) {
