@@ -22,5 +22,8 @@ public enum ObservationType {
     FIELD_FINDING,
 
     // Note de transfert vers une institution compétente
-    TRANSFER_NOTE
+    TRANSFER_NOTE,
+
+    // Réponse du déclarant à une demande de complément, déposée depuis le portail public
+    COMPLEMENT_RESPONSE
 }
