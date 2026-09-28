@@ -112,7 +112,9 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:4200",
                 "https://portail.asce-lc.bf",
-                "https://app.asce-lc.bf"
+                "https://app.asce-lc.bf",
+                "https://denoncer.asce-lc.bf",
+                "https://ged.asce-lc.bf"
         ));
         config.setAllowedMethods(List.of(
                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
