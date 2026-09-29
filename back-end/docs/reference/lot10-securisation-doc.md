@@ -145,6 +145,18 @@ implémentation) comme un sous-chantier à part entière — pas dans ce documen
   qu'il quitte le réseau interne. Constat fait en rédigeant ce document, non traité comme
   sous-chantier de code car le choix du reverse proxy dépend de l'hébergement retenu
   (information non disponible dans ce dépôt).
+- **Adresse du client derrière le reverse proxy (limiteur de débit)** : `RateLimitFilter`
+  limite par adresse IP. Le profil `prod` active `server.forward-headers-strategy=native`, ce
+  qui fait lire l'adresse réelle du client dans `X-Forwarded-For`, **uniquement si la connexion
+  vient d'un proxy interne** (127.x, 10.x, 172.16-31.x, 192.168.x). Le reverse proxy doit donc
+  **remplacer** l'en-tête, jamais l'allonger avec ce que le client a envoyé :
+  ```nginx
+  proxy_set_header X-Forwarded-For $remote_addr;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header Host $host;
+  ```
+  (et non `$proxy_add_x_forwarded_for`, qui conserverait une valeur falsifiée par le client).
+  Sans ces lignes côté nginx, tous les visiteurs partagent le même quota.
 
 ---
 
