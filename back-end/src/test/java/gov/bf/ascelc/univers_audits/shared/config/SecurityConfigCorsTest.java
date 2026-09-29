@@ -32,4 +32,34 @@ class SecurityConfigCorsTest {
     void autoriseToujoursLeDeveloppementLocal() {
         assertThat(cors().getAllowedOrigins()).contains("http://localhost:4200");
     }
+
+    /**
+     * portail.asce-lc.bf et app.asce-lc.bf ne correspondent à aucun service réellement déployé
+     * (un seul domaine sert tout, cf. deploy-rpd) : les garder autorisés en CORS avec
+     * allowCredentials(true) est un risque dormant sans bénéfice, pas juste un oubli cosmétique.
+     */
+    @Test
+    void ne_autorise_plus_les_domaines_obsoletes_sans_service_reel() {
+        List<String> origines = cors().getAllowedOrigins();
+
+        assertThat(origines)
+                .doesNotContain("https://portail.asce-lc.bf", "https://app.asce-lc.bf");
+    }
+
+    /**
+     * ged.asce-lc.bf est, au 2026-09-29, le seul domaine avec une adresse IP publique pointant vers
+     * ce serveur (en attendant l'enregistrement DNS public de denoncer.asce-lc.bf) : contrairement à
+     * portail./app.asce-lc.bf, il reste nécessaire.
+     */
+    @Test
+    void autorise_toujours_le_domaine_public_actuel() {
+        assertThat(cors().getAllowedOrigins()).contains("https://ged.asce-lc.bf");
+    }
+
+    @Test
+    void ne_contient_aucun_doublon() {
+        List<String> origines = cors().getAllowedOrigins();
+
+        assertThat(origines).doesNotHaveDuplicates();
+    }
 }
