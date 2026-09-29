@@ -115,14 +115,16 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(List.of(
                 "http://localhost:4200",
-                // Domaine unique réellement servi en production (front, API et Keycloak derrière le même
-                // nginx, cf. deploy-rpd) : sans lui, tout navigateur reçoit 403 sur les appels publics
+                // Domaine cible servi en production (front, API et Keycloak derrière le même nginx,
+                // cf. deploy-rpd) : sans lui, tout navigateur reçoit 403 sur les appels publics
                 // (constaté le 2026-09-28, dépôt de plainte bloqué en production).
                 "https://denoncer.asce-lc.bf",
-                "https://portail.asce-lc.bf",
-                "https://app.asce-lc.bf",
-                "https://denoncer.asce-lc.bf",
+                // Seul domaine avec une adresse IP publique au 2026-09-29, en attendant l'enregistrement
+                // DNS public de denoncer.asce-lc.bf. À retirer une fois ce DNS en place et propagé.
                 "https://ged.asce-lc.bf"
+                // portail.asce-lc.bf et app.asce-lc.bf retirés le 2026-09-29 : aucun service réel ne
+                // les sert, et les garder autorisés avec allowCredentials(true) est un risque dormant
+                // sans bénéfice si ces noms sont un jour enregistrés par quelqu'un d'autre.
         ));
         config.setAllowedMethods(List.of(
                 "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
