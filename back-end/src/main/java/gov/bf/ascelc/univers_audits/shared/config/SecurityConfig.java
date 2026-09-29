@@ -115,6 +115,10 @@ public class SecurityConfig {
 
         config.setAllowedOrigins(List.of(
                 "http://localhost:4200",
+                // Domaine unique réellement servi en production (front, API et Keycloak derrière le même
+                // nginx, cf. deploy-rpd) : sans lui, tout navigateur reçoit 403 sur les appels publics
+                // (constaté le 2026-09-28, dépôt de plainte bloqué en production).
+                "https://denoncer.asce-lc.bf",
                 "https://portail.asce-lc.bf",
                 "https://app.asce-lc.bf"
         ));
