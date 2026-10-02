@@ -1,10 +1,12 @@
 package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.model.dto.response.ActeurEtapeDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
 import gov.bf.ascelc.univers_audits.service.StatistiqueService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
+import gov.bf.ascelc.univers_audits.service.DepassementEtapeService;
 import gov.bf.ascelc.univers_audits.service.RapportAnnuelPdfService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -26,6 +28,7 @@ public class StatistiqueController {
 
     private final StatistiqueService statistiqueService;
     private final RapportAnnuelPdfService rapportAnnuelPdfService;
+    private final DepassementEtapeService depassementEtapeService;
 
 
     @GetMapping("/public")
@@ -49,6 +52,13 @@ public class StatistiqueController {
         return ResponseEntity.ok(statistiqueService.getDashboard(start, end));
     }
 
+
+    @GetMapping("/depassements-etapes")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    public ResponseEntity<List<ActeurEtapeDepassementResponse>> getDepassementsEtapes() {
+        log.info("Tableau des étapes du circuit en retard par acteur");
+        return ResponseEntity.ok(depassementEtapeService.parActeur());
+    }
 
     @GetMapping("/depassements-par-acteur")
     @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
