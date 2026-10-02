@@ -58,7 +58,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/quarterly")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
     public ResponseEntity<StatistiqueResponse> getQuarterlyStats(
             @RequestParam int year,
             @RequestParam int quarter) {
@@ -75,7 +75,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/annual")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
     public ResponseEntity<StatistiqueResponse> getAnnualStats(
             @RequestParam int year) {
 
@@ -87,7 +87,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/annual/export")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
     public ResponseEntity<byte[]> exportAnnualStats(
             @RequestParam int year) {
 
