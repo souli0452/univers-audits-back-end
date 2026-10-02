@@ -15,6 +15,7 @@ import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
+import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.StatutSeanceCtadp;
 import gov.bf.ascelc.univers_audits.model.dto.response.DecisionCGEResponse;
@@ -192,6 +193,78 @@ public class DocumentOfficielPdfService {
         } catch (Exception e) {
             log.error("Erreur génération quitus CGE dossier {}: {}", dossierId, e.getMessage());
             throw new RuntimeException("Erreur génération quitus: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lettre d'information du plaignant ou du dénonciateur en fin de traitement (étape 16 du workflow).
+     * Elle annonce la clôture du dossier sans reprendre le détail de l'enquête, qui reste confidentiel.
+     * Pour un dossier classé, la réponse motivée existante tient lieu de lettre.
+     */
+    public byte[] lettreInformationPlaignant(UUID dossierId) {
+        // findById applique le contrôle d'affectation/rôle et le masquage de confidentialité.
+        DossierResponse dossier = dossierService.findById(dossierId);
+
+        if (dossier.getStatus() != DossierStatus.CLOS && dossier.getStatus() != DossierStatus.DECISION_RENDUE) {
+            throw new BusinessException(
+                    "La lettre d'information n'est disponible qu'une fois le traitement du dossier terminé");
+        }
+
+        boolean anonyme = Boolean.TRUE.equals(dossier.getAnonymous());
+        String nom = (!anonyme && dossier.getDeclarant() != null) ? dossier.getDeclarant().getDisplayName() : null;
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            PdfDocument pdf = new PdfDocument(new PdfWriter(baos));
+            Document doc = new Document(pdf, PageSize.A4);
+            doc.setMargins(40, 40, 40, 40);
+            PdfFont bold = PdfFontFactory.createFont("Helvetica-Bold");
+            PdfFont normal = PdfFontFactory.createFont("Helvetica");
+
+            entete(doc, "INFORMATION SUR LA SUITE DONNÉE À VOTRE SAISINE", bold, normal);
+
+            doc.add(new Paragraph("Ouagadougou, le " + FMT_DATE_COURTE.format(Instant.now()))
+                    .setFont(normal).setFontSize(10).setTextAlignment(TextAlignment.RIGHT)
+                    .setMarginBottom(16));
+
+            Table infos = new Table(UnitValue.createPercentArray(new float[]{1, 3}))
+                    .setWidth(UnitValue.createPercentValue(100)).setMarginBottom(14);
+            if (nom != null && !nom.isBlank()) {
+                ligne(infos, "À l'attention de", nom, bold, normal);
+            }
+            ligne(infos, "N° du dossier", dossier.getNumber() != null ? dossier.getNumber() : "En attente", bold, normal);
+            if (dossier.getAccessCode() != null) {
+                ligne(infos, "Code de suivi", dossier.getAccessCode(), bold, normal);
+            }
+            if (dossier.getReceptionDate() != null) {
+                ligne(infos, "Date de réception", FMT_DATE_COURTE.format(dossier.getReceptionDate()), bold, normal);
+            }
+            if (dossier.getClosingDate() != null) {
+                ligne(infos, "Date de clôture", FMT_DATE_COURTE.format(dossier.getClosingDate()), bold, normal);
+            }
+            doc.add(infos);
+
+            doc.add(new Paragraph("Madame, Monsieur,").setFont(normal).setFontSize(11).setMarginBottom(10));
+            doc.add(new Paragraph("Nous vous remercions d'avoir saisi l'Autorité Supérieure de Contrôle d'État "
+                    + "et de Lutte contre la Corruption. Nous vous informons que le traitement de votre saisine "
+                    + "est terminé et que votre dossier a été clôturé.")
+                    .setFont(normal).setFontSize(11).setMarginBottom(10));
+            doc.add(new Paragraph("Les suites données relèvent des dispositions en vigueur et des autorités "
+                    + "compétentes. Le détail des investigations est couvert par la confidentialité "
+                    + "et ne peut être communiqué.")
+                    .setFont(normal).setFontSize(11).setMarginBottom(10));
+            doc.add(new Paragraph("Pour toute information complémentaire, vous pouvez nous joindre au numéro vert "
+                    + AsceLcInstitutionalInfo.NUMERO_VERT + " en rappelant votre code de suivi.")
+                    .setFont(normal).setFontSize(11).setMarginBottom(24));
+
+            signature(doc, "Le Contrôleur Général d'État Adjoint", bold, normal);
+            pied(doc, bold, normal);
+
+            doc.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            log.error("Erreur génération lettre d'information dossier {}: {}", dossierId, e.getMessage());
+            throw new RuntimeException("Erreur génération lettre d'information: " + e.getMessage());
         }
     }
 

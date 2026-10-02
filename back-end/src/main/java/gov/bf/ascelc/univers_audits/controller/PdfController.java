@@ -81,6 +81,21 @@ public class PdfController {
                 .body(pdf);
     }
 
+    @GetMapping("/lettre-information/{dossierId}")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','AGENT_BRPD','ADMIN_DDIC')")
+    public ResponseEntity<byte[]> exportLettreInformation(
+            @PathVariable UUID dossierId) {
+
+        log.info("Export lettre d'information dossier {}", dossierId);
+        byte[] pdf = documentOfficielPdfService.lettreInformationPlaignant(dossierId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"lettre-information-" + dossierId + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
     @GetMapping("/accuse-reception/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> exportAccuseReception(

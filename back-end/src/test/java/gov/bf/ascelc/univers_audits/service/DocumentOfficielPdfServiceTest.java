@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.StatutSeanceCtadp;
 import gov.bf.ascelc.univers_audits.model.dto.response.DecisionCGEResponse;
@@ -111,5 +112,32 @@ class DocumentOfficielPdfServiceTest {
         assertThatThrownBy(() -> service.quitusCge(id))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Aucune décision du CGE");
+    }
+
+    @Test
+    void lettre_produitUnPdfPourUnDossierClos() {
+        UUID id = UUID.randomUUID();
+        when(dossierService.findById(id)).thenReturn(DossierResponse.builder()
+                .id(id).number("ASCE-LC-2026-0001").accessCode("ABC12345")
+                .status(DossierStatus.CLOS).anonymous(true)
+                .receptionDate(Instant.parse("2026-03-01T09:00:00Z"))
+                .closingDate(Instant.parse("2026-09-15T09:00:00Z"))
+                .build());
+
+        byte[] pdf = service.lettreInformationPlaignant(id);
+
+        assertThat(new String(pdf, 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        assertThat(pdf.length).isGreaterThan(1500);
+    }
+
+    @Test
+    void lettre_refuseUnDossierEncoreEnCours() {
+        UUID id = UUID.randomUUID();
+        when(dossierService.findById(id)).thenReturn(
+                DossierResponse.builder().id(id).status(DossierStatus.EN_INVESTIGATION).build());
+
+        assertThatThrownBy(() -> service.lettreInformationPlaignant(id))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("traitement du dossier terminé");
     }
 }
