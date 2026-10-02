@@ -1,6 +1,9 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.StatutSeanceCtadp;
+import gov.bf.ascelc.univers_audits.model.dto.response.DecisionCGEResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.SeanceCtadpDossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.SeanceCtadpResponse;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
@@ -19,7 +22,9 @@ import static org.mockito.Mockito.when;
 class DocumentOfficielPdfServiceTest {
 
     private final SeanceCtadpService seanceService = mock(SeanceCtadpService.class);
-    private final DocumentOfficielPdfService service = new DocumentOfficielPdfService(seanceService);
+    private final DossierService dossierService = mock(DossierService.class);
+    private final DocumentOfficielPdfService service =
+            new DocumentOfficielPdfService(seanceService, dossierService);
 
     private SeanceCtadpResponse seance(StatutSeanceCtadp statut, List<SeanceCtadpDossierResponse> dossiers) {
         return SeanceCtadpResponse.builder()
@@ -76,5 +81,35 @@ class DocumentOfficielPdfServiceTest {
                 .containsExactly("A", "B", "C");
         assertThat(DocumentOfficielPdfService.participants("  ")).isEmpty();
         assertThat(DocumentOfficielPdfService.participants(null)).isEmpty();
+    }
+
+    @Test
+    void quitus_produitUnPdfQuandLeCgeADecide() {
+        UUID id = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .id(id).number("ASCE-LC-2026-0001").object("Détournement présumé de fonds")
+                .decisionCGE(DecisionCGEResponse.builder()
+                        .decision(RecommandationCtadp.VALIDATION_INVESTIGATION)
+                        .motif("Indices suffisants")
+                        .dateDecision(Instant.parse("2026-10-12T09:00:00Z"))
+                        .agentCGENom("Le CGE")
+                        .build())
+                .build();
+        when(dossierService.findById(id)).thenReturn(dossier);
+
+        byte[] pdf = service.quitusCge(id);
+
+        assertThat(new String(pdf, 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        assertThat(pdf.length).isGreaterThan(1500);
+    }
+
+    @Test
+    void quitus_refuseUnDossierSansDecisionDuCge() {
+        UUID id = UUID.randomUUID();
+        when(dossierService.findById(id)).thenReturn(DossierResponse.builder().id(id).build());
+
+        assertThatThrownBy(() -> service.quitusCge(id))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Aucune décision du CGE");
     }
 }

@@ -15,7 +15,10 @@ import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
+import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.StatutSeanceCtadp;
+import gov.bf.ascelc.univers_audits.model.dto.response.DecisionCGEResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.SeanceCtadpDossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.SeanceCtadpResponse;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
@@ -46,6 +49,7 @@ import java.util.UUID;
 public class DocumentOfficielPdfService {
 
     private final SeanceCtadpService seanceCtadpService;
+    private final DossierService dossierService;
 
     private static final DeviceRgb VERT_ASCE  = new DeviceRgb(26, 107, 60);
     private static final DeviceRgb OR_ASCE    = new DeviceRgb(201, 162, 39);
@@ -123,6 +127,74 @@ public class DocumentOfficielPdfService {
         }
     }
 
+    /**
+     * Quitus du CGE sur le rapport d'avis du CTADP (étape 9 du workflow). Il s'appuie sur la décision
+     * du CGE déjà enregistrée pour le dossier : pas d'état supplémentaire, le document la formalise.
+     */
+    public byte[] quitusCge(UUID dossierId) {
+        // findById applique le contrôle d'affectation/rôle et le masquage de confidentialité.
+        DossierResponse dossier = dossierService.findById(dossierId);
+        DecisionCGEResponse decision = dossier.getDecisionCGE();
+
+        if (decision == null) {
+            throw new BusinessException(
+                    "Aucune décision du CGE n'a encore été rendue pour ce dossier");
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            PdfDocument pdf = new PdfDocument(new PdfWriter(baos));
+            Document doc = new Document(pdf, PageSize.A4);
+            doc.setMargins(40, 40, 40, 40);
+            PdfFont bold = PdfFontFactory.createFont("Helvetica-Bold");
+            PdfFont normal = PdfFontFactory.createFont("Helvetica");
+
+            entete(doc, "QUITUS DU CONTRÔLEUR GÉNÉRAL D'ÉTAT", bold, normal);
+
+            doc.add(new Paragraph("Ouagadougou, le " + FMT_DATE_COURTE.format(decision.getDateDecision()))
+                    .setFont(normal).setFontSize(10).setTextAlignment(TextAlignment.RIGHT)
+                    .setMarginBottom(16));
+
+            doc.add(new Paragraph("Objet : quitus du rapport d'avis du Comité de traitement et d'analyse "
+                    + "des dénonciations et des plaintes (CTADP)")
+                    .setFont(bold).setFontSize(11).setMarginBottom(14));
+
+            Table infos = new Table(UnitValue.createPercentArray(new float[]{1, 3}))
+                    .setWidth(UnitValue.createPercentValue(100)).setMarginBottom(14);
+            ligne(infos, "N° du dossier", dossier.getNumber() != null ? dossier.getNumber() : "En attente", bold, normal);
+            ligne(infos, "Objet", dossier.getObject() != null ? dossier.getObject() : "—", bold, normal);
+            ligne(infos, "Suite retenue", libelleDecision(decision.getDecision()), bold, normal);
+            ligne(infos, "Date de la décision", FMT_DATE_COURTE.format(decision.getDateDecision()), bold, normal);
+            if (decision.getAgentCGENom() != null) {
+                ligne(infos, "Décidé par", decision.getAgentCGENom(), bold, normal);
+            }
+            doc.add(infos);
+
+            doc.add(new Paragraph("Le Contrôleur Général d'État a pris connaissance du rapport d'avis du comité "
+                    + "et lui donne quitus. La suite à donner est celle indiquée ci-dessus.")
+                    .setFont(normal).setFontSize(11).setMarginBottom(10));
+
+            if (decision.getMotif() != null && !decision.getMotif().isBlank()) {
+                doc.add(titreSection("Motif", bold));
+                doc.add(new Paragraph(decision.getMotif()).setFont(normal).setFontSize(10)
+                        .setMarginBottom(10));
+            }
+
+            doc.add(new Paragraph("Le dossier est transmis au Bureau de réception des plaintes et dénonciations "
+                    + "pour l'information du plaignant ou du dénonciateur.")
+                    .setFont(normal).setFontSize(10).setMarginBottom(24));
+
+            signature(doc, "Le Contrôleur Général d'État", bold, normal);
+            pied(doc, bold, normal);
+
+            doc.close();
+            return baos.toByteArray();
+
+        } catch (Exception e) {
+            log.error("Erreur génération quitus CGE dossier {}: {}", dossierId, e.getMessage());
+            throw new RuntimeException("Erreur génération quitus: " + e.getMessage());
+        }
+    }
+
     // ── Éléments communs ─────────────────────────────────────────────────
 
     private void entete(Document doc, String titre, PdfFont bold, PdfFont normal) {
@@ -170,6 +242,22 @@ public class DocumentOfficielPdfService {
 
     private Cell cellule(String texte, PdfFont normal) {
         return new Cell().setPadding(6).add(new Paragraph(texte).setFont(normal).setFontSize(9));
+    }
+
+    private void ligne(Table table, String libelle, String valeur, PdfFont bold, PdfFont normal) {
+        table.addCell(new Cell().setPadding(6).setBackgroundColor(GRIS_CLAIR)
+                .add(new Paragraph(libelle).setFont(bold).setFontSize(9)));
+        table.addCell(cellule(valeur, normal));
+    }
+
+    private String libelleDecision(RecommandationCtadp decision) {
+        if (decision == null) return "—";
+        return switch (decision) {
+            case VALIDATION_INVESTIGATION -> "Validation d'une investigation (dossier recevable)";
+            case CLASSEMENT -> "Classement sans suite";
+            case TRANSMISSION_INSTITUTION_PARTENAIRE -> "Transmission à une institution partenaire";
+            case ORIENTATION_ADMINISTRATIVE -> "Orientation administrative";
+        };
     }
 
     private void signature(Document doc, String signataire, PdfFont bold, PdfFont normal) {

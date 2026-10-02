@@ -66,6 +66,21 @@ public class PdfController {
                 .body(pdf);
     }
 
+    @GetMapping("/quitus/{dossierId}")
+    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    public ResponseEntity<byte[]> exportQuitus(
+            @PathVariable UUID dossierId) {
+
+        log.info("Export quitus CGE dossier {}", dossierId);
+        byte[] pdf = documentOfficielPdfService.quitusCge(dossierId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"quitus-cge-" + dossierId + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
     @GetMapping("/accuse-reception/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<byte[]> exportAccuseReception(
