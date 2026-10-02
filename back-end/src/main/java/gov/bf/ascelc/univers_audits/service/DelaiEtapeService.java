@@ -54,8 +54,15 @@ public class DelaiEtapeService {
     public List<DelaiEtapeResponse> findByDossierId(UUID dossierId) {
         // findById applique le contrôle d'affectation/rôle et le masquage de confidentialité.
         DossierResponse dossier = dossierService.findById(dossierId);
-        Instant maintenant = Instant.now();
+        return evaluer(dossierId, dossier.getReceptionDate(), Instant.now());
+    }
 
+    /**
+     * Calcul des délais sans contrôle d'accès, pour un usage système (tâche planifiée d'alerte).
+     * Ne pas exposer tel quel à un utilisateur : passer par {@link #findByDossierId(UUID)}.
+     */
+    @Transactional(readOnly = true)
+    public List<DelaiEtapeResponse> evaluer(UUID dossierId, Instant receptionDate, Instant maintenant) {
         List<StatusHistory> historique = statusHistoryRepository.findByDossierIdOrderByChangedAtAsc(dossierId);
         List<SeanceCtadpDossier> seances = seanceCtadpDossierRepository.findByDossierIdOrderByCreatedAtAsc(dossierId);
         DecisionCGE decision = decisionCGERepository.findByDossierId(dossierId).orElse(null);
@@ -65,7 +72,7 @@ public class DelaiEtapeService {
 
         // Étape 5 — analyse du CGEA : du dossier reçu au démarrage de l'étude d'opportunité.
         ajouter(etapes, ANALYSE_CGEA, "Analyse et transmission au Conseiller juridique", "CGEA",
-                dossier.getReceptionDate(),
+                receptionDate,
                 premiereTransition(historique, DossierStatus.EN_ETUDE_OPPORTUNITE),
                 maintenant);
 
