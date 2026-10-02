@@ -54,7 +54,13 @@ public class DelaiEtapeService {
     public List<DelaiEtapeResponse> findByDossierId(UUID dossierId) {
         // findById applique le contrôle d'affectation/rôle et le masquage de confidentialité.
         DossierResponse dossier = dossierService.findById(dossierId);
-        return evaluer(dossierId, dossier.getReceptionDate(), Instant.now());
+        List<DelaiEtapeResponse> etapes = evaluer(dossierId, dossier.getReceptionDate(), Instant.now());
+
+        // Dossier terminé : une étape restée ouverte n'a plus lieu d'être, on ne la signale pas en retard.
+        if (dossier.getStatus() == DossierStatus.CLOS || dossier.getStatus() == DossierStatus.CLASSE) {
+            return etapes.stream().filter(e -> e.getFin() != null).toList();
+        }
+        return etapes;
     }
 
     /**
@@ -70,16 +76,22 @@ public class DelaiEtapeService {
 
         List<DelaiEtapeResponse> etapes = new ArrayList<>();
 
-        // Étape 5 — analyse du CGEA : du dossier reçu au démarrage de l'étude d'opportunité.
+        Instant dateDecision = decision != null ? decision.getDateDecision() : null;
+
+        // Étape 5 — analyse du CGEA : du dossier reçu au démarrage de l'étude d'opportunité. Si cette
+        // transition n'est pas enregistrée, un jalon postérieur prouve que l'étape est passée.
         ajouter(etapes, ANALYSE_CGEA, "Analyse et transmission au Conseiller juridique", "CGEA",
                 receptionDate,
-                premiereTransition(historique, DossierStatus.EN_ETUDE_OPPORTUNITE),
+                premier(premiereTransition(historique, DossierStatus.EN_ETUDE_OPPORTUNITE),
+                        premiereTransition(historique, DossierStatus.EN_REVUE_CTADP),
+                        dateDecision),
                 maintenant);
 
-        // Étape 7 — convocation : de l'envoi au comité à l'inscription du dossier à une séance.
+        // Étape 7 — convocation : de l'envoi au comité à l'inscription du dossier à une séance. Un dossier
+        // tranché par le CGE sans séance enregistrée n'a plus de convocation à attendre.
         ajouter(etapes, CONVOCATION_CTADP, "Convocation du comité", "CGEA",
                 premiereTransition(historique, DossierStatus.EN_REVUE_CTADP),
-                seances.isEmpty() ? null : seances.get(0).getCreatedAt(),
+                premier(seances.isEmpty() ? null : seances.get(0).getCreatedAt(), dateDecision),
                 maintenant);
 
         // Étape 9 — quitus : de la séance tenue à la décision du CGE.
@@ -122,6 +134,15 @@ public class DelaiEtapeService {
         }
 
         etapes.add(calculator.evaluer(code, libelle, acteur, debut, fin, delaiJours, joursOuvrables, maintenant));
+    }
+
+    /** Le plus ancien des instants non nuls, ou null s'il n'y en a aucun. */
+    private static Instant premier(Instant... instants) {
+        Instant resultat = null;
+        for (Instant i : instants) {
+            if (i != null && (resultat == null || i.isBefore(resultat))) resultat = i;
+        }
+        return resultat;
     }
 
     private Instant premiereTransition(List<StatusHistory> historique, DossierStatus statut) {

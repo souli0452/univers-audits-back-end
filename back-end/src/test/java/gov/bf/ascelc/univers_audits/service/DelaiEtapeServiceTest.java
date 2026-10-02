@@ -154,4 +154,47 @@ class DelaiEtapeServiceTest {
 
         assertThat(service.findByDossierId(id)).isEmpty();
     }
+    @Test
+    void decision_du_cge_sans_seance_enregistree_termine_la_convocation() {
+        dossierRecuLe("2026-10-05T10:00:00Z");
+        when(historyRepo.findByDossierIdOrderByChangedAtAsc(id)).thenReturn(List.of(
+                transition(DossierStatus.EN_ETUDE_OPPORTUNITE, "2026-10-06T09:00:00Z"),
+                transition(DossierStatus.EN_REVUE_CTADP, "2026-10-07T09:00:00Z")));
+        when(decisionRepo.findByDossierId(id)).thenReturn(Optional.of(DecisionCGE.builder()
+                .decision(RecommandationCtadp.CLASSEMENT)
+                .dateDecision(Instant.parse("2026-10-30T09:00:00Z")).build()));
+
+        DelaiEtapeResponse convocation = service.findByDossierId(id).stream()
+                .filter(e -> e.getCode().equals(DelaiEtapeService.CONVOCATION_CTADP)).findFirst().orElseThrow();
+
+        assertThat(convocation.getFin()).isEqualTo(Instant.parse("2026-10-30T09:00:00Z"));
+        assertThat(convocation.getStatut()).isNotEqualTo(StatutDelaiEtape.DEPASSE);
+    }
+
+    @Test
+    void transition_d_etude_absente_de_l_historique_mais_dossier_deja_au_comite_termine_l_analyse() {
+        dossierRecuLe("2026-10-05T10:00:00Z");
+        when(historyRepo.findByDossierIdOrderByChangedAtAsc(id)).thenReturn(List.of(
+                transition(DossierStatus.EN_REVUE_CTADP, "2026-10-07T09:00:00Z")));
+
+        DelaiEtapeResponse analyse = service.findByDossierId(id).get(0);
+
+        assertThat(analyse.getCode()).isEqualTo(DelaiEtapeService.ANALYSE_CGEA);
+        assertThat(analyse.getFin()).isEqualTo(Instant.parse("2026-10-07T09:00:00Z"));
+    }
+
+    @Test
+    void dossier_clos_ne_signale_pas_d_etape_restee_ouverte() {
+        when(dossierService.findById(id)).thenReturn(DossierResponse.builder()
+                .id(id).status(DossierStatus.CLOS)
+                .receptionDate(Instant.parse("2026-03-02T10:00:00Z")).build());
+        when(decisionRepo.findByDossierId(id)).thenReturn(Optional.of(DecisionCGE.builder()
+                .decision(RecommandationCtadp.VALIDATION_INVESTIGATION)
+                .dateDecision(Instant.parse("2026-03-20T09:00:00Z")).build()));
+        // Pas de fiche d'affectation : « imputation » reste ouverte, mais le dossier est clos.
+
+        List<DelaiEtapeResponse> etapes = service.findByDossierId(id);
+
+        assertThat(etapes).allSatisfy(e -> assertThat(e.getFin()).isNotNull());
+    }
 }
