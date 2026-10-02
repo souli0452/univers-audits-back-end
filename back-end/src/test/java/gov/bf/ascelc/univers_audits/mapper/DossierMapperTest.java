@@ -97,4 +97,19 @@ class DossierMapperTest {
 
         assertThat(dossier.getAnonymous()).isNull();
     }
+
+    @Test
+    void numeroCourrier_traverseCreationEtReponse() {
+        DossierCreateRequest request = DossierCreateRequest.builder()
+                .submissionMode(SubmissionMode.POSTAL_MAIL)
+                .object("Objet du dossier")
+                .numeroCourrier("COUR-2026-0042")
+                .build();
+
+        Dossier dossier = mapper.toEntity(request);
+        DossierResponse response = mapper.toResponse(dossier);
+
+        assertThat(dossier.getNumeroCourrier()).isEqualTo("COUR-2026-0042");
+        assertThat(response.getNumeroCourrier()).isEqualTo("COUR-2026-0042");
+    }
 }

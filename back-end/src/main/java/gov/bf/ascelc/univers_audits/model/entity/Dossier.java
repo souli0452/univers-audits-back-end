@@ -100,6 +100,10 @@ public class Dossier extends AuditEntity {
     @Column(name = "incident_period", length = 200)
     private String incidentPeriod;
 
+    /** Reference d enregistrement du courrier dans l application de gestion du courrier (etape 1 du workflow). */
+    @Column(name = "numero_courrier", length = 50)
+    private String numeroCourrier;
+
     @Column(name = "lieu_depot", length = 300)
     private String lieuDepot;
 
