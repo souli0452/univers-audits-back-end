@@ -37,6 +37,7 @@ public class DossierResponse {
     private String                     descriptionSource;
     private String                     motifs;
     private String                     incidentLocation;
+    private String                     numeroCourrier;
     private String                     incidentPeriod;
     private String                     lieuDepot;
     private String                     organismeFaitsDenomination;

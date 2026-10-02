@@ -64,6 +64,10 @@ public class Notification extends AuditEntity {
     @Column(name = "form_reference", length = 5)
     private String formReference;
 
+    /** Étape du circuit concernée (type ALERTE_DELAI_ETAPE) : permet une seule alerte par dossier et par étape. */
+    @Column(name = "etape_code", length = 40)
+    private String etapeCode;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 15)
     @Builder.Default

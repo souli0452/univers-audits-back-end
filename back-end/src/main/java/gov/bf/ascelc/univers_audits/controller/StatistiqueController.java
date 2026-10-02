@@ -1,10 +1,12 @@
 package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
+import gov.bf.ascelc.univers_audits.model.dto.response.ActeurEtapeDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
 import gov.bf.ascelc.univers_audits.service.StatistiqueService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
+import gov.bf.ascelc.univers_audits.service.DepassementEtapeService;
 import gov.bf.ascelc.univers_audits.service.RapportAnnuelPdfService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -26,6 +28,7 @@ public class StatistiqueController {
 
     private final StatistiqueService statistiqueService;
     private final RapportAnnuelPdfService rapportAnnuelPdfService;
+    private final DepassementEtapeService depassementEtapeService;
 
 
     @GetMapping("/public")
@@ -50,6 +53,13 @@ public class StatistiqueController {
     }
 
 
+    @GetMapping("/depassements-etapes")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    public ResponseEntity<List<ActeurEtapeDepassementResponse>> getDepassementsEtapes() {
+        log.info("Tableau des étapes du circuit en retard par acteur");
+        return ResponseEntity.ok(depassementEtapeService.parActeur());
+    }
+
     @GetMapping("/depassements-par-acteur")
     @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
     public ResponseEntity<List<ActeurDepassementResponse>> getDepassementsParActeur() {
@@ -58,7 +68,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/quarterly")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
     public ResponseEntity<StatistiqueResponse> getQuarterlyStats(
             @RequestParam int year,
             @RequestParam int quarter) {
@@ -75,7 +85,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/annual")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
     public ResponseEntity<StatistiqueResponse> getAnnualStats(
             @RequestParam int year) {
 
@@ -87,7 +97,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/annual/export")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
     public ResponseEntity<byte[]> exportAnnualStats(
             @RequestParam int year) {
 
