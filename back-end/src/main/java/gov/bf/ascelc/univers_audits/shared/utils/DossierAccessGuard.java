@@ -45,6 +45,9 @@ public class DossierAccessGuard {
         if (canSeeConfidential()) {
             return;
         }
+        if (estDepotEnAttenteDEnregistrement(dossier)) {
+            return;
+        }
         String keycloakId = securityUtils.getCurrentKeycloakId()
                 .orElseThrow(() -> new BusinessException("Agent non authentifié"));
         Agent agent = agentRepository.findByKeycloakId(keycloakId)
@@ -56,6 +59,15 @@ public class DossierAccessGuard {
             throw new BusinessException(
                     "Accès refusé — ce dossier ne vous est pas assigné");
         }
+    }
+
+    /**
+     * Un dépôt fait sur le portail (statut SOUMIS) n'a encore aucun agent en charge, donc aucune habilitation :
+     * sans cette règle, personne au BRPD ne pourrait l'ouvrir pour l'enregistrer. Dès l'enregistrement,
+     * l'agent qui l'enregistre en devient l'agent en charge (habilitation) et l'accès redevient nominatif.
+     */
+    public boolean estDepotEnAttenteDEnregistrement(Dossier dossier) {
+        return dossier.getStatus() == DossierStatus.SOUMIS && securityUtils.hasRole("AGENT_BRPD");
     }
 
     /**

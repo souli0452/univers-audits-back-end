@@ -118,6 +118,12 @@ public class DossierServiceImpl implements DossierService {
         Agent agent = agentContextResolver.getCurrentAgent();
         log.debug("[Dossiers] Accès restreint — agent: {} voit uniquement ses dossiers habilités",
                 agent.getMatricule());
+        if (securityUtils.hasRole("AGENT_BRPD")) {
+            // le BRPD reçoit aussi les dépôts du portail qui attendent leur enregistrement
+            return dossierRepository
+                    .findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable)
+                    .map(this::enrichAndMask);
+        }
         return dossierRepository
                 .findAccessibleByAgentId(agent.getId(), pageable)
                 .map(this::enrichAndMask);

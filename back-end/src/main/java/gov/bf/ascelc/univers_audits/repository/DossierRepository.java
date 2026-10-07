@@ -59,6 +59,17 @@ public interface DossierRepository
     Page<Dossier> findAccessibleByAgentId(
             @Param("agentId") UUID agentId, Pageable pageable);
 
+    /** Dossiers habilités pour l'agent, plus tous ceux d'un statut donné (dépôts « Soumis » à enregistrer par le BRPD). */
+    @EntityGraph(attributePaths = "investigation")
+    @Query("""
+            SELECT DISTINCT d FROM Dossier d
+            LEFT JOIN DossierHabilitation h
+                   ON h.dossier = d AND h.agent.id = :agentId AND h.revokedAt IS NULL
+            WHERE h.id IS NOT NULL OR d.status = :statut
+            """)
+    Page<Dossier> findAccessibleByAgentIdOrWithStatus(
+            @Param("agentId") UUID agentId, @Param("statut") DossierStatus statut, Pageable pageable);
+
     Page<Dossier> findByAgentInChargeIdAndStatus(
             UUID agentId, DossierStatus status, Pageable pageable);
 

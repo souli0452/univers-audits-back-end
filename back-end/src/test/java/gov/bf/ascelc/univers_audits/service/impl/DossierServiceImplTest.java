@@ -244,6 +244,23 @@ class DossierServiceImplTest {
     }
 
     @Test
+    void findAll_brpdAgentAlsoSeesSubmittedDeposits() {
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        Pageable pageable = PageRequest.of(0, 20);
+
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(true);
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(dossierRepository.findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.findAll(pageable);
+
+        verify(dossierRepository).findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable);
+        verify(dossierRepository, never()).findAccessibleByAgentId(any(), any());
+    }
+
+    @Test
     void findAll_usesFindAllForPrivilegedAgent() {
         Pageable pageable = PageRequest.of(0, 20);
 
