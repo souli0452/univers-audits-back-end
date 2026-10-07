@@ -43,6 +43,8 @@ public interface DossierRepository
 
     Page<Dossier> findByStatusIn(List<DossierStatus> statuses, Pageable pageable);
 
+    List<Dossier> findByStatusNotIn(java.util.Collection<DossierStatus> statuses);
+
     long countByStatusIn(List<DossierStatus> statuses);
 
     @EntityGraph(attributePaths = "investigation")

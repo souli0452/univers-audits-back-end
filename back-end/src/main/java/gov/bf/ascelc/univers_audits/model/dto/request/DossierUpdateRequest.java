@@ -29,6 +29,9 @@ public class DossierUpdateRequest {
     @Size(max = 300)
     private String incidentLocation;
 
+    @Size(max = 50)
+    private String numeroCourrier;
+
     @Size(max = 200)
     private String incidentPeriod;
 

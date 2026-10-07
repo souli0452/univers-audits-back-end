@@ -17,6 +17,8 @@ public interface SeanceCtadpDossierRepository
 
     boolean existsBySeanceCtadpIdAndDossierId(UUID seanceCtadpId, UUID dossierId);
 
+    List<SeanceCtadpDossier> findByDossierIdOrderByCreatedAtAsc(UUID dossierId);
+
     Optional<SeanceCtadpDossier> findBySeanceCtadpIdAndDossierId(
             UUID seanceCtadpId, UUID dossierId);
 

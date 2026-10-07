@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.service.DocumentOfficielPdfService;
 import gov.bf.ascelc.univers_audits.service.PdfExportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class PdfController {
 
     private final PdfExportService pdfExportService;
+    private final DocumentOfficielPdfService documentOfficielPdfService;
 
     @GetMapping("/dossier/{id}")
     @PreAuthorize("isAuthenticated()")
@@ -45,6 +47,51 @@ public class PdfController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"recepisse-" + id + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    @GetMapping("/convocation-ctadp/{seanceId}")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','ADMIN_DDIC')")
+    public ResponseEntity<byte[]> exportConvocationCtadp(
+            @PathVariable UUID seanceId) {
+
+        log.info("Export convocation CTADP séance {}", seanceId);
+        byte[] pdf = documentOfficielPdfService.convocationCtadp(seanceId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"convocation-ctadp-" + seanceId + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    @GetMapping("/quitus/{dossierId}")
+    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    public ResponseEntity<byte[]> exportQuitus(
+            @PathVariable UUID dossierId) {
+
+        log.info("Export quitus CGE dossier {}", dossierId);
+        byte[] pdf = documentOfficielPdfService.quitusCge(dossierId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"quitus-cge-" + dossierId + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    @GetMapping("/lettre-information/{dossierId}")
+    @PreAuthorize("hasAnyRole('CGEA','CGE','AGENT_BRPD','ADMIN_DDIC')")
+    public ResponseEntity<byte[]> exportLettreInformation(
+            @PathVariable UUID dossierId) {
+
+        log.info("Export lettre d'information dossier {}", dossierId);
+        byte[] pdf = documentOfficielPdfService.lettreInformationPlaignant(dossierId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"lettre-information-" + dossierId + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }

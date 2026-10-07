@@ -5,7 +5,9 @@ import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.SetPriorityRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
+import gov.bf.ascelc.univers_audits.model.dto.response.DelaiEtapeResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.service.DelaiEtapeService;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
@@ -35,6 +37,7 @@ import java.util.UUID;
 public class DossierController {
 
     private final DossierService dossierService;
+    private final DelaiEtapeService delaiEtapeService;
     private final AuditService   auditService;
 
     private String getClientIp(HttpServletRequest request) {
@@ -94,6 +97,13 @@ public class DossierController {
             + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<DossierResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(dossierService.findById(id));
+    }
+
+    @GetMapping("/{id}/delais-etapes")
+    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
+            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
+    public ResponseEntity<java.util.List<DelaiEtapeResponse>> delaisEtapes(@PathVariable UUID id) {
+        return ResponseEntity.ok(delaiEtapeService.findByDossierId(id));
     }
 
     @GetMapping("/status/{status}")

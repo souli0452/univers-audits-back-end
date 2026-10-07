@@ -50,6 +50,9 @@ public class DossierCreateRequest {
     @Size(max = 300, message = "La localisation ne doit pas dépasser 300 caractères")
     private String incidentLocation;
 
+    @Size(max = 50, message = "Le numero de courrier ne doit pas depasser 50 caracteres")
+    private String numeroCourrier;
+
     @Size(max = 200, message = "La période ne doit pas dépasser 200 caractères")
     private String incidentPeriod;
 
