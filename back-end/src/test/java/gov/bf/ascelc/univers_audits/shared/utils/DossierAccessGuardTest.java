@@ -177,4 +177,56 @@ class DossierAccessGuardTest {
         assertThatCode(() -> guard.checkAttachmentUploadAccess(dossier, null))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void checkReadAccess_allowsBrpdAgentOnSubmittedDeposit() {
+        when(securityUtils.hasRole("CGE")).thenReturn(false);
+        when(securityUtils.hasRole("CGEA")).thenReturn(false);
+        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(true);
+
+        Dossier depot = Dossier.builder().id(UUID.randomUUID())
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.SOUMIS).build();
+
+        assertThatCode(() -> guard.checkReadAccess(depot)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void checkReadAccess_rejectsBrpdAgentOnceTheDossierIsRegisteredByAnotherAgent() {
+        when(securityUtils.hasRole("CGE")).thenReturn(false);
+        when(securityUtils.hasRole("CGEA")).thenReturn(false);
+        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+
+        UUID agentId   = UUID.randomUUID();
+        UUID dossierId = UUID.randomUUID();
+        Dossier recu = Dossier.builder().id(dossierId)
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.RECU).build();
+
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-1"));
+        when(agentRepository.findByKeycloakId("kc-1")).thenReturn(Optional.of(Agent.builder().id(agentId).build()));
+        when(habilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, agentId))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> guard.checkReadAccess(recu)).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void checkReadAccess_doesNotOpenSubmittedDepositToOtherRoles() {
+        when(securityUtils.hasRole("CGE")).thenReturn(false);
+        when(securityUtils.hasRole("CGEA")).thenReturn(false);
+        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(false);
+
+        UUID agentId   = UUID.randomUUID();
+        UUID dossierId = UUID.randomUUID();
+        Dossier depot = Dossier.builder().id(dossierId)
+                .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.SOUMIS).build();
+
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-2"));
+        when(agentRepository.findByKeycloakId("kc-2")).thenReturn(Optional.of(Agent.builder().id(agentId).build()));
+        when(habilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, agentId))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> guard.checkReadAccess(depot)).isInstanceOf(BusinessException.class);
+    }
 }
