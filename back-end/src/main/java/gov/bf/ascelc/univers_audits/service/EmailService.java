@@ -314,7 +314,7 @@ public class EmailService {
             <strong>ASCE-LC</strong> · %s<br>
             Numéro Vert : <strong>%s</strong> ·
             <a href="mailto:%s">%s</a><br><br>
-            Vos informations sont traitées conformément à la Loi N°010-2004/AN
+            Vos informations sont traitées conformément à la Loi N°001-2021/AN
           </p>
         </div>
         """.formatted(
@@ -327,7 +327,7 @@ public class EmailService {
     private static final String CONFID = """
         <div class="confid">
           Vos informations sont strictement confidentielles et protégées
-          conformément à la Loi N°010-2004/AN du Burkina Faso.
+          conformément à la Loi N°001-2021/AN du Burkina Faso.
         </div>
         """;
 

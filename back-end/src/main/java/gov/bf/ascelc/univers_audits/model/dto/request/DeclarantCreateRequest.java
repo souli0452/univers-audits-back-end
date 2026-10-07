@@ -72,7 +72,7 @@ public class DeclarantCreateRequest {
 
     @AssertTrue(
             message = "Vous devez confirmer avoir pris connaissance des conditions "
-                    + "de la protection lanceur d'alerte (Loi N°010-2004/AN) "
+                    + "de la protection lanceur d'alerte "
                     + "avant de pouvoir la demander."
     )
     public boolean isProtectionConsistent() {

@@ -910,7 +910,7 @@ public class PdfExportService {
                         .setBackgroundColor(new DeviceRgb(219, 234, 254))
                         .setPadding(8)
                         .add(new Paragraph(
-                                "Protection lanceur d'alerte demandée (Loi N°010-2004/AN)")
+                                "Protection lanceur d'alerte demandée")
                                 .setFont(fontBold)
                                 .setFontSize(9)
                                 .setFontColor(new DeviceRgb(30, 64, 175)));

@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
  * Dérive TypeSaisine (nature de la saisine) depuis le type et la qualité du
  * déclarant, conformément au §4.1 du manuel ASCE-LC. Le client ne choisit
  * jamais directement la nature — elle est toujours calculée ici.
+ *
+ * <p>Une victime ou son représentant identifiés déposent une plainte ; sans identité (ou en tant que
+ * témoin), le signalement est une dénonciation.
  */
 @Component
 public class NatureSaisineResolver {
@@ -41,29 +44,17 @@ public class NatureSaisineResolver {
                             + "type de déclarant.");
         }
 
-        if (typeDeclarant == TypeDeclarant.ANONYMOUS
-                && quality != QualiteDeclarant.TEMOIN) {
-            throw new BusinessException(
-                    "Un déclarant anonyme ne peut être enregistré qu'en "
-                            + "tant que témoin.");
+        // Sans identité il n'y a pas de plaignant : le manuel des procédures admet pourtant
+        // les signalements anonymes. Une victime qui souhaite rester anonyme n'est donc pas
+        // refusée, son signalement est traité comme une dénonciation (la qualité déclarée
+        // est conservée telle quelle sur le dossier).
+        if (anonymous || typeDeclarant == TypeDeclarant.ANONYMOUS) {
+            return TypeSaisine.DENONCIATION;
         }
 
         return switch (quality) {
-            case VICTIME, REPRESENTANT_VICTIME -> {
-                if (anonymous) {
-                    throw new BusinessException(
-                            "L'anonymat est incompatible avec la qualité de "
-                                    + labelFor(quality) + ".");
-                }
-                yield TypeSaisine.PLAINTE;
-            }
+            case VICTIME, REPRESENTANT_VICTIME -> TypeSaisine.PLAINTE;
             case TEMOIN -> TypeSaisine.DENONCIATION;
         };
-    }
-
-    private String labelFor(QualiteDeclarant quality) {
-        return quality == QualiteDeclarant.VICTIME
-                ? "victime"
-                : "représentant de la victime";
     }
 }

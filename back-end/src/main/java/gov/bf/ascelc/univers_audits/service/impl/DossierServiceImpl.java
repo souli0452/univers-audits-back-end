@@ -159,7 +159,7 @@ public class DossierServiceImpl implements DossierService {
                 request.getDeclarantData().getProtectionAcknowledged())) {
             throw new BusinessException(
                     "Vous devez confirmer avoir pris connaissance des conditions "
-                            + "de la protection lanceur d'alerte (Loi N°010-2004/AN) "
+                            + "de la protection lanceur d'alerte "
                             + "avant de pouvoir la demander.");
         }
 
@@ -286,7 +286,7 @@ public class DossierServiceImpl implements DossierService {
 
             auditRecorder.addObservation(dossier,
                     ObservationType.INTERNAL_NOTE,
-                    "⚠ PROTECTION LANCEUR D'ALERTE DEMANDÉE — Loi N°010-2004/AN. "
+                    "⚠ PROTECTION LANCEUR D'ALERTE DEMANDÉE. "
                             + "Ce déclarant a demandé une protection officielle. "
                             + "Aucune information permettant son identification "
                             + "ne doit être divulguée.",
@@ -686,7 +686,7 @@ public class DossierServiceImpl implements DossierService {
         if (isProtected && !isCge && !isCgea) {
             throw new BusinessException(
                     "Modification restreinte — ce dossier concerne un lanceur "
-                            + "d'alerte sous protection (Loi N°010-2004/AN). "
+                            + "d'alerte sous protection. "
                             + "Seuls le CGE et le CGEA sont habilités à le modifier.");
         }
 
@@ -715,7 +715,7 @@ public class DossierServiceImpl implements DossierService {
         if (isProtected && !value && !isCge && !isCgea) {
             throw new BusinessException(
                     "Impossible de retirer la confidentialité d'un dossier "
-                            + "lanceur d'alerte protégé (Loi N°010-2004/AN). "
+                            + "lanceur d'alerte protégé. "
                             + "Cette action est réservée au CGE et au CGEA.");
         }
 
@@ -1081,7 +1081,7 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setLocalite(null);
             response.getDeclarant().setProfession(null);
             response.getDeclarant().setDisplayName(
-                    "Lanceur d'alerte protégé (Loi N°010-2004/AN)");
+                    "Lanceur d'alerte protégé");
             log.debug("Dossier {} — identité lanceur d'alerte masquée",
                     response.getNumber());
         }

@@ -24,7 +24,7 @@ public class AuditionDisplayNameMasker {
                 && Boolean.TRUE.equals(declarant.getProtectionRequested())
                 && !securityUtils.hasRole("CGE")
                 && !securityUtils.hasRole("CGEA")) {
-            raw = "Lanceur d'alerte protégé (Loi N°010-2004/AN)";
+            raw = "Lanceur d'alerte protégé";
         }
         if (Boolean.TRUE.equals(dossier.getAnonymous())) {
             raw = "Déclarant anonyme";
