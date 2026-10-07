@@ -17,7 +17,7 @@ public enum TypeDeclarant {
 
     // Le déclarant ne révèle pas son identité.
     // firstName, lastName, email, phone = null en base.
-    // Protégé par la loi N°010-2004/AN.
+    // Bénéficie de la protection prévue par la loi pour les lanceurs d'alerte.
     ANONYMOUS,
 
     // L'ASCE-LC se saisit elle-même après veille médiatique

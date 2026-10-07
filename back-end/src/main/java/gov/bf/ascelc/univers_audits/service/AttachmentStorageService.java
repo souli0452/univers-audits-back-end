@@ -62,6 +62,11 @@ public class AttachmentStorageService {
 
     private static final int PERSONNE_REMETTANTE_MAX_LENGTH = 255;
 
+    /** Pièces jointes qu'un déposant non authentifié peut verser à son dossier (hors témoignage audio). */
+    static final int MAX_PIECES_DEPOT_PUBLIC = 5;
+    /** Témoignage audio enregistré au dépôt : un seul par dossier. */
+    static final int MAX_AUDIO_DEPOT_PUBLIC = 1;
+
     @Value("${storage.upload-dir:C:/asce-lc/uploads}")
     private String uploadDir;
 
@@ -107,6 +112,9 @@ public class AttachmentStorageService {
         ModeObtention effectiveModeObtention = isAuthenticatedAgent && modeObtention != null
                 ? modeObtention : ModeObtention.VOLONTAIRE;
         String effectivePersonneRemettante = isAuthenticatedAgent ? personneRemettante : null;
+        if (!isAuthenticatedAgent) {
+            verifierQuotaDepotPublic(dossier.getId(), files);
+        }
         SectionDossierTravail section = resolveSectionForDossierOrThrow(sectionId, dossier);
         AtomicLong nextSequence = new AtomicLong(attachmentRepository.count() + 1);
 
@@ -262,6 +270,32 @@ public class AttachmentStorageService {
             return sb.toString();
         } catch (Exception e) {
             return UUID.randomUUID().toString().replace("-", "");
+        }
+    }
+
+    /**
+     * Le formulaire du portail limite le nombre de pièces ; cette règle la rend obligatoire côté serveur,
+     * car l'envoi public est appelable sans passer par l'écran. Seules les pièces du dépôt initial comptent :
+     * les pièces ajoutées ensuite par les agents n'entrent pas dans le quota du citoyen.
+     */
+    private void verifierQuotaDepotPublic(UUID dossierId, List<MultipartFile> files) {
+        List<Attachment> existantes = attachmentRepository.findByDossierId(dossierId).stream()
+                .filter(a -> a.getSource() == AttachmentSource.INITIAL_SUBMISSION)
+                .toList();
+        long audioExistants = existantes.stream()
+                .filter(a -> a.getType() == AttachmentType.AUDIO_EVIDENCE).count();
+        long piecesExistantes = existantes.size() - audioExistants;
+
+        long audioNouveaux = files.stream().filter(f -> detectType(
+                f.getContentType(), f.getOriginalFilename() != null ? f.getOriginalFilename() : "fichier")
+                == AttachmentType.AUDIO_EVIDENCE).count();
+        long piecesNouvelles = files.size() - audioNouveaux;
+
+        if (piecesExistantes + piecesNouvelles > MAX_PIECES_DEPOT_PUBLIC) {
+            throw new BusinessException("Maximum " + MAX_PIECES_DEPOT_PUBLIC + " pièces jointes par dossier");
+        }
+        if (audioExistants + audioNouveaux > MAX_AUDIO_DEPOT_PUBLIC) {
+            throw new BusinessException("Un seul témoignage audio par dossier");
         }
     }
 

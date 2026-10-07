@@ -136,6 +136,8 @@ Le formulaire officiel ne comporte pas de champ « nature de saisine » : il por
 
 Regle de validation croisee : si le champ nom vaut « Anonyme », la qualite « Victime » et « Representant de la victime » sont rejetees. Inversement, selectionner l'une de ces deux qualites rend l'identification obligatoire.
 
+> **Mise a jour 2026-10-07** : le manuel des procedures (mai 2021, sections introduction et C.2.6) et le site de l ASCE-LC admettent les plaintes anonymes. Une victime ou un representant qui ne veut pas s identifier n est donc plus refuse : le signalement est enregistre comme **denonciation** (la qualite declaree est conservee). Une plainte reste nominative. A confirmer par l ASCE-LC.
+
 Cette derivation vaut pour les depots citoyens uniquement. Les signalements institutionnels, soit-transmis du Procureur, commissions rogatoires, remontees internes DAC/DDIP et auto-saisines n'utilisent pas ce formulaire et doivent disposer d'un ecran de saisie distinct, avec emetteur de type institution et non personne physique.
 
 ---

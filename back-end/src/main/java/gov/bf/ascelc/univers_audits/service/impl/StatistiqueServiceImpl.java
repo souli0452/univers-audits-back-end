@@ -353,14 +353,41 @@ public class StatistiqueServiceImpl implements StatistiqueService {
                 DossierStatus.IRRECEVABLE
         ));
 
+        // Tendance et répartition : des totaux agrégés uniquement, aucune donnée personnelle.
+        // Comptés à la date de dépôt (createdAt) : la date de réception n'est renseignée qu'à l'enregistrement.
+        // La clé de répartition est la nature de la saisine (DENONCIATION, PLAINTE, SIGNALEMENT, AUTO_SAISINE).
+        int anneeCourante = java.time.LocalDate.now(OUAGA_TZ).getYear();
+        List<Map<String, Object>> parAnnee = new ArrayList<>();
+        for (int annee = anneeCourante - NB_ANNEES_TENDANCE + 1; annee <= anneeCourante; annee++) {
+            parAnnee.add(Map.of(
+                    "annee", annee,
+                    "total", dossierRepository.countByCreatedAtBetween(
+                            debutAnnee(annee), debutAnnee(annee + 1).minusNanos(1))));
+        }
+        Map<String, Long> parType = buildMap(dossierRepository.countByTypeCreatedBetween(
+                debutAnnee(anneeCourante), debutAnnee(anneeCourante + 1).minusNanos(1)));
+
+        Map<String, Long> parCanal = buildMap(dossierRepository.countBySubmissionModeCreatedBetween(
+                debutAnnee(anneeCourante), debutAnnee(anneeCourante + 1).minusNanos(1)));
+
         return Map.of(
                 "totalDossiers",    total,
                 "dossiersNouveaux", nouveaux,
                 "dossiersEnCours",  enCours,
                 "dossiersTraites",  traites,
                 "confidentiel",     "100%",
-                "delaiJours",       7
+                "anneeCourante",    anneeCourante,
+                "parAnnee",         parAnnee,
+                "parType",          parType,
+                "parCanal",         parCanal
         );
+    }
+
+    /** Nombre d'années affichées dans la tendance publique (année courante comprise). */
+    private static final int NB_ANNEES_TENDANCE = 5;
+
+    private static Instant debutAnnee(int annee) {
+        return java.time.LocalDate.of(annee, 1, 1).atStartOfDay(OUAGA_TZ).toInstant();
     }
 
     private List<StatistiqueResponse.MonthlyCount> buildMonthlyTrend(

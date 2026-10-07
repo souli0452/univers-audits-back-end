@@ -430,4 +430,57 @@ class AttachmentStorageServiceTest {
         assertThat(summary.modeObtention()).isEqualTo("REQUISITION");
         assertThat(summary.code()).isEqualTo("ACC-T-00007");
     }
+
+    private static MockMultipartFile fichier(String nom, String mime) {
+        return new MockMultipartFile("files", nom, mime, "x".getBytes());
+    }
+
+    private static Attachment existante(gov.bf.ascelc.univers_audits.enums.AttachmentType type, AttachmentSource source) {
+        return Attachment.builder().type(type).source(source).build();
+    }
+
+    @Test
+    void upload_public_refuseUnSixiemeDocumentMaisAccepteLeTemoignageAudio() {
+        UUID dossierId = UUID.randomUUID();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(buildDossier(dossierId)));
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
+        when(attachmentRepository.findByDossierId(dossierId)).thenReturn(List.of(
+                existante(gov.bf.ascelc.univers_audits.enums.AttachmentType.PHOTO, AttachmentSource.INITIAL_SUBMISSION),
+                existante(gov.bf.ascelc.univers_audits.enums.AttachmentType.PHOTO, AttachmentSource.INITIAL_SUBMISSION),
+                existante(gov.bf.ascelc.univers_audits.enums.AttachmentType.PHOTO, AttachmentSource.INITIAL_SUBMISSION),
+                existante(gov.bf.ascelc.univers_audits.enums.AttachmentType.PHOTO, AttachmentSource.INITIAL_SUBMISSION),
+                existante(gov.bf.ascelc.univers_audits.enums.AttachmentType.PHOTO, AttachmentSource.INITIAL_SUBMISSION)));
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("6.pdf", "application/pdf")), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Maximum 5 pièces jointes");
+
+        verify(attachmentRepository, never()).save(any());
+    }
+
+    @Test
+    void upload_public_refuseUnDeuxiemeTemoignageAudio() {
+        UUID dossierId = UUID.randomUUID();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(buildDossier(dossierId)));
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
+        when(attachmentRepository.findByDossierId(dossierId)).thenReturn(List.of(
+                existante(gov.bf.ascelc.univers_audits.enums.AttachmentType.AUDIO_EVIDENCE, AttachmentSource.INITIAL_SUBMISSION)));
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("t.webm", "audio/webm")), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Un seul témoignage audio");
+    }
+
+    @Test
+    void upload_agentAuthentifie_neSubitPasLeQuotaDuDeposant() {
+        UUID dossierId = UUID.randomUUID();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(buildDossier(dossierId)));
+        when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(Agent.builder().id(UUID.randomUUID()).build());
+
+        service.upload(dossierId.toString(), List.of(), null, null, null, null, null);
+
+        verify(attachmentRepository, never()).findByDossierId(any());
+    }
 }

@@ -63,31 +63,33 @@ class NatureSaisineResolverTest {
     }
 
     @Test
-    void anonymousDeclarantVictime_throws() {
-        assertThatThrownBy(() -> resolver.resolve(
-                TypeDeclarant.ANONYMOUS, QualiteDeclarant.VICTIME, true))
-                .isInstanceOf(BusinessException.class);
+    void anonymousDeclarantVictime_isTreatedAsDenonciation() {
+        assertThat(resolver.resolve(TypeDeclarant.ANONYMOUS, QualiteDeclarant.VICTIME, true))
+                .isEqualTo(TypeSaisine.DENONCIATION);
     }
 
     @Test
-    void anonymousDeclarantRepresentantVictime_throws() {
-        assertThatThrownBy(() -> resolver.resolve(
-                TypeDeclarant.ANONYMOUS, QualiteDeclarant.REPRESENTANT_VICTIME, true))
-                .isInstanceOf(BusinessException.class);
+    void anonymousDeclarantRepresentantVictime_isTreatedAsDenonciation() {
+        assertThat(resolver.resolve(TypeDeclarant.ANONYMOUS, QualiteDeclarant.REPRESENTANT_VICTIME, true))
+                .isEqualTo(TypeSaisine.DENONCIATION);
     }
 
     @Test
-    void victimeButAnonymousFlagTrue_throws() {
-        assertThatThrownBy(() -> resolver.resolve(
-                TypeDeclarant.CITIZEN, QualiteDeclarant.VICTIME, true))
-                .isInstanceOf(BusinessException.class);
+    void victimeButAnonymousFlagTrue_isTreatedAsDenonciation() {
+        assertThat(resolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.VICTIME, true))
+                .isEqualTo(TypeSaisine.DENONCIATION);
     }
 
     @Test
-    void representantVictimeButAnonymousFlagTrue_throws() {
-        assertThatThrownBy(() -> resolver.resolve(
-                TypeDeclarant.COMPANY, QualiteDeclarant.REPRESENTANT_VICTIME, true))
-                .isInstanceOf(BusinessException.class);
+    void representantVictimeButAnonymousFlagTrue_isTreatedAsDenonciation() {
+        assertThat(resolver.resolve(TypeDeclarant.COMPANY, QualiteDeclarant.REPRESENTANT_VICTIME, true))
+                .isEqualTo(TypeSaisine.DENONCIATION);
+    }
+
+    @Test
+    void victimeIdentified_stillRequiresNamedComplaint() {
+        assertThat(resolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.VICTIME, false))
+                .isEqualTo(TypeSaisine.PLAINTE);
     }
 
     @Test

@@ -53,7 +53,7 @@ class AuditionDisplayNameMaskerTest {
         when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         assertThat(masker.mask(audition))
-                .isEqualTo("Lanceur d'alerte protégé (Loi N°010-2004/AN)");
+                .isEqualTo("Lanceur d'alerte protégé");
     }
 
     @Test

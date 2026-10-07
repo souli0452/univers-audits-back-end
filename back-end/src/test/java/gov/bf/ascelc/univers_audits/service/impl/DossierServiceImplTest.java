@@ -193,7 +193,7 @@ class DossierServiceImplTest {
         when(declarantRepository.save(declarant)).thenReturn(declarant);
         when(natureSaisineResolver.resolve(TypeDeclarant.ANONYMOUS, QualiteDeclarant.VICTIME, true))
                 .thenThrow(new BusinessException(
-                        "Un déclarant anonyme ne peut être enregistré qu'en tant que témoin."));
+                        "La qualité du déposant est obligatoire pour ce type de déclarant."));
 
         assertThatThrownBy(() -> service.submit(request, "127.0.0.1"))
                 .isInstanceOf(BusinessException.class);
