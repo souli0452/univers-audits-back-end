@@ -409,4 +409,31 @@ class StatistiqueServiceImplTest {
 
         assertThat(result.getAcknowledgmentCoverageRate()).isEqualTo(0.0);
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getPublicStats_exposeTendanceSurCinqAnsEtRepartitionParType_sansDonneePersonnelle() {
+        when(dossierRepository.count()).thenReturn(40L);
+        when(dossierRepository.countByStatusIn(any())).thenReturn(0L);
+        when(dossierRepository.countByCreatedAtBetween(any(Instant.class), any(Instant.class)))
+                .thenReturn(7L);
+        when(dossierRepository.countBySubmissionModeCreatedBetween(any(Instant.class), any(Instant.class)))
+                .thenReturn(List.<Object[]>of(new Object[]{"WEB_FORM", 4L}));
+        when(dossierRepository.countByTypeCreatedBetween(any(Instant.class), any(Instant.class)))
+                .thenReturn(List.<Object[]>of(new Object[]{"DENONCIATION", 5L}));
+
+        java.util.Map<String, Object> result = service.getPublicStats();
+
+        List<java.util.Map<String, Object>> parAnnee =
+                (List<java.util.Map<String, Object>>) result.get("parAnnee");
+        int anneeCourante = (int) result.get("anneeCourante");
+        assertThat(parAnnee).hasSize(5);
+        assertThat(parAnnee.get(4).get("annee")).isEqualTo(anneeCourante);
+        assertThat(parAnnee.get(0).get("annee")).isEqualTo(anneeCourante - 4);
+        assertThat(parAnnee).allSatisfy(l -> assertThat(l.get("total")).isEqualTo(7L));
+        assertThat((java.util.Map<String, Long>) result.get("parType")).containsEntry("DENONCIATION", 5L);
+        assertThat((java.util.Map<String, Long>) result.get("parCanal")).containsEntry("WEB_FORM", 4L);
+        // La valeur « 7 jours » codée en dur n'était pas un délai mesuré : elle n'est plus exposée.
+        assertThat(result).doesNotContainKey("delaiJours");
+    }
 }

@@ -252,6 +252,29 @@ public interface DossierRepository
 
     long countByReceptionDateBetween(Instant start, Instant end);
 
+    /** Dossiers déposés (et non seulement enregistrés) sur une période : base des chiffres publics. */
+    long countByCreatedAtBetween(Instant start, Instant end);
+
+    @Query("""
+            SELECT d.type, COUNT(d)
+            FROM Dossier d
+            WHERE d.createdAt BETWEEN :start AND :end
+            GROUP BY d.type
+            """)
+    List<Object[]> countByTypeCreatedBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query("""
+            SELECT d.submissionMode, COUNT(d)
+            FROM Dossier d
+            WHERE d.createdAt BETWEEN :start AND :end
+            GROUP BY d.submissionMode
+            """)
+    List<Object[]> countBySubmissionModeCreatedBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
     long countByStatusAndReceptionDateBetween(
             DossierStatus status, Instant start, Instant end);
 
