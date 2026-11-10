@@ -2,17 +2,17 @@
 <html>
 <body style="font-family: Arial, sans-serif; color: #333;">
     <p>Bonjour,</p>
-    <p>Un compte a été créé pour vous sur la plateforme <strong>INTEGRITE +</strong>.</p>
-    <p>Cliquez sur le bouton ci-dessous pour définir votre mot de passe :</p>
+    <p>Nous avons reçu une demande de réinitialisation du mot de passe de votre compte <strong>INTÉGRITÉ+</strong>.</p>
+    <p>Pour choisir un nouveau mot de passe, cliquez sur le bouton ci-dessous :</p>
     <p>
         <a href="${link}"
-           style="background-color:#1a73e8; color:white; padding:10px 20px;
+           style="background-color:#009640; color:white; padding:10px 20px;
                   text-decoration:none; border-radius:4px;">
-            Définir mon mot de passe
+            Réinitialiser mon mot de passe
         </a>
     </p>
-    <p>Ce lien expire dans <strong>${linkExpirationFormatter(linkExpiration)}</strong>.</p>
-    <p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+    <p>Ce lien expire dans <strong>${linkExpirationFormatter(linkExpiration)}</strong> et ne peut être utilisé qu'une seule fois.</p>
+    <p>Vous n'êtes pas à l'origine de cette demande ? Ignorez simplement ce message : votre mot de passe actuel reste inchangé.</p>
     <br>
     <p>Cordialement,<br><strong>L'équipe ASCE-LC</strong></p>
 </body>
