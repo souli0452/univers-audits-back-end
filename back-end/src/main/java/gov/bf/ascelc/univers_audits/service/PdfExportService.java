@@ -783,7 +783,7 @@ public class PdfExportService {
                 .setBorderRadius(new com.itextpdf.layout.properties.BorderRadius(4)));
 
         if (dossier.getAccessCode() != null) {
-            rightCell.add(new Paragraph("Code B4 : " + dossier.getAccessCode())
+            rightCell.add(new Paragraph("Code de suivi : " + dossier.getAccessCode())
                     .setFont(fontNormal)
                     .setFontSize(9)
                     .setFontColor(new DeviceRgb(180, 220, 195))

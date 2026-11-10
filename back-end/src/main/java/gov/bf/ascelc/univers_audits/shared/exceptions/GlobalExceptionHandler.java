@@ -32,6 +32,19 @@ public class GlobalExceptionHandler {
                         ex.getMessage()));
     }
 
+    /** Route inexistante : sans ce handler, le catch-all la transformerait en 500. */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        log.warn("Route introuvable : {}", ex.getResourcePath());
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of(
+                        HttpStatus.NOT_FOUND.value(),
+                        "NOT_FOUND",
+                        "Ressource introuvable"));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(
             BusinessException ex) {
