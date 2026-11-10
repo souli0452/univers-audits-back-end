@@ -39,7 +39,7 @@ public class EmailService {
             MimeMessage mail   = mailSender.createMimeMessage();
             MimeMessageHelper h = new MimeMessageHelper(mail, true, "UTF-8");
 
-            h.setFrom(fromAddress, "ASCE-LC — Intégrité+");
+            h.setFrom(fromAddress, "ASCE-LC");
             h.setTo(toEmail);
             h.setSubject("ASCE-LC — Vous avez été affecté(e) à une investigation : "
                     + dossierNumber);
@@ -65,7 +65,7 @@ public class EmailService {
             MimeMessageHelper helper =
                     new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom(fromAddress, "ASCE-LC — Intégrité+");
+            helper.setFrom(fromAddress, "ASCE-LC");
             helper.setTo(toEmail);
             helper.setSubject("ASCE-LC — Votre dossier a été enregistré");
             helper.setText(buildAccessCodeHtml(accessCode, declarantName), true);
@@ -91,7 +91,7 @@ public class EmailService {
             MimeMessageHelper helper =
                     new MimeMessageHelper(mail, true, "UTF-8");
 
-            helper.setFrom(fromAddress, "ASCE-LC — Intégrité+");
+            helper.setFrom(fromAddress, "ASCE-LC");
             helper.setTo(toEmail);
             helper.setSubject("ASCE-LC — Mise à jour de votre dossier : " + statusLabel);
             helper.setText(buildStatusHtml(
@@ -117,7 +117,7 @@ public class EmailService {
             MimeMessageHelper helper =
                     new MimeMessageHelper(mail, true, "UTF-8");
 
-            helper.setFrom(fromAddress, "ASCE-LC — Intégrité+");
+            helper.setFrom(fromAddress, "ASCE-LC");
             helper.setTo(toEmail);
             helper.setSubject("ASCE-LC — Information complémentaire requise");
             helper.setText(buildComplementHtml(
@@ -142,7 +142,7 @@ public class EmailService {
             MimeMessageHelper helper =
                     new MimeMessageHelper(mail, true, "UTF-8");
 
-            helper.setFrom(fromAddress, "ASCE-LC — Intégrité+");
+            helper.setFrom(fromAddress, "ASCE-LC");
             helper.setTo(toEmail);
             helper.setSubject("ASCE-LC — Votre dossier a été transmis");
             helper.setText(buildTransferHtml(
@@ -189,7 +189,7 @@ public class EmailService {
             MimeMessageHelper helper =
                     new MimeMessageHelper(mail, true, "UTF-8");
 
-            helper.setFrom(fromAddress, "ASCE-LC — Intégrité+");
+            helper.setFrom(fromAddress, "ASCE-LC");
             helper.setTo(toEmail);
             helper.setSubject("ASCE-LC — Votre mot de passe a été modifié");
             helper.setText(buildPasswordChangedHtml(fullName), true);
@@ -289,7 +289,7 @@ public class EmailService {
         return """
             <div class="hdr">
               <div class="hdr-brand">Burkina Faso</div>
-              <div class="hdr-title">ASCE-LC — INTÉGRITÉ+</div>
+              <div class="hdr-title">ASCE-LC</div>
               <div class="hdr-sub">%s</div>
             </div>
             """.formatted(subtitle != null ? subtitle : "Autorité Supérieure de Contrôle d'État et de Lutte contre la Corruption");
@@ -390,7 +390,7 @@ public class EmailService {
                 %s
                 <p>
                   Vous avez été <strong>officiellement affecté(e)</strong> à une
-                  investigation dans le système ASCE-LC — Intégrité+.
+                  investigation dans le système ASCE-LC.
                   Veuillez en prendre connaissance et prendre en charge votre mission.
                 </p>
 
@@ -754,7 +754,7 @@ public class EmailService {
               %s
               <div class="body">
                 %s
-                <p>Le mot de passe de votre compte ASCE-LC — Intégrité+ vient d'être modifié.</p>
+                <p>Le mot de passe de votre compte ASCE-LC vient d'être modifié.</p>
 
                 <div class="block block-amber">
                   <div class="block-label">Vous n'êtes pas à l'origine de cette action ?</div>

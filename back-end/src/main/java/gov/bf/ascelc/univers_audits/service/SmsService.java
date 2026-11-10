@@ -37,7 +37,7 @@ public class SmsService {
     public void sendAccessCode(String phoneNumber, String accessCode) {
 
         String message = String.format(
-                "ASCE-LC INTEGRITE+\n" +
+                "ASCE-LC\n" +
                         "Dossier enregistre.\n" +
                         "Code suivi: %s\n" +
                         "Suivi: integrite.bf/portail/suivi",
@@ -52,7 +52,7 @@ public class SmsService {
                                  String statusLabel) {
 
         String message = String.format(
-                "ASCE-LC INTEGRITE+\n" +
+                "ASCE-LC\n" +
                         "Votre dossier: %s\n" +
                         "Code: %s\n" +
                         "Suivi: integrite.bf/portail/suivi",
@@ -65,7 +65,7 @@ public class SmsService {
     @Async
     public void sendComplementRequest(String phoneNumber, String accessCode) {
         String message = String.format(
-                "ASCE-LC INTEGRITE+\n" +
+                "ASCE-LC\n" +
                         "Action requise: des informations complementaires\n" +
                         "sont necessaires pour votre dossier.\n" +
                         "Code: %s - integrite.bf/portail/suivi",
@@ -77,7 +77,7 @@ public class SmsService {
     @Async
     public void sendTransferExternal(String phoneNumber, String accessCode) {
         String message = String.format(
-                "ASCE-LC INTEGRITE+\n" +
+                "ASCE-LC\n" +
                         "Votre dossier a ete transmis a l'institution\n" +
                         "competente pour traitement.\n" +
                         "Code: %s",
@@ -96,7 +96,7 @@ public class SmsService {
                 "ASCE-LC [ALERTE INTERNE]\n" +
                         "%s\n" +
                         "Dossier: %s\n" +
-                        "Connectez-vous sur INTEGRITE+",
+                        "Connectez-vous sur la plateforme ASCE-LC",
                 alertTitle,
                 dossierNumber != null ? dossierNumber : "N/A"
         );

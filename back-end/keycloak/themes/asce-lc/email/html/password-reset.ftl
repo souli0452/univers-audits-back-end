@@ -2,7 +2,7 @@
 <html>
 <body style="font-family: Arial, sans-serif; color: #333;">
     <p>Bonjour,</p>
-    <p>Nous avons reçu une demande de réinitialisation du mot de passe de votre compte <strong>INTÉGRITÉ+</strong>.</p>
+    <p>Nous avons reçu une demande de réinitialisation du mot de passe de votre compte <strong>ASCE-LC</strong>.</p>
     <p>Pour choisir un nouveau mot de passe, cliquez sur le bouton ci-dessous :</p>
     <p>
         <a href="${link}"
