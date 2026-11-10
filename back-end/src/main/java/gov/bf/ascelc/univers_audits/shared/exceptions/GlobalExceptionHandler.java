@@ -45,6 +45,33 @@ public class GlobalExceptionHandler {
                         "Ressource introuvable"));
     }
 
+    /** Corps illisible, valeur d'énumération inconnue, paramètre manquant ou mal typé : erreur du client (400). */
+    @ExceptionHandler({
+            org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponse> handleBadRequest(Exception ex) {
+        log.warn("Requête invalide : {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "INVALID_REQUEST",
+                        "Requête invalide — vérifiez les données envoyées"));
+    }
+
+    /** Méthode HTTP non prévue sur cette route (405). */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotAllowed(
+            org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ErrorResponse.of(
+                        HttpStatus.METHOD_NOT_ALLOWED.value(),
+                        "METHOD_NOT_ALLOWED",
+                        "Méthode non autorisée sur cette ressource"));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(
             BusinessException ex) {
