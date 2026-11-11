@@ -375,18 +375,6 @@ body{
     <div class="side-img-bottom">
       <h2>Autorité Supérieure de Contrôle d'État et de Lutte contre la Corruption</h2>
       <div class="gold-bar"></div>
-      <div class="seal">
-        <div class="seal-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#c9a227" stroke-width="2">
-            <path d="M12 2l-9 4.5V12c0 5.25 3.84 9.74 9 11 5.16-1.26 9-5.75 9-11V6.5L12 2z"/>
-            <path d="M9 12l2 2 4-4" stroke="#f0d060"/>
-          </svg>
-        </div>
-        <div class="seal-text">
-          <strong>Système certifié sécurisé</strong>
-          Numéro vert : 80 00 11 57
-        </div>
-      </div>
     </div>
   </div>
 
