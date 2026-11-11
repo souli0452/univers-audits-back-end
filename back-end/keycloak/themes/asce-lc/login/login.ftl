@@ -355,16 +355,6 @@ body{
 }
 .sec-note svg{width:12px;height:12px;color:#22c55e}
 
-/* Barre dorée en haut */
-.wrap::before{
-  content:'';
-  position:absolute;
-  top:0;left:0;right:0;
-  height:4px;
-  background:linear-gradient(90deg,#c9a227,#f0d060,#c9a227);
-  z-index:10;
-}
-
 @media(max-width:700px){
   .wrap{grid-template-columns:1fr}
   .side-img{display:none}
