@@ -50,9 +50,11 @@ public class KeycloakAdminService {
     }
 
     private Keycloak buildClient() {
+        // Le client « asce-lc-backend » (compte de service, rôles realm-management) vit dans le realm
+        // métier, pas dans « master » : s'authentifier sur « master » donne « client_not_found » (401).
         return KeycloakBuilder.builder()
                 .serverUrl(serverUrl)
-                .realm("master")
+                .realm(realm)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
                 .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
