@@ -51,8 +51,6 @@ public class PdfExportService {
 
     private static final DeviceRgb VERT_ASCE  = new DeviceRgb(26,  107, 60);
     private static final DeviceRgb VERT_CLAIR = new DeviceRgb(240, 249, 244);
-    private static final DeviceRgb OR_ASCE    = new DeviceRgb(201, 162, 39);
-    private static final DeviceRgb GRIS_CLAIR = new DeviceRgb(245, 245, 245);
     private static final DeviceRgb TEXTE_GRIS = new DeviceRgb(100, 100, 100);
     private static final DeviceRgb BLANC      = new DeviceRgb(255, 255, 255); // ← ajouté
 
@@ -186,7 +184,7 @@ public class PdfExportService {
             PdfFont fontNormal = PdfFontFactory.createFont("Helvetica");
 
             addDecisionHeader(doc, dossier, fontBold, fontNormal,
-                    "ACCUSÉ DE RÉCEPTION — SUITES À DONNER");
+                    "Accusé de réception", "Suite donnée à votre dossier – document confidentiel");
             addAccuseReceptionBody(doc, dossier, fontBold, fontNormal);
             addRecepisseFooter(doc, fontBold, fontNormal);
 
@@ -226,7 +224,7 @@ public class PdfExportService {
             PdfFont fontNormal = PdfFontFactory.createFont("Helvetica");
 
             addDecisionHeader(doc, dossier, fontBold, fontNormal,
-                    "RÉPONSE MOTIVÉE");
+                    "Réponse motivée", "Classement de votre dossier – document confidentiel");
             addReponseMotiveeBody(doc, dossier, fontBold, fontNormal);
             addRecepisseFooter(doc, fontBold, fontNormal);
 
@@ -457,61 +455,24 @@ public class PdfExportService {
 
     private void addDecisionHeader(Document doc, DossierResponse dossier,
                                    PdfFont fontBold, PdfFont fontNormal,
-                                   String titre) {
+                                   String titre, String sousTitre) {
+        addRecepisseHeader(doc, dossier, fontBold, fontNormal);
+        addTitreDocument(doc, titre, sousTitre, fontBold, fontNormal);
+    }
 
-        Table topBar = new Table(UnitValue.createPercentArray(new float[]{1}))
-                .setWidth(UnitValue.createPercentValue(100))
-                .setHeight(6)
-                .setBackgroundColor(OR_ASCE)
-                .setBorder(Border.NO_BORDER)
-                .setMarginBottom(0);
-        topBar.addCell(new Cell().setBorder(Border.NO_BORDER).add(new Paragraph("")));
-        doc.add(topBar);
-
-        Table header = new Table(UnitValue.createPercentArray(new float[]{2, 1}))
-                .setWidth(UnitValue.createPercentValue(100))
-                .setBackgroundColor(VERT_ASCE)
-                .setBorder(Border.NO_BORDER)
-                .setMarginBottom(20);
-
-        Cell leftCell = new Cell().setBorder(Border.NO_BORDER).setPadding(20);
-        leftCell.add(new Paragraph("ASCE-LC")
-                .setFont(fontBold).setFontSize(22)
-                .setFontColor(ColorConstants.WHITE).setMarginBottom(4));
-        leftCell.add(new Paragraph("Autorité Supérieure de Contrôle d'État")
-                .setFont(fontNormal).setFontSize(10)
-                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(2));
-        leftCell.add(new Paragraph("et de Lutte contre la Corruption")
-                .setFont(fontNormal).setFontSize(10)
-                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(8));
-        leftCell.add(new Paragraph(titre)
-                .setFont(fontBold).setFontSize(14).setFontColor(OR_ASCE));
-        header.addCell(leftCell);
-
-        Cell rightCell = new Cell()
-                .setBorder(Border.NO_BORDER).setPadding(20)
-                .setTextAlignment(TextAlignment.RIGHT);
-        String number = dossier.getNumber() != null ? dossier.getNumber() : "En attente";
-        rightCell.add(new Paragraph(number)
-                .setFont(fontBold).setFontSize(16)
-                .setFontColor(ColorConstants.WHITE).setMarginBottom(8));
-        if (dossier.getAccessCode() != null) {
-            rightCell.add(new Paragraph("Code de suivi : " + dossier.getAccessCode())
-                    .setFont(fontNormal).setFontSize(9)
-                    .setFontColor(new DeviceRgb(180, 220, 195)));
-        }
-        header.addCell(rightCell);
-        doc.add(header);
+    /** Titre de document sobre : titre vert, ligne de contexte grise dessous. */
+    private void addTitreDocument(Document doc, String titre, String sousTitre,
+                                  PdfFont fontBold, PdfFont fontNormal) {
+        doc.add(new Paragraph(titre)
+                .setFont(fontBold).setFontSize(22).setFontColor(VERT_ASCE)
+                .setMarginTop(34).setMarginBottom(2));
+        doc.add(new Paragraph(sousTitre)
+                .setFont(fontNormal).setFontSize(10).setFontColor(TEXTE_GRIS)
+                .setMarginBottom(24));
     }
 
     private void addAccuseReceptionBody(Document doc, DossierResponse dossier,
                                         PdfFont fontBold, PdfFont fontNormal) {
-
-        doc.add(new Paragraph("CONFIDENTIEL")
-                .setFont(fontBold).setFontSize(10)
-                .setFontColor(new DeviceRgb(180, 30, 30))
-                .setTextAlignment(TextAlignment.CENTER)
-                .setMarginBottom(16));
 
         Table table = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
                 .setWidth(UnitValue.createPercentValue(100))
@@ -559,12 +520,6 @@ public class PdfExportService {
     private void addReponseMotiveeBody(Document doc, DossierResponse dossier,
                                        PdfFont fontBold, PdfFont fontNormal) {
 
-        doc.add(new Paragraph("CONFIDENTIEL")
-                .setFont(fontBold).setFontSize(10)
-                .setFontColor(new DeviceRgb(180, 30, 30))
-                .setTextAlignment(TextAlignment.CENTER)
-                .setMarginBottom(16));
-
         Table table = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
                 .setWidth(UnitValue.createPercentValue(100))
                 .setMarginBottom(16);
@@ -604,12 +559,8 @@ public class PdfExportService {
     private void addRecepisseBody(Document doc, DossierResponse dossier,
                                   PdfFont fontBold, PdfFont fontNormal) {
 
-        doc.add(new Paragraph("Récépissé de dépôt")
-                .setFont(fontBold).setFontSize(22).setFontColor(VERT_ASCE)
-                .setMarginTop(34).setMarginBottom(2));
-        doc.add(new Paragraph("Dénonciation ou plainte – document confidentiel")
-                .setFont(fontNormal).setFontSize(10).setFontColor(TEXTE_GRIS)
-                .setMarginBottom(24));
+        addTitreDocument(doc, "Récépissé de dépôt",
+                "Dénonciation ou plainte – document confidentiel", fontBold, fontNormal);
 
         DeclarantResponse declarant = dossier.getDeclarant();
         String deposantLabel;
@@ -737,86 +688,14 @@ public class PdfExportService {
 
     private void addHeader(Document doc, DossierResponse dossier,
                            PdfFont fontBold, PdfFont fontNormal) {
+        addRecepisseHeader(doc, dossier, fontBold, fontNormal);
 
-        Table topBar = new Table(UnitValue.createPercentArray(new float[]{1}))
-                .setWidth(UnitValue.createPercentValue(100))
-                .setHeight(6)
-                .setBackgroundColor(OR_ASCE)
-                .setBorder(Border.NO_BORDER)
-                .setMarginBottom(0);
-        topBar.addCell(new Cell().setBorder(Border.NO_BORDER).add(new Paragraph("")));
-        doc.add(topBar);
-
-
-        Table header = new Table(UnitValue.createPercentArray(new float[]{2, 1}))
-                .setWidth(UnitValue.createPercentValue(100))
-                .setBackgroundColor(VERT_ASCE)
-                .setBorder(Border.NO_BORDER)
-                .setMarginBottom(20);
-
-        Cell leftCell = new Cell()
-                .setBorder(Border.NO_BORDER)
-                .setPadding(20);
-
-        leftCell.add(new Paragraph("ASCE-LC")
-                .setFont(fontBold)
-                .setFontSize(22)
-                .setFontColor(ColorConstants.WHITE)
-                .setMarginBottom(4));
-
-        leftCell.add(new Paragraph("Autorité Supérieure de Contrôle d'État")
-                .setFont(fontNormal)
-                .setFontSize(10)
-                .setFontColor(new DeviceRgb(200, 230, 210))
-                .setMarginBottom(2));
-
-        leftCell.add(new Paragraph("et de Lutte contre la Corruption")
-                .setFont(fontNormal)
-                .setFontSize(10)
-                .setFontColor(new DeviceRgb(200, 230, 210))
-                .setMarginBottom(8));
-
-        leftCell.add(new Paragraph("FICHE DE DOSSIER")
-                .setFont(fontBold)
-                .setFontSize(14)
-                .setFontColor(OR_ASCE));
-
-        header.addCell(leftCell);
-
-        Cell rightCell = new Cell()
-                .setBorder(Border.NO_BORDER)
-                .setPadding(20)
-                .setTextAlignment(TextAlignment.RIGHT);
-
-        String number = dossier.getNumber() != null ? dossier.getNumber() : "En attente";
-
-        rightCell.add(new Paragraph(number)
-                .setFont(fontBold)
-                .setFontSize(16)
-                .setFontColor(ColorConstants.WHITE)
-                .setMarginBottom(8));
-
-        rightCell.add(new Paragraph(getStatusLabel(dossier.getStatus().name()))
-                .setFont(fontBold)
-                .setFontSize(10)
-                .setFontColor(OR_ASCE)
-                .setBackgroundColor(new DeviceRgb(15, 74, 40))
-                .setPadding(6)
-                .setBorderRadius(new com.itextpdf.layout.properties.BorderRadius(4)));
-
-        if (dossier.getAccessCode() != null) {
-            rightCell.add(new Paragraph("Code de suivi : " + dossier.getAccessCode())
-                    .setFont(fontNormal)
-                    .setFontSize(9)
-                    .setFontColor(new DeviceRgb(180, 220, 195))
-                    .setMarginTop(8));
-        }
-
-        header.addCell(rightCell);
-        doc.add(header);
+        String numero = dossier.getNumber() != null ? dossier.getNumber() : "En attente d'enregistrement";
+        String ligne = "Dossier " + numero
+                + "  |  " + getStatusLabel(dossier.getStatus().name())
+                + (dossier.getAccessCode() != null ? "  |  Code de suivi : " + dossier.getAccessCode() : "");
+        addTitreDocument(doc, "Fiche de dossier", ligne, fontBold, fontNormal);
     }
-
-
 
     private void addDossierInfo(Document doc, DossierResponse dossier,
                                 PdfFont fontBold, PdfFont fontNormal) {
@@ -951,11 +830,9 @@ public class PdfExportService {
             doc.add(sectionTitle("Objet du signalement", fontBold));
             doc.add(new Paragraph(dossier.getObject())
                     .setFont(fontBold)
-                    .setFontSize(12)
-                    .setFontColor(VERT_ASCE)
-                    .setMarginBottom(12)
-                    .setPaddingLeft(12)
-                    .setBorderLeft(new SolidBorder(VERT_ASCE, 3)));
+                    .setFontSize(11)
+                    .setFontColor(new DeviceRgb(30, 30, 30))
+                    .setMarginBottom(12));
         }
 
         if (dossier.getDescription() != null) {
@@ -964,10 +841,8 @@ public class PdfExportService {
                     .setFont(fontNormal)
                     .setFontSize(10)
                     .setFontColor(new DeviceRgb(40, 40, 40))
-                    .setBackgroundColor(GRIS_CLAIR)
-                    .setPadding(12)
-                    .setMarginBottom(16)
-                    .setFirstLineIndent(20));
+                    .setMultipliedLeading(1.3f)
+                    .setMarginBottom(16));
         }
     }
 
@@ -986,20 +861,18 @@ public class PdfExportService {
         String[] headers = {"Date", "Statut précédent", "Nouveau statut", "Agent / Motif"};
         for (String h : headers) {
             table.addHeaderCell(new Cell()
-                    .setBackgroundColor(VERT_ASCE)
                     .setBorder(Border.NO_BORDER)
-                    .setPadding(8)
+                    .setBorderBottom(new SolidBorder(VERT_ASCE, 1))
+                    .setPaddingLeft(0).setPaddingBottom(6)
                     .add(new Paragraph(h)
                             .setFont(fontBold)
                             .setFontSize(9)
-                            .setFontColor(ColorConstants.WHITE)));
+                            .setFontColor(VERT_ASCE)));
         }
 
 
-        boolean alternate = false;
         for (StatusHistory h : history) {
-            DeviceRgb bg = alternate ? GRIS_CLAIR : BLANC; // ← corrigé ici
-            alternate = !alternate;
+            DeviceRgb bg = BLANC;
 
             String date  = h.getChangedAt() != null
                     ? FMT.format(h.getChangedAt()) : "—";
@@ -1025,11 +898,6 @@ public class PdfExportService {
     private void addFooter(Document doc, DossierResponse dossier,
                            PdfFont fontBold, PdfFont fontNormal) {
 
-        doc.add(new Paragraph()
-                .setBorderTop(new SolidBorder(VERT_ASCE, 1))
-                .setMarginTop(20)
-                .setMarginBottom(8));
-
         doc.add(new Paragraph(
                 "Document confidentiel — ASCE-LC Burkina Faso | " +
                         AsceLcInstitutionalInfo.ADDRESS + " | " +
@@ -1038,7 +906,7 @@ public class PdfExportService {
                 .setFont(fontNormal)
                 .setFontSize(8)
                 .setFontColor(TEXTE_GRIS)
-                .setTextAlignment(TextAlignment.CENTER)
+                .setMarginTop(30)
                 .setMarginBottom(4));
 
         String generated = "Document généré le " + FMT.format(java.time.Instant.now());
@@ -1049,8 +917,7 @@ public class PdfExportService {
         doc.add(new Paragraph(generated)
                 .setFont(fontNormal)
                 .setFontSize(7)
-                .setFontColor(TEXTE_GRIS)
-                .setTextAlignment(TextAlignment.CENTER));
+                .setFontColor(TEXTE_GRIS));
     }
 
 
@@ -1058,32 +925,28 @@ public class PdfExportService {
     private Paragraph sectionTitle(String title, PdfFont fontBold) {
         return new Paragraph(title)
                 .setFont(fontBold)
-                .setFontSize(11)
+                .setFontSize(12)
                 .setFontColor(VERT_ASCE)
-                .setMarginBottom(8)
-                .setMarginTop(12)
-                .setBorderBottom(new SolidBorder(VERT_ASCE, 1))
-                .setPaddingBottom(4);
+                .setMarginTop(18)
+                .setMarginBottom(8);
     }
 
     private void addInfoCell(Table table, String label, String value,
                              PdfFont fontBold, PdfFont fontNormal) {
         Cell cell = new Cell()
                 .setBorder(Border.NO_BORDER)
-                .setBackgroundColor(GRIS_CLAIR)
-                .setPadding(8)
-                .setMargin(2);
+                .setPaddingLeft(0).setPaddingRight(10).setPaddingTop(0).setPaddingBottom(10);
 
         cell.add(new Paragraph(label)
-                .setFont(fontBold)
-                .setFontSize(8)
+                .setFont(fontNormal)
+                .setFontSize(8.5f)
                 .setFontColor(TEXTE_GRIS)
-                .setMarginBottom(2));
+                .setMarginBottom(1));
 
         cell.add(new Paragraph(value != null ? value : "—")
                 .setFont(fontNormal)
-                .setFontSize(10)
-                .setFontColor(new DeviceRgb(20, 20, 20)));
+                .setFontSize(10.5f)
+                .setFontColor(new DeviceRgb(30, 30, 30)));
 
         table.addCell(cell);
     }
@@ -1093,8 +956,9 @@ public class PdfExportService {
         for (String value : values) {
             table.addCell(new Cell()
                     .setBackgroundColor(bg)
-                    .setBorder(new SolidBorder(new DeviceRgb(220, 220, 220), 0.5f))
-                    .setPadding(6)
+                    .setBorder(Border.NO_BORDER)
+                    .setBorderBottom(new SolidBorder(new DeviceRgb(225, 225, 225), 0.5f))
+                    .setPaddingLeft(0).setPaddingTop(6).setPaddingBottom(6)
                     .add(new Paragraph(value != null ? value : "—")
                             .setFont(fontNormal)
                             .setFontSize(9)

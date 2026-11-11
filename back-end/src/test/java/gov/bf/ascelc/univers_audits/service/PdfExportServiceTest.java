@@ -178,7 +178,7 @@ class PdfExportServiceTest {
         try (PdfDocument pdfDoc = new PdfDocument(new PdfReader(new ByteArrayInputStream(pdf)))) {
             text = PdfTextExtractor.getTextFromPage(pdfDoc.getFirstPage());
         }
-        assertThat(text).contains("ACCUSÉ DE RÉCEPTION");
+        assertThat(text).contains("Accusé de réception");
         assertThat(text).contains("Preuves suffisantes");
     }
 
@@ -236,7 +236,7 @@ class PdfExportServiceTest {
         try (PdfDocument pdfDoc = new PdfDocument(new PdfReader(new ByteArrayInputStream(pdf)))) {
             text = PdfTextExtractor.getTextFromPage(pdfDoc.getFirstPage());
         }
-        assertThat(text).contains("RÉPONSE MOTIVÉE");
+        assertThat(text).contains("Réponse motivée");
         assertThat(text).contains("Faits non constitutifs d'infraction");
     }
 
