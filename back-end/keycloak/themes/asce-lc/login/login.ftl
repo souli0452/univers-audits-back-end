@@ -165,12 +165,6 @@ body{
   line-height:1.35;
   margin-bottom:14px;
 }
-.gold-bar{
-  width:44px;height:3px;
-  background:linear-gradient(90deg,#c9a227,#f0d060);
-  border-radius:2px;
-  margin-bottom:12px;
-}
 .asce-name-box{
   display:inline-flex;
   align-items:center;
@@ -374,7 +368,6 @@ body{
 
     <div class="side-img-bottom">
       <h2>Autorité Supérieure de Contrôle d'État et de Lutte contre la Corruption</h2>
-      <div class="gold-bar"></div>
     </div>
   </div>
 
