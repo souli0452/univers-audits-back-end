@@ -1,5 +1,7 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import com.itextpdf.barcodes.BarcodeQRCode;
+import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.font.PdfFont;
@@ -11,6 +13,7 @@ import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
+import com.itextpdf.layout.properties.HorizontalAlignment;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
@@ -25,6 +28,7 @@ import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.AsceLcInstitutionalInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -41,6 +45,9 @@ public class PdfExportService {
     private final DossierService dossierService;
     private final StatusHistoryRepository statusHistoryRepository;
     private final FicheAffectationRepository ficheAffectationRepository;
+
+    @Value("${app.frontend.url:http://localhost:4200}")
+    private String frontendUrl;
 
     private static final DeviceRgb VERT_ASCE  = new DeviceRgb(26,  107, 60);
     private static final DeviceRgb VERT_CLAIR = new DeviceRgb(240, 249, 244);
@@ -425,48 +432,26 @@ public class PdfExportService {
     private void addRecepisseHeader(Document doc, DossierResponse dossier,
                                     PdfFont fontBold, PdfFont fontNormal) {
 
-        Table topBar = new Table(UnitValue.createPercentArray(new float[]{1}))
+        // En-tête sobre : logo de l'ASCE-LC à gauche, lieu et date à droite, sans bandeau coloré.
+        Table header = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
                 .setWidth(UnitValue.createPercentValue(100))
-                .setHeight(6)
-                .setBackgroundColor(OR_ASCE)
-                .setBorder(Border.NO_BORDER)
-                .setMarginBottom(0);
-        topBar.addCell(new Cell().setBorder(Border.NO_BORDER).add(new Paragraph("")));
-        doc.add(topBar);
+                .setBorder(Border.NO_BORDER);
 
-        Table header = new Table(UnitValue.createPercentArray(new float[]{2, 1}))
-                .setWidth(UnitValue.createPercentValue(100))
-                .setBackgroundColor(VERT_ASCE)
-                .setBorder(Border.NO_BORDER)
-                .setMarginBottom(20);
-
-        Cell leftCell = new Cell().setBorder(Border.NO_BORDER).setPadding(20);
-        leftCell.add(new Paragraph("ASCE-LC")
-                .setFont(fontBold).setFontSize(22)
-                .setFontColor(ColorConstants.WHITE).setMarginBottom(4));
-        leftCell.add(new Paragraph("Autorité Supérieure de Contrôle d'État")
-                .setFont(fontNormal).setFontSize(10)
-                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(2));
-        leftCell.add(new Paragraph("et de Lutte contre la Corruption")
-                .setFont(fontNormal).setFontSize(10)
-                .setFontColor(new DeviceRgb(200, 230, 210)).setMarginBottom(8));
-        leftCell.add(new Paragraph("RÉCÉPISSÉ DE DÉPÔT")
-                .setFont(fontBold).setFontSize(14).setFontColor(OR_ASCE));
-        header.addCell(leftCell);
-
-        Cell rightCell = new Cell()
-                .setBorder(Border.NO_BORDER).setPadding(20)
-                .setTextAlignment(TextAlignment.RIGHT);
-        String number = dossier.getNumber() != null ? dossier.getNumber() : "En attente";
-        rightCell.add(new Paragraph(number)
-                .setFont(fontBold).setFontSize(16)
-                .setFontColor(ColorConstants.WHITE).setMarginBottom(8));
-        if (dossier.getAccessCode() != null) {
-            rightCell.add(new Paragraph("Code de suivi : " + dossier.getAccessCode())
-                    .setFont(fontNormal).setFontSize(9)
-                    .setFontColor(new DeviceRgb(180, 220, 195)));
+        Cell logoCell = new Cell().setBorder(Border.NO_BORDER).setPadding(0);
+        try (java.io.InputStream in = new org.springframework.core.io.ClassPathResource("pdf/logo-asce.png").getInputStream()) {
+            logoCell.add(new Image(ImageDataFactory.create(in.readAllBytes())).setHeight(46));
+        } catch (Exception e) {
+            log.warn("Logo ASCE-LC introuvable pour le récépissé : {}", e.getMessage());
+            logoCell.add(new Paragraph("ASCE-LC").setFont(fontBold).setFontSize(20).setFontColor(VERT_ASCE));
         }
-        header.addCell(rightCell);
+        header.addCell(logoCell);
+
+        java.time.Instant date = dossier.getReceptionDate() != null
+                ? dossier.getReceptionDate() : java.time.Instant.now();
+        header.addCell(new Cell().setBorder(Border.NO_BORDER).setPadding(0)
+                .setTextAlignment(TextAlignment.RIGHT)
+                .add(new Paragraph("Ouagadougou, le " + FMT_DATE.format(date))
+                        .setFont(fontNormal).setFontSize(10).setFontColor(TEXTE_GRIS)));
         doc.add(header);
     }
 
@@ -619,33 +604,12 @@ public class PdfExportService {
     private void addRecepisseBody(Document doc, DossierResponse dossier,
                                   PdfFont fontBold, PdfFont fontNormal) {
 
-        doc.add(new Paragraph("CONFIDENTIEL")
-                .setFont(fontBold).setFontSize(10)
-                .setFontColor(new DeviceRgb(180, 30, 30))
-                .setTextAlignment(TextAlignment.CENTER)
-                .setMarginBottom(16));
-
-        Table table = new Table(UnitValue.createPercentArray(new float[]{1, 1}))
-                .setWidth(UnitValue.createPercentValue(100))
-                .setMarginBottom(16);
-
-        addInfoCell(table, "Numéro d'enregistrement",
-                dossier.getNumber() != null ? dossier.getNumber() : "—",
-                fontBold, fontNormal);
-
-        addInfoCell(table, "Date et heure de réception",
-                dossier.getReceptionDate() != null
-                        ? FMT.format(dossier.getReceptionDate()) : "—",
-                fontBold, fontNormal);
-
-        addInfoCell(table, "Mode de réception",
-                getModeLabel(dossier.getSubmissionMode() != null
-                        ? dossier.getSubmissionMode().name() : ""),
-                fontBold, fontNormal);
-
-        addInfoCell(table, "Objet",
-                dossier.getObject() != null ? dossier.getObject() : "—",
-                fontBold, fontNormal);
+        doc.add(new Paragraph("Récépissé de dépôt")
+                .setFont(fontBold).setFontSize(22).setFontColor(VERT_ASCE)
+                .setMarginTop(34).setMarginBottom(2));
+        doc.add(new Paragraph("Dénonciation ou plainte – document confidentiel")
+                .setFont(fontNormal).setFontSize(10).setFontColor(TEXTE_GRIS)
+                .setMarginBottom(24));
 
         DeclarantResponse declarant = dossier.getDeclarant();
         String deposantLabel;
@@ -667,13 +631,26 @@ public class PdfExportService {
                 deposantLabel = "—";
             }
         }
-        addInfoCell(table, "Déposant", deposantLabel, fontBold, fontNormal);
 
-        addInfoCell(table, "Code de suivi",
-                dossier.getAccessCode() != null ? dossier.getAccessCode() : "—",
+        // Liste « libellé / valeur » sans quadrillage, façon formulaire administratif.
+        Table infos = new Table(UnitValue.createPercentArray(new float[]{34, 66}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setMarginBottom(22);
+        addRecepisseLine(infos, "Numéro d'enregistrement",
+                dossier.getNumber() != null ? dossier.getNumber() : "—", fontBold, fontNormal);
+        addRecepisseLine(infos, "Date et heure de réception",
+                dossier.getReceptionDate() != null ? FMT.format(dossier.getReceptionDate()) : "—",
                 fontBold, fontNormal);
+        addRecepisseLine(infos, "Mode de réception",
+                getModeLabel(dossier.getSubmissionMode() != null
+                        ? dossier.getSubmissionMode().name() : ""),
+                fontBold, fontNormal);
+        addRecepisseLine(infos, "Objet",
+                dossier.getObject() != null ? dossier.getObject() : "—", fontBold, fontNormal);
+        addRecepisseLine(infos, "Déposant", deposantLabel, fontBold, fontNormal);
+        doc.add(infos);
 
-        doc.add(table);
+        addRecepisseCodeSuivi(doc, dossier, fontBold, fontNormal);
 
         doc.add(new Paragraph(
                 "Ce récépissé atteste de la réception de votre dénonciation ou plainte par "
@@ -682,33 +659,78 @@ public class PdfExportService {
                         + "sans qu'aucune information permettant de vous identifier ne soit requise.")
                 .setFont(fontNormal).setFontSize(10)
                 .setFontColor(new DeviceRgb(40, 40, 40))
-                .setMarginTop(8));
+                .setMarginTop(20));
+    }
+
+    private void addRecepisseLine(Table table, String label, String value,
+                                  PdfFont fontBold, PdfFont fontNormal) {
+        table.addCell(new Cell().setBorder(Border.NO_BORDER).setPaddingLeft(0).setPaddingBottom(9)
+                .add(new Paragraph(label).setFont(fontNormal).setFontSize(9.5f)
+                        .setFontColor(TEXTE_GRIS)));
+        table.addCell(new Cell().setBorder(Border.NO_BORDER).setPaddingBottom(9)
+                .add(new Paragraph(value).setFont(fontNormal).setFontSize(11)
+                        .setFontColor(new DeviceRgb(30, 30, 30))));
+    }
+
+    /** Encadré du code de suivi, avec un QR code qui ouvre directement la page de suivi du portail. */
+    private void addRecepisseCodeSuivi(Document doc, DossierResponse dossier,
+                                       PdfFont fontBold, PdfFont fontNormal) {
+        String code = dossier.getAccessCode();
+        if (code == null || code.isBlank()) {
+            return;
+        }
+
+        Table box = new Table(UnitValue.createPercentArray(new float[]{70, 30}))
+                .setWidth(UnitValue.createPercentValue(100))
+                .setBackgroundColor(VERT_CLAIR)
+                .setBorder(Border.NO_BORDER);
+
+        Cell left = new Cell().setBorder(Border.NO_BORDER).setPadding(16);
+        left.add(new Paragraph("Code de suivi")
+                .setFont(fontNormal).setFontSize(9.5f).setFontColor(TEXTE_GRIS)
+                .setMarginBottom(4));
+        left.add(new Paragraph(code)
+                .setFont(fontBold).setFontSize(24).setFontColor(VERT_ASCE)
+                .setCharacterSpacing(3).setMarginBottom(6));
+        left.add(new Paragraph("À saisir sur le portail, ou à scanner avec votre téléphone.")
+                .setFont(fontNormal).setFontSize(9).setFontColor(TEXTE_GRIS));
+        box.addCell(left);
+
+        Cell right = new Cell().setBorder(Border.NO_BORDER).setPadding(12)
+                .setTextAlignment(TextAlignment.RIGHT);
+        try {
+            String base = frontendUrl != null && !frontendUrl.isBlank()
+                    ? frontendUrl.replaceAll("/+$", "") : "http://localhost:4200";
+            // L'application utilise le routage par « # » : /#/portail/suivi?code=...
+            String url = base + "/#/portail/suivi?code="
+                    + java.net.URLEncoder.encode(code, java.nio.charset.StandardCharsets.UTF_8);
+            BarcodeQRCode qr = new BarcodeQRCode(url);
+            right.add(new Image(qr.createFormXObject(ColorConstants.BLACK, doc.getPdfDocument()))
+                    .setWidth(78).setHeight(78)
+                    .setHorizontalAlignment(HorizontalAlignment.RIGHT));
+        } catch (Exception e) {
+            // Le QR code est un confort : le récépissé reste valable sans lui.
+            log.warn("QR code du récépissé non généré : {}", e.getMessage());
+        }
+        box.addCell(right);
+        doc.add(box);
     }
 
     private void addRecepisseFooter(Document doc, PdfFont fontBold, PdfFont fontNormal) {
 
-        doc.add(new Paragraph()
-                .setBorderTop(new SolidBorder(VERT_ASCE, 1))
-                .setMarginTop(20)
-                .setMarginBottom(8));
-
         doc.add(new Paragraph(
-                "Adresse postale : " + AsceLcInstitutionalInfo.ADDRESS)
+                AsceLcInstitutionalInfo.ADDRESS + "\n"
+                        + "Tél. : " + AsceLcInstitutionalInfo.PHONE
+                        + "  |  " + AsceLcInstitutionalInfo.EMAIL_INFO
+                        + "  |  " + AsceLcInstitutionalInfo.WEBSITE
+                        + "  |  Numéro vert : " + AsceLcInstitutionalInfo.NUMERO_VERT)
                 .setFont(fontNormal).setFontSize(8).setFontColor(TEXTE_GRIS)
-                .setTextAlignment(TextAlignment.CENTER));
-
-        doc.add(new Paragraph(
-                "Tél. : " + AsceLcInstitutionalInfo.PHONE
-                        + " - E-mail : " + AsceLcInstitutionalInfo.EMAIL_INFO
-                        + " ou " + AsceLcInstitutionalInfo.EMAIL_CONTACT
-                        + " - Site web : " + AsceLcInstitutionalInfo.WEBSITE
-                        + " – Numéro vert : " + AsceLcInstitutionalInfo.NUMERO_VERT)
-                .setFont(fontNormal).setFontSize(8).setFontColor(TEXTE_GRIS)
-                .setTextAlignment(TextAlignment.CENTER));
+                .setMultipliedLeading(1.4f)
+                .setMarginTop(36));
 
         doc.add(new Paragraph(AsceLcInstitutionalInfo.SLOGAN)
                 .setFont(fontBold).setFontSize(8).setFontColor(VERT_ASCE)
-                .setTextAlignment(TextAlignment.CENTER).setMarginTop(4));
+                .setMarginTop(4));
     }
 
 

@@ -122,6 +122,38 @@ class PdfExportServiceTest {
     }
 
     @Test
+    void exportRecepisse_afficheLeCodeDeSuiviAvecUnQrCode() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000045")
+                .accessCode("RHUQFAHZ")
+                .type(TypeSaisine.DENONCIATION)
+                .quality(QualiteDeclarant.TEMOIN)
+                .anonymous(true)
+                .submissionMode(SubmissionMode.WEB_FORM)
+                .object("Test vérification locale")
+                .receptionDate(Instant.now())
+                .declarant(DeclarantResponse.builder().build())
+                .build();
+
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        byte[] pdf = service.exportRecepisse(dossierId);
+
+        // Exemple consultable à l'œil pour valider la mise en page (target/ n'est pas versionné).
+        java.nio.file.Files.createDirectories(java.nio.file.Path.of("target"));
+        java.nio.file.Files.write(java.nio.file.Path.of("target", "recepisse-exemple.pdf"), pdf);
+
+        try (PdfDocument pdfDoc = new PdfDocument(new PdfReader(new ByteArrayInputStream(pdf)))) {
+            String text = PdfTextExtractor.getTextFromPage(pdfDoc.getFirstPage());
+            assertThat(text).contains("Récépissé de dépôt").contains("RHUQFAHZ").doesNotContain("INTÉGRITÉ");
+            // Le logo et le QR code sont deux images/objets graphiques de la page.
+            assertThat(pdfDoc.getFirstPage().getResources().getResourceNames(
+                    com.itextpdf.kernel.pdf.PdfName.XObject)).hasSizeGreaterThanOrEqualTo(2);
+        }
+    }
+
+    @Test
     void exportAccuseReception_producesNonEmptyPdfForValidationInvestigation() throws Exception {
         UUID dossierId = UUID.randomUUID();
         DossierResponse dossier = DossierResponse.builder()
