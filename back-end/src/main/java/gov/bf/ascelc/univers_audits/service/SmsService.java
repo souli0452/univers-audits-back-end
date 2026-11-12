@@ -28,8 +28,13 @@ public class SmsService {
     @Value("${africastalking.apiUrl:https://api.sandbox.africastalking.com/version1/messaging}")
     private String apiUrl;
 
-    @Value("${app.portal-url:integrite.bf}")
+    @Value("${app.frontend.url:http://localhost:4200}")
     private String portalUrl;
+
+    /** Adresse de la page de suivi (routage par « # »), la même que dans les courriels. */
+    private String suiviUrl() {
+        return portalUrl.replaceAll("/+$", "") + "/#/portail/suivi";
+    }
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -40,8 +45,8 @@ public class SmsService {
                 "ASCE-LC\n" +
                         "Dossier enregistre.\n" +
                         "Code suivi: %s\n" +
-                        "Suivi: integrite.bf/portail/suivi",
-                accessCode
+                        "Suivi: %s",
+                accessCode, suiviUrl()
         );
         send(phoneNumber, message);
     }
@@ -55,9 +60,10 @@ public class SmsService {
                 "ASCE-LC\n" +
                         "Votre dossier: %s\n" +
                         "Code: %s\n" +
-                        "Suivi: integrite.bf/portail/suivi",
+                        "Suivi: %s",
                 statusLabel,
-                accessCode
+                accessCode,
+                suiviUrl()
         );
         send(phoneNumber, message);
     }
@@ -68,8 +74,9 @@ public class SmsService {
                 "ASCE-LC\n" +
                         "Action requise: des informations complementaires\n" +
                         "sont necessaires pour votre dossier.\n" +
-                        "Code: %s - integrite.bf/portail/suivi",
-                accessCode
+                        "Code: %s\n" +
+                        "Suivi: %s",
+                accessCode, suiviUrl()
         );
         send(phoneNumber, message);
     }
