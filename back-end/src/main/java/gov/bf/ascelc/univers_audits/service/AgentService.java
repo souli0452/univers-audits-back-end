@@ -27,6 +27,11 @@ public class AgentService {
     private final AgentRepository agentRepository;
     private final KeycloakAdminService keycloakAdminService;
 
+    /** État du compte Keycloak de chaque agent (clé : identifiant Keycloak). */
+    public java.util.Map<String, String> getAccountStates() {
+        return keycloakAdminService.getAccountStates();
+    }
+
     /** Rôles Keycloak de chaque agent (clé : identifiant Keycloak). */
     public java.util.Map<String, java.util.List<String>> getRolesByKeycloakId() {
         return keycloakAdminService.getRolesByKeycloakId();

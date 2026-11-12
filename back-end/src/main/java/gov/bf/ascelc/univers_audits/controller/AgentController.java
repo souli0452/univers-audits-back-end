@@ -53,10 +53,12 @@ public class AgentController {
             @RequestParam(defaultValue = "20") int size) {
         Page<Agent> result = agentService.findAll(page, size);
         var rolesParAgent = agentService.getRolesByKeycloakId();
+        var etatsComptes = agentService.getAccountStates();
         return ResponseEntity.ok(Map.of(
                 "content",       result.getContent().stream().map(a -> {
                     var dto = agentMapper.toResponse(a);
                     dto.setKeycloakRoles(rolesParAgent.getOrDefault(a.getKeycloakId(), java.util.List.of()));
+                    dto.setCompteKeycloak(etatsComptes.get(a.getKeycloakId()));
                     return dto;
                 }).toList(),
                 "totalElements", result.getTotalElements(),

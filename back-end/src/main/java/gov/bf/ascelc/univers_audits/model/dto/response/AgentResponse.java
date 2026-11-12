@@ -23,4 +23,6 @@ public class AgentResponse {
     private Instant createdAt;
     /** Rôles Keycloak de l'agent (renseignés par la liste des agents). */
     private java.util.List<String> keycloakRoles;
+    /** État du compte Keycloak : ACTIF, EN_ATTENTE (activation non terminée) ou DESACTIVE. */
+    private String compteKeycloak;
 }

@@ -256,6 +256,27 @@ public class KeycloakAdminService {
      * quel que soit le nombre d'agents. Ne lève jamais : en cas de souci Keycloak, la liste des agents
      * s'affiche quand même, sans les rôles.
      */
+    /**
+     * État du compte de chaque utilisateur (clé : identifiant Keycloak) : ACTIF, EN_ATTENTE tant qu'une action
+     * (choix du mot de passe, code de vérification) reste à faire, DESACTIVE si le compte est bloqué.
+     * Ne lève jamais.
+     */
+    public java.util.Map<String, String> getAccountStates() {
+        java.util.Map<String, String> etats = new java.util.HashMap<>();
+        try {
+            for (UserRepresentation u : realmResource().users().list(0, 1000)) {
+                String etat;
+                if (!Boolean.TRUE.equals(u.isEnabled())) etat = "DESACTIVE";
+                else if (u.getRequiredActions() == null || u.getRequiredActions().isEmpty()) etat = "ACTIF";
+                else etat = "EN_ATTENTE";
+                etats.put(u.getId(), etat);
+            }
+        } catch (Exception e) {
+            log.error("Erreur lecture de l'état des comptes: {}", e.getMessage());
+        }
+        return etats;
+    }
+
     public java.util.Map<String, List<String>> getRolesByKeycloakId() {
         java.util.Map<String, List<String>> result = new java.util.HashMap<>();
         try {

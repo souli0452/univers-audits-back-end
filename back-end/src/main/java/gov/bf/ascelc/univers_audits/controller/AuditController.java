@@ -17,7 +17,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/admin/audit")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+@PreAuthorize("hasRole('ADMIN_DDIC')")
 public class AuditController {
 
     private final AuditService auditService;
