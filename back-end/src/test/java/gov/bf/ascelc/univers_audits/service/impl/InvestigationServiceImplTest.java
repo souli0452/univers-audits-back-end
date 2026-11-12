@@ -2169,4 +2169,82 @@ class InvestigationServiceImplTest {
         verify(deadlineCalculator).addBusinessDays(any(), eq(8));
         verify(deadlineCalculator, never()).addCalendarDays(any(), anyInt());
     }
+
+    // ── Périmètre de lecture des investigations ──────────────────────────────
+
+    @Test
+    void findAll_roleSansAccesGlobal_neVoitQueLesDossiersHabilites() {
+        UUID agentId = UUID.randomUUID();
+        Agent agent = Agent.builder().id(agentId).build();
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(0, 20);
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(investigationRepository.findAccessibleByAgentId(agentId, pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty(pageable));
+
+        service.findAll(pageable);
+
+        verify(investigationRepository).findAccessibleByAgentId(agentId, pageable);
+        verify(investigationRepository, never()).findAll(any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void findAll_roleAccesGlobal_voitToutesLesInvestigations() {
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(0, 20);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(investigationRepository.findAll(pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty(pageable));
+
+        service.findAll(pageable);
+
+        verify(investigationRepository).findAll(pageable);
+        verify(investigationRepository, never()).findAccessibleByAgentId(any(), any());
+    }
+
+    @Test
+    void findByPeriod_roleSansAccesGlobal_neVoitQueLesDossiersHabilites() {
+        UUID agentId = UUID.randomUUID();
+        Agent agent = Agent.builder().id(agentId).build();
+        Instant start = Instant.parse("2026-01-01T00:00:00Z");
+        Instant end = Instant.parse("2026-12-31T00:00:00Z");
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(0, 1000);
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(investigationRepository.findAccessibleByAgentIdAndStartDateBetween(agentId, start, end, pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty(pageable));
+
+        service.findByPeriod(start, end, pageable);
+
+        verify(investigationRepository, never()).findByStartDateBetween(any(), any(), any());
+    }
+
+    @Test
+    void findById_refuseUnAgentNonHabilite() {
+        Investigation investigation = buildInProgressInvestigation();
+        when(investigationRepository.findById(investigation.getId()))
+                .thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé — ce dossier ne vous est pas assigné"))
+                .when(accessGuard).checkReadAccess(investigation.getDossier());
+
+        assertThatThrownBy(() -> service.findById(investigation.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+    }
+
+    @Test
+    void findByDossierId_refuseUnAgentNonHabilite() {
+        Investigation investigation = buildInProgressInvestigation();
+        UUID dossierId = investigation.getDossier().getId();
+        when(investigationRepository.findByDossierId(dossierId))
+                .thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé — ce dossier ne vous est pas assigné"))
+                .when(accessGuard).checkReadAccess(investigation.getDossier());
+
+        assertThatThrownBy(() -> service.findByDossierId(dossierId))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+    }
 }

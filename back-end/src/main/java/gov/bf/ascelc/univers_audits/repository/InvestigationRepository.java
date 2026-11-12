@@ -50,6 +50,31 @@ public interface InvestigationRepository
             """)
     List<Investigation> findAllWithMembersByIdIn(@Param("ids") List<UUID> ids);
 
+    // ── Listes restreintes : uniquement les investigations dont l'agent est habilité sur le dossier ──
+    @Query("""
+            SELECT i FROM Investigation i
+            WHERE EXISTS (
+                SELECT 1 FROM DossierHabilitation h
+                WHERE h.dossier = i.dossier AND h.agent.id = :agentId AND h.revokedAt IS NULL
+            )
+            """)
+    Page<Investigation> findAccessibleByAgentId(
+            @Param("agentId") UUID agentId, Pageable pageable);
+
+    @Query("""
+            SELECT i FROM Investigation i
+            WHERE i.startDate BETWEEN :start AND :end
+            AND EXISTS (
+                SELECT 1 FROM DossierHabilitation h
+                WHERE h.dossier = i.dossier AND h.agent.id = :agentId AND h.revokedAt IS NULL
+            )
+            """)
+    Page<Investigation> findAccessibleByAgentIdAndStartDateBetween(
+            @Param("agentId") UUID agentId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            Pageable pageable);
+
     // ── Rapport — filtre par période de démarrage ─────────────
     Page<Investigation> findByStartDateBetween(
             Instant start, Instant end, Pageable pageable);

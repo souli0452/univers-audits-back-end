@@ -88,6 +88,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     @Override
     public InvestigationResponse findById(UUID id) {
         Investigation inv = getInvestigationOrThrow(id);
+        accessGuard.checkReadAccess(inv.getDossier());
         return buildResponseWithFreshMembers(inv, id);
     }
 
@@ -97,12 +98,19 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .findByDossierId(dossierId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Aucune investigation pour ce dossier"));
+        accessGuard.checkReadAccess(inv.getDossier());
         return buildResponseWithFreshMembers(inv, inv.getId());
     }
 
     @Override
     public Page<InvestigationResponse> findAll(Pageable pageable) {
-        return mapPageWithMembers(investigationRepository.findAll(pageable));
+        if (accessGuard.canSeeConfidential()) {
+            return mapPageWithMembers(investigationRepository.findAll(pageable));
+        }
+        // Les autres rôles ne voient que les investigations des dossiers sur lesquels ils sont habilités.
+        Agent agent = agentContextResolver.getCurrentAgent();
+        return mapPageWithMembers(
+                investigationRepository.findAccessibleByAgentId(agent.getId(), pageable));
     }
 
     @Override
@@ -128,8 +136,13 @@ public class InvestigationServiceImpl implements InvestigationService {
     @Transactional(readOnly = true)
     public Page<InvestigationResponse> findByPeriod(
             Instant start, Instant end, Pageable pageable) {
-        return mapPageWithMembers(
-                investigationRepository.findByStartDateBetween(start, end, pageable));
+        if (accessGuard.canSeeConfidential()) {
+            return mapPageWithMembers(
+                    investigationRepository.findByStartDateBetween(start, end, pageable));
+        }
+        Agent agent = agentContextResolver.getCurrentAgent();
+        return mapPageWithMembers(investigationRepository
+                .findAccessibleByAgentIdAndStartDateBetween(agent.getId(), start, end, pageable));
     }
 
     /**
