@@ -66,8 +66,15 @@ public class LeconAPartagerService {
         return toResponse(saved, investigationId);
     }
 
+    /**
+     * Les leçons sont partagées avec tous les agents, sans filtre d'habilitation. Seules celles tirées d'un
+     * dossier confidentiel restent réservées aux rôles qui ont accès aux dossiers confidentiels.
+     */
     public Page<LeconAPartagerResponse> lister(Pageable pageable) {
-        return leconAPartagerRepository.findAllByOrderByCreatedAtDesc(pageable)
+        Page<LeconAPartager> page = accessGuard.canSeeConfidential()
+                ? leconAPartagerRepository.findAllByOrderByCreatedAtDesc(pageable)
+                : leconAPartagerRepository.findNonConfidentialesOrderByCreatedAtDesc(pageable);
+        return page
                 .map(lecon -> toResponse(lecon, lecon.getFicheRetex().getInvestigation().getId()));
     }
 

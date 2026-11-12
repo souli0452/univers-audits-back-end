@@ -30,6 +30,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -135,13 +136,27 @@ class LeconAPartagerServiceTest {
                 .publieePar(Agent.builder().id(UUID.randomUUID()).build())
                 .build();
 
-        when(leconAPartagerRepository.findAllByOrderByCreatedAtDesc(pageable))
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        when(leconAPartagerRepository.findNonConfidentialesOrderByCreatedAtDesc(pageable))
                 .thenReturn(new PageImpl<>(List.of(lecon)));
 
         Page<LeconAPartagerResponse> result = service.lister(pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        verifyNoInteractions(accessGuard);
+        verify(accessGuard, never()).checkReadAccess(any());
+    }
+
+    @Test
+    void lister_roleAccesGlobal_voitAussiLesLeconsDeDossiersConfidentiels() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(leconAPartagerRepository.findAllByOrderByCreatedAtDesc(pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        service.lister(pageable);
+
+        verify(leconAPartagerRepository).findAllByOrderByCreatedAtDesc(pageable);
+        verify(leconAPartagerRepository, never()).findNonConfidentialesOrderByCreatedAtDesc(any());
     }
 
     @Test
