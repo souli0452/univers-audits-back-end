@@ -38,8 +38,12 @@ public class StatistiqueController {
 
 
 
+    /**
+     * Statistiques globales (tous les dossiers) : réservées à la direction (CGE, CGEA), à l'administration et à la
+     * communication (DCP). Les autres agents ne voient que leurs propres dossiers, jamais des totaux globaux.
+     */
     @GetMapping("/dashboard")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CGE', 'CGEA', 'ADMIN_DDIC', 'DCP')")
     public ResponseEntity<StatistiqueResponse> getDashboard(
             @RequestParam Instant start,
             @RequestParam Instant end) {
