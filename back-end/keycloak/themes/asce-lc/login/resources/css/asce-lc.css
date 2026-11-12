@@ -1,32 +1,29 @@
 /* ═══════════════════════════════════════════════════════
-   Thème ASCE-LC
-   Fond BLANC — Couleurs : Vert institutionnel + Or
+   Thème ASCE-LC — pages Keycloak (code de vérification, mot de passe, etc.)
+   Fond blanc et vert institutionnel, sans effets.
+   La page de connexion principale (login.ftl) porte ses propres styles.
    ═══════════════════════════════════════════════════════ */
 
 :root {
-    --asce-vert:        #1a6b3c;
-    --asce-vert-fonce:  #0f4a28;
-    --asce-vert-clair:  #2d8a52;
-    --asce-or:          #c9a227;
-    --asce-or-clair:    #e8c547;
-    --asce-blanc:       #ffffff;
-    --asce-gris-clair:  #f8fafc;
-    --asce-gris:        #e2e8f0;
-    --asce-texte:       #1a1a1a;
-    --asce-texte-doux:  #64748b;
+    --asce-vert:       #1a6b3c;
+    --asce-vert-fonce: #14552f;
+    --asce-bordure:    #d5dbe0;
+    --asce-texte:      #1f2933;
+    --asce-texte-doux: #5f6b76;
 }
 
-/* ── Body : FOND BLANC ─────────────────────────────────── */
+/* ── Fond ──────────────────────────────────────────────── */
 body,
 html,
 .login-pf body,
 .login-pf-page {
-    background: #f8fafc !important;
+    background: #f7f8f8 !important;
     min-height: 100vh;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--asce-texte);
 }
 
-/* ── Cacher le header Keycloak ─────────────────────────── */
+/* ── Cacher l'en-tête Keycloak ─────────────────────────── */
 #kc-header,
 #kc-header-wrapper,
 .login-pf-header,
@@ -35,17 +32,21 @@ html,
     display: none !important;
 }
 
-
-
-/* ── Card ──────────────────────────────────────────────── */
+/* ── Carte ─────────────────────────────────────────────── */
 .card-pf {
-    border-radius: 16px !important;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06) !important;
-    border: 1px solid var(--asce-gris) !important;
-    overflow: hidden;
+    border: 1px solid var(--asce-bordure) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
     max-width: 440px !important;
     margin: 0 auto;
-    background: var(--asce-blanc) !important;
+    background: #fff !important;
+}
+
+#kc-page-title {
+    font-size: 22px !important;
+    font-weight: 700 !important;
+    color: var(--asce-texte) !important;
+    margin: 0 0 20px !important;
 }
 
 /* ── Champs de saisie ──────────────────────────────────── */
@@ -53,15 +54,15 @@ html,
 input[type="text"],
 input[type="password"],
 input[type="email"] {
-    border: 1.5px solid var(--asce-gris) !important;
+    border: 1px solid var(--asce-bordure) !important;
     border-radius: 8px !important;
-    padding: 10px 14px !important;
-    font-size: 14px !important;
-    transition: border-color 0.2s, box-shadow 0.2s !important;
+    padding: 11px 14px !important;
+    font-size: 15px !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    background: var(--asce-gris-clair) !important;
+    background: #fff !important;
     color: var(--asce-texte) !important;
+    box-shadow: none !important;
 }
 
 .pf-c-form-control:focus,
@@ -69,62 +70,126 @@ input[type="text"]:focus,
 input[type="password"]:focus,
 input[type="email"]:focus {
     border-color: var(--asce-vert) !important;
-    box-shadow: 0 0 0 3px rgba(26, 107, 60, 0.12) !important;
+    box-shadow: 0 0 0 1px var(--asce-vert) !important;
     outline: none !important;
-    background: var(--asce-blanc) !important;
 }
 
-/* ── Labels ────────────────────────────────────────────── */
+/* ── Libellés ──────────────────────────────────────────── */
 .pf-c-form__label,
 label,
 .control-label {
-    color: #334155 !important;
+    color: var(--asce-texte) !important;
     font-weight: 600 !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
     margin-bottom: 6px !important;
     display: block;
 }
 
-/* ── Bouton SE CONNECTER ───────────────────────────────── */
+.form-horizontal .control-label {
+    text-align: left !important;
+    padding-top: 0 !important;
+}
+
+/* ── Bouton principal ──────────────────────────────────── */
 .pf-c-button.pf-m-primary,
 #kc-login,
 input[type="submit"],
 .btn-primary {
-    background: linear-gradient(135deg, var(--asce-vert), var(--asce-vert-clair)) !important;
+    background: var(--asce-vert) !important;
     border: none !important;
-    border-radius: 10px !important;
-    padding: 13px 24px !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    color: var(--asce-blanc) !important;
+    border-radius: 8px !important;
+    padding: 12px 24px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: #fff !important;
     width: 100% !important;
     cursor: pointer !important;
-    transition: all 0.2s !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-    box-shadow: 0 4px 14px rgba(26, 107, 60, 0.35) !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    box-shadow: none !important;
 }
 
 .pf-c-button.pf-m-primary:hover,
 #kc-login:hover,
 input[type="submit"]:hover,
 .btn-primary:hover {
-    background: linear-gradient(135deg, var(--asce-vert-fonce), var(--asce-vert)) !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(26, 107, 60, 0.45) !important;
+    background: var(--asce-vert-fonce) !important;
+}
+
+.pf-c-button.pf-m-primary:focus-visible,
+#kc-login:focus-visible,
+input[type="submit"]:focus-visible {
+    outline: 2px solid var(--asce-vert-fonce) !important;
+    outline-offset: 2px !important;
+}
+
+/* ── Choix de l'appareil (code de vérification) ─────────── */
+.pf-c-tile__input {
+    position: absolute !important;
+    opacity: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: 0 !important;
+}
+
+label.pf-c-tile {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 0 8px !important;
+    padding: 12px 14px !important;
+    background: #fff !important;
+    border: 1px solid var(--asce-bordure) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    font-weight: 500 !important;
+    cursor: pointer;
+}
+
+/* PatternFly dessine lui-même des bordures sur les tuiles : on ne garde que la nôtre */
+label.pf-c-tile::before,
+label.pf-c-tile::after {
+    display: none !important;
+}
+
+.pf-c-tile__input:checked + label.pf-c-tile {
+    border-color: var(--asce-vert) !important;
+    box-shadow: 0 0 0 1px var(--asce-vert) !important;
+}
+
+.pf-c-tile__input:focus-visible + label.pf-c-tile {
+    outline: 2px solid var(--asce-vert-fonce);
+    outline-offset: 2px;
+}
+
+.pf-c-tile__header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.pf-c-tile__icon,
+.pf-c-tile__icon i {
+    color: var(--asce-vert) !important;
+}
+
+.pf-c-tile__title {
+    color: var(--asce-texte) !important;
+    font-size: 15px !important;
 }
 
 /* ── Erreurs ───────────────────────────────────────────── */
 #kc-error-message,
 .alert-error,
 .pf-c-alert.pf-m-danger {
-    background: #fef2f2 !important;
-    border: 1px solid #fca5a5 !important;
+    background: #fff !important;
+    border: 1px solid #e0a7a2 !important;
     border-radius: 8px !important;
-    color: #dc2626 !important;
+    color: #b3261e !important;
     padding: 12px 16px !important;
     margin-bottom: 16px !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
 }
 
 /* ── Liens ─────────────────────────────────────────────── */
@@ -133,22 +198,12 @@ a, a:visited {
     text-decoration: none !important;
 }
 a:hover {
-    color: var(--asce-vert-clair) !important;
+    color: var(--asce-vert-fonce) !important;
     text-decoration: underline !important;
 }
 
-/* ── Checkbox ──────────────────────────────────────────── */
+/* ── Cases à cocher ────────────────────────────────────── */
 #kc-form-options input[type="checkbox"] {
     accent-color: var(--asce-vert) !important;
     width: auto !important;
-}
-
-/* ── Animation ─────────────────────────────────────────── */
-.card-pf, .wrap {
-    animation: slideIn 0.35s ease-out;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
 }
