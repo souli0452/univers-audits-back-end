@@ -251,6 +251,25 @@ public class KeycloakAdminService {
         }
     }
 
+    /**
+     * Rôles métier de tous les utilisateurs, indexés par identifiant Keycloak : une lecture par rôle,
+     * quel que soit le nombre d'agents. Ne lève jamais : en cas de souci Keycloak, la liste des agents
+     * s'affiche quand même, sans les rôles.
+     */
+    public java.util.Map<String, List<String>> getRolesByKeycloakId() {
+        java.util.Map<String, List<String>> result = new java.util.HashMap<>();
+        try {
+            for (String role : getAvailableRoles()) {
+                for (String id : getUserIdsByRole(role)) {
+                    result.computeIfAbsent(id, k -> new java.util.ArrayList<>()).add(role);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Erreur lecture des rôles par utilisateur: {}", e.getMessage());
+        }
+        return result;
+    }
+
     public List<String> getUserRoles(String keycloakId) {
         if (keycloakId == null || keycloakId.isBlank()) return Collections.emptyList();
         try {

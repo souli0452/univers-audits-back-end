@@ -782,8 +782,9 @@ public class EmailService {
             case "RECU" -> new String[]{
                     "Dossier reçu et enregistré",
                     "Votre dossier a été officiellement reçu et enregistré par le Bureau "
-                            + "de Réception des Plaintes et Dénonciations (BRPD). Un récépissé vous "
-                            + "sera remis dans les meilleurs délais. L'étude de votre dossier va démarrer."
+                            + "de Réception des Plaintes et Dénonciations (BRPD). Votre récépissé, "
+                            + "avec votre numéro d'enregistrement et la date de dépôt, est disponible "
+                            + "sur la page de suivi de votre dossier. L'étude de votre dossier va démarrer."
             };
             case "EN_ETUDE_OPPORTUNITE" -> new String[]{
                     "Dossier en cours d'analyse",
@@ -818,8 +819,8 @@ public class EmailService {
             case "EN_INVESTIGATION" -> new String[]{
                     "Investigation en cours",
                     "Une équipe d'investigation spécialisée a été mandatée pour traiter "
-                            + "votre dossier. Cette étape peut durer jusqu'à 90 jours en fonction "
-                            + "de la complexité des vérifications à effectuer."
+                            + "votre dossier. Cette étape dure en principe 90 jours (3 mois), "
+                            + "ou davantage selon la complexité des vérifications à effectuer."
             };
             case "RAPPORT_PRODUIT" -> new String[]{
                     "Rapport d'investigation finalisé",

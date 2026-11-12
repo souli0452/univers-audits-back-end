@@ -21,4 +21,6 @@ public class AgentResponse {
     private String grade;
     private String keycloakId;
     private Instant createdAt;
+    /** Rôles Keycloak de l'agent (renseignés par la liste des agents). */
+    private java.util.List<String> keycloakRoles;
 }

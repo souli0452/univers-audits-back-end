@@ -26,6 +26,11 @@ public class AgentService {
 
     private final AgentRepository agentRepository;
     private final KeycloakAdminService keycloakAdminService;
+
+    /** Rôles Keycloak de chaque agent (clé : identifiant Keycloak). */
+    public java.util.Map<String, java.util.List<String>> getRolesByKeycloakId() {
+        return keycloakAdminService.getRolesByKeycloakId();
+    }
     public Page<Agent> findAll(int page, int size) {
         return agentRepository.findAll(
                 PageRequest.of(page, size, Sort.by("lastName").ascending())

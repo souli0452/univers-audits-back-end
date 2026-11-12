@@ -52,8 +52,13 @@ public class AgentController {
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
         Page<Agent> result = agentService.findAll(page, size);
+        var rolesParAgent = agentService.getRolesByKeycloakId();
         return ResponseEntity.ok(Map.of(
-                "content",       result.getContent().stream().map(agentMapper::toResponse).toList(),
+                "content",       result.getContent().stream().map(a -> {
+                    var dto = agentMapper.toResponse(a);
+                    dto.setKeycloakRoles(rolesParAgent.getOrDefault(a.getKeycloakId(), java.util.List.of()));
+                    return dto;
+                }).toList(),
                 "totalElements", result.getTotalElements(),
                 "totalPages",    result.getTotalPages(),
                 "size",          result.getSize(),
