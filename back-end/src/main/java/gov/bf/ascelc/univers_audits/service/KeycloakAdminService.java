@@ -34,6 +34,12 @@ public class KeycloakAdminService {
     @Value("${keycloak.admin.client-secret}")
     private String clientSecret;
 
+    /** Adresse publique de l'application : destination après le choix du mot de passe. */
+    @Value("${app.frontend.url:http://localhost:4200}")
+    private String frontendUrl;
+
+    private static final String FRONTEND_CLIENT_ID = "asce-lc-frontend";
+
     private Keycloak keycloakClient;
 
     private static final List<String> SYSTEM_ROLES = List.of(
@@ -189,13 +195,28 @@ public class KeycloakAdminService {
         }
     }
 
+    /**
+     * Envoie à un nouvel utilisateur le courriel « activez votre compte » : un lien (valable 12 h) pour
+     * choisir son mot de passe. Une fois le mot de passe défini, Keycloak le renvoie vers l'application
+     * (client « asce-lc-frontend »). Si la redirection est refusée, on réessaie sans elle pour que le
+     * courriel parte quand même.
+     */
     public void sendPasswordResetEmail(String keycloakId) {
+        UserResource user = realmResource().users().get(keycloakId);
+        String redirectUri = frontendUrl.replaceAll("/+$", "") + "/#/app";
         try {
-            realmResource().users().get(keycloakId)
-                    .executeActionsEmail(List.of("UPDATE_PASSWORD"));
-            log.info("Email reset envoyé à: {}", keycloakId);
+            user.executeActionsEmail(FRONTEND_CLIENT_ID, redirectUri, List.of("UPDATE_PASSWORD"));
+            log.info("Email d'activation envoyé à: {} (redirection vers {})", keycloakId, redirectUri);
+            return;
         } catch (Exception e) {
-            log.error("Échec envoi email reset pour {}: {} - {}",
+            log.warn("Envoi avec redirection impossible pour {} ({} - {}) : nouvel essai sans redirection",
+                    keycloakId, e.getClass().getSimpleName(), e.getMessage());
+        }
+        try {
+            user.executeActionsEmail(List.of("UPDATE_PASSWORD"));
+            log.info("Email d'activation envoyé à: {} (sans redirection)", keycloakId);
+        } catch (Exception e) {
+            log.error("Échec envoi email d'activation pour {}: {} - {}",
                     keycloakId, e.getClass().getSimpleName(), e.getMessage(), e);
         }
     }
