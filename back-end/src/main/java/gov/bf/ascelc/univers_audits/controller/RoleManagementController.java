@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import gov.bf.ascelc.univers_audits.shared.utils.RoleCombinationPolicy;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -39,6 +40,12 @@ public class RoleManagementController {
     @GetMapping("/{roleKey}")
     public ResponseEntity<RoleDto> getOne(@PathVariable String roleKey) {
         return ResponseEntity.ok(roleService.findByRoleKey(roleKey));
+    }
+
+    /** Cumuls de rôles interdits ou à surveiller, pour le formulaire d'agent. */
+    @GetMapping("/combinations")
+    public ResponseEntity<List<RoleCombinationPolicy.Regle>> listCombinations() {
+        return ResponseEntity.ok(RoleCombinationPolicy.regles());
     }
 
     @GetMapping("/permissions")

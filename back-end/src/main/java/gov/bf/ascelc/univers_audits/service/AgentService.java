@@ -7,6 +7,7 @@ import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
+import gov.bf.ascelc.univers_audits.shared.utils.RoleCombinationPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -70,6 +71,9 @@ public class AgentService {
     @Transactional
     public Agent createAgent(CreateAgentRequest req) {
 
+        // Avant toute création Keycloak : un cumul interdit ne doit laisser aucun compte orphelin.
+        RoleCombinationPolicy.verifier(req.keycloakRoles());
+
         if (agentRepository.existsByEmail(req.email())) {
             throw new ConflictException("Email déjà utilisé: " + req.email());
         }
@@ -124,6 +128,7 @@ public class AgentService {
         agent.setGrade(req.grade());
 
         if (req.keycloakRoles() != null && agent.getKeycloakId() != null) {
+            RoleCombinationPolicy.verifier(req.keycloakRoles());
             updateKeycloakRoles(agent.getKeycloakId(), req.keycloakRoles());
         }
 
@@ -136,6 +141,7 @@ public class AgentService {
         if (agent.getKeycloakId() == null) {
             throw new BusinessException("Agent sans compte Keycloak associé");
         }
+        RoleCombinationPolicy.verifier(newRoles);
         updateKeycloakRoles(agent.getKeycloakId(), newRoles);
     }
 

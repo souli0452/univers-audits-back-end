@@ -1,6 +1,8 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.model.dto.request.CreateAgentRequest;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +14,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,5 +54,17 @@ class AgentServiceTest {
         List<Agent> result = service.findActiveByKeycloakRole("ROLE_INCONNU");
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void createAgent_refuseUnCumulInterditAvantDeCreerLeCompteKeycloak() {
+        CreateAgentRequest req = new CreateAgentRequest(
+                "M-1", "Ada", "Test", "ada@test.bf", null, null, List.of("AGENT_BRPD", "CGE"));
+
+        assertThatThrownBy(() -> service.createAgent(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Cumul de rôles interdit");
+
+        verifyNoInteractions(keycloakAdminService);
     }
 }
