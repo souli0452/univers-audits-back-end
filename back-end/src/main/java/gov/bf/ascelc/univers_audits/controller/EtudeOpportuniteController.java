@@ -8,7 +8,6 @@ import gov.bf.ascelc.univers_audits.service.EtudeOpportuniteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -22,8 +21,6 @@ public class EtudeOpportuniteController {
 
     @HasPermission(AppPermission.ETUDE_OPPORTUNITE_VOIR)
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
-            "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<EtudeOpportuniteResponse> find(
             @PathVariable UUID dossierId) {
         return ResponseEntity.ok(

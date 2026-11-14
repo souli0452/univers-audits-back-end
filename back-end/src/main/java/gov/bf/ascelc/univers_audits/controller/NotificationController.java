@@ -64,8 +64,6 @@ public class NotificationController {
 
     @HasPermission(AppPermission.NOTIFICATION_DOSSIER_VOIR)
     @GetMapping("/dossier/{dossierId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP',"
-            + "'CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<NotificationResponse>> getByDossier(
             @PathVariable UUID dossierId,
             @RequestParam(defaultValue = "0")  int page,

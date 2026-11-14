@@ -6,12 +6,19 @@ import gov.bf.ascelc.univers_audits.security.permission.PermissionResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,6 +38,9 @@ class AccessEquivalenceIntegrationTest {
 
     @Autowired
     private PermissionResolver resolver;
+
+    @Autowired
+    private ApplicationContext context;
 
     private final List<EndpointAccess> avant = AccessFixtures.golden();
     private final Map<String, AppPermission> table = AccessFixtures.endpointPermissions();
@@ -98,6 +108,32 @@ class AccessEquivalenceIntegrationTest {
                 .map(a -> a.handler() + " " + a.roles())
                 .toList();
         assertThat(restants).isEmpty();
+    }
+
+    @Test
+    void aucun_point_dentree_ne_porte_deux_controles_ni_un_controle_par_nom_de_role() {
+        // Le collecteur ne lit qu'un contrôle par point d'entrée : sans cette vérification, un @PreAuthorize par
+        // rôle oublié à côté d'un @HasPermission passerait inaperçu alors que Spring évaluerait les deux.
+        RequestMappingHandlerMapping mapping =
+                context.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class);
+        List<String> problemes = new ArrayList<>();
+        for (HandlerMethod hm : mapping.getHandlerMethods().values()) {
+            Class<?> type = hm.getBeanType();
+            if (!type.getName().startsWith("gov.bf.ascelc")) {
+                continue;
+            }
+            String nom = type.getSimpleName() + "#" + hm.getMethod().getName();
+            Set<PreAuthorize> surMethode = AnnotatedElementUtils.findAllMergedAnnotations(hm.getMethod(), PreAuthorize.class);
+            Set<PreAuthorize> surClasse = AnnotatedElementUtils.findAllMergedAnnotations(type, PreAuthorize.class);
+            if (surMethode.size() > 1 || surClasse.size() > 1) {
+                problemes.add(nom + " : plusieurs contrôles d'accès sur le même élément");
+            }
+            Stream.concat(surMethode.stream(), surClasse.stream())
+                    .map(PreAuthorize::value)
+                    .filter(v -> v.contains("hasRole(") || v.contains("hasAnyRole("))
+                    .forEach(v -> problemes.add(nom + " : contrôle par nom de rôle " + v));
+        }
+        assertThat(problemes).isEmpty();
     }
 
     @Test

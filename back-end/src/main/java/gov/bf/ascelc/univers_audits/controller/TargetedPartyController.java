@@ -9,7 +9,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,8 +23,6 @@ public class TargetedPartyController {
 
     @HasPermission(AppPermission.PARTIE_VISEE_VOIR)
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
-            "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
     public ResponseEntity<List<TargetedPartyResponse>> findAll(
             @PathVariable UUID dossierId) {
         return ResponseEntity.ok(

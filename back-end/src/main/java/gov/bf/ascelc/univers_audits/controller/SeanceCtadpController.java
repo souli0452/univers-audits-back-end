@@ -16,7 +16,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -38,8 +37,6 @@ public class SeanceCtadpController {
 
     @HasPermission(AppPermission.SEANCE_CTADP_VOIR)
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
-            "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<SeanceCtadpResponse>> findAll(
             @PageableDefault(size = 20, sort = "dateSeance") Pageable pageable) {
         return ResponseEntity.ok(seanceCtadpService.findAll(pageable));
@@ -47,8 +44,6 @@ public class SeanceCtadpController {
 
     @HasPermission(AppPermission.SEANCE_CTADP_VOIR)
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
-            "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<SeanceCtadpResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(seanceCtadpService.findById(id));
     }

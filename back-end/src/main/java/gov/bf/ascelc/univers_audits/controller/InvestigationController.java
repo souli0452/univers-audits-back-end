@@ -107,8 +107,6 @@ public class InvestigationController {
      */
     @HasPermission(AppPermission.INVESTIGATION_RAPPORT_VOIR)
     @GetMapping("/by-period")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','CONTROLEUR_ETAT',"
-            + "'CONSEILLER_JURIDIQUE','MEMBRE_CTADP','ADMIN_DDIC')")
     public ResponseEntity<Page<InvestigationResponse>> findByPeriod(
             @RequestParam String start,
             @RequestParam String end,

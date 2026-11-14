@@ -23,7 +23,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -75,8 +74,6 @@ public class DossierController {
 
     @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<DossierResponse>> findAll(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
             @RequestParam(required = false) String start,
@@ -95,24 +92,18 @@ public class DossierController {
 
     @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<DossierResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(dossierService.findById(id));
     }
 
     @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping("/{id}/delais-etapes")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<java.util.List<DelaiEtapeResponse>> delaisEtapes(@PathVariable UUID id) {
         return ResponseEntity.ok(delaiEtapeService.findByDossierId(id));
     }
 
     @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<DossierResponse>> findByStatus(
             @PathVariable DossierStatus status,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -121,8 +112,6 @@ public class DossierController {
 
     @HasPermission(AppPermission.DOSSIER_MES_DOSSIERS_VOIR)
     @GetMapping("/my")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'CONTROLEUR_ETAT','CGEA')")
     public ResponseEntity<Page<DossierResponse>> findMyDossiers(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(dossierService.findMyDossiers(pageable));
