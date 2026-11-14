@@ -49,6 +49,13 @@ public class PermissionResolver {
     private final Clock clock;
     private final Map<String, Entree> cache = new ConcurrentHashMap<>();
 
+    /**
+     * Incrémentée à chaque {@link #invalidate()} : une lecture commencée avant une invalidation ne doit pas
+     * réécrire dans le cache des droits qui viennent d'être révoqués.
+     */
+    private final Object verrou = new Object();
+    private long generation;
+
     @Autowired
     public PermissionResolver(RoleDefinitionRepository repository,
                               @Value("${app.security.permissions-cache-ttl:PT5M}") Duration ttl) {
@@ -67,6 +74,7 @@ public class PermissionResolver {
             return Set.of();
         }
         Instant maintenant = clock.instant();
+        long generationLue = generationCourante();
         Set<String> resultat = new HashSet<>();
         List<String> aCharger = new ArrayList<>();
         for (String role : new LinkedHashSet<>(roleKeys)) {
@@ -78,17 +86,35 @@ public class PermissionResolver {
             }
         }
         if (!aCharger.isEmpty()) {
-            resultat.addAll(charger(aCharger, maintenant));
+            resultat.addAll(charger(aCharger, maintenant, generationLue));
         }
         return resultat;
     }
 
     /** Oublie tous les droits en cache : à appeler après toute modification d'un rôle ou de ses permissions. */
     public void invalidate() {
-        cache.clear();
+        synchronized (verrou) {
+            generation++;
+            cache.clear();
+        }
     }
 
-    private Set<String> charger(List<String> roles, Instant maintenant) {
+    private long generationCourante() {
+        synchronized (verrou) {
+            return generation;
+        }
+    }
+
+    /** Met en cache seulement si aucune invalidation n'a eu lieu depuis le début de la lecture. */
+    private void memoriser(String role, Set<String> autorites, Instant maintenant, long generationLue) {
+        synchronized (verrou) {
+            if (generation == generationLue) {
+                cache.put(role, new Entree(Set.copyOf(autorites), maintenant.plus(ttl)));
+            }
+        }
+    }
+
+    private Set<String> charger(List<String> roles, Instant maintenant, long generationLue) {
         try {
             Map<String, Set<String>> parRole = new HashMap<>();
             for (RoleDefinition role : repository.findActiveByRoleKeyInWithPermissions(roles)) {
@@ -97,7 +123,7 @@ public class PermissionResolver {
             Set<String> union = new HashSet<>();
             for (String role : roles) {
                 Set<String> autorites = avecSocle(role, parRole.getOrDefault(role, Set.of()));
-                cache.put(role, new Entree(Set.copyOf(autorites), maintenant.plus(ttl)));
+                memoriser(role, autorites, maintenant, generationLue);
                 union.addAll(autorites);
             }
             return union;

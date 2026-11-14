@@ -132,6 +132,22 @@ class PermissionResolverTest {
     }
 
     @Test
+    void uneLectureCommenceeAvantInvalidateNEstPasMiseEnCache() {
+        // Une révocation survient pendant qu'une résolution lit encore les anciens droits : ces droits périmés
+        // ne doivent pas être réécrits dans le cache après le vidage.
+        when(repository.findActiveByRoleKeyInWithPermissions(anyCollection()))
+                .thenAnswer(appel -> {
+                    resolver.invalidate();
+                    return List.of(role("CGE", "DOSSIER_VOIR", "DOSSIER_CLORE"));
+                })
+                .thenReturn(List.of(role("CGE", "DOSSIER_VOIR")));
+
+        resolver.resolve(List.of("CGE"));
+
+        assertThat(resolver.resolve(List.of("CGE"))).containsExactly("PERM_DOSSIER_VOIR");
+    }
+
+    @Test
     void siLaBaseEstInjoignableAucunDroitNEstAccordeAUnRoleMetier() {
         when(repository.findActiveByRoleKeyInWithPermissions(anyCollection())).thenThrow(new IllegalStateException("base HS"));
 
