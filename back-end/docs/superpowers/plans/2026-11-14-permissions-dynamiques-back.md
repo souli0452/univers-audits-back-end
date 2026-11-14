@@ -19,6 +19,7 @@
 - Messages utilisateur et libellés en français ; code et tests au style existant du dépôt.
 - Tests locaux : `cd back-end; set -a; . ./.env; set +a; SPRING_PROFILES_ACTIVE=dev ./mvnw -q -o test`.
 - Rien n'est déployé sans validation explicite de l'utilisateur après la Task 6 (équivalence verte).
+- Décision du 2026-11-14 : ADMIN_DDIC garde tout ; CGE et CGEA ne font que le métier, aucune administration (Task 9).
 
 ## Review Focus
 
@@ -162,6 +163,25 @@
 - [ ] **Step 1: Tests** : l'endpoint renvoie l'union des permissions des rôles du jeton, vide pour un jeton sans rôle métier ; la matrice reflète une permission retirée en base.
 - [ ] **Step 2: Lancer** : échec. **Step 3: Implémenter. Step 4: Lancer** : vert.
 - [ ] **Step 5: ADR** : contexte, décision, conséquences, procédure d'ajout d'une permission (enum + CSV + migration + test), procédure d'urgence (socle ADMIN_DDIC). **Commit** `docs(security): ADR permissions dynamiques`.
+
+### Task 9: Politique « CGE et CGEA : métier uniquement » (décision du 2026-11-14)
+
+ADMIN_DDIC garde tout (technique et métier). CGE et CGEA ne gardent aucune permission d'administration : ni agents, ni rôles, ni accès par rôle, ni journal d'audit, ni paramétrage (types d'infraction, indices, jours fériés, délais, points de checklist, portail), ni file des notifications. Cette tâche vient **après** la preuve d'équivalence (Task 6) : elle change volontairement des droits, ce que l'équivalence ne doit pas mélanger.
+
+**Files:**
+- Create: `src/main/resources/db/changelog/migrations/029-cge-cgea-metier-seulement.sql` (écrite à la main : c'est une décision de politique, pas une génération)
+- Modify: `security/permission/AppPermission.java` (+ `AGENT_ANNUAIRE_VOIR`, catégorie « Dossiers »), `controller/AgentController.java` (`findActive` passe de `isAuthenticated()` à `@HasPermission(AGENT_ANNUAIRE_VOIR)`), table point d'entrée et attributions complémentaires du générateur (Task 6) pour `AGENT_ANNUAIRE_VOIR` → ADMIN_DDIC, CGE, CGEA, CONSEILLER_JURIDIQUE, CONTROLEUR_ETAT, MEMBRE_CTADP, AGENT_BRPD (pas DCP : l'annuaire expose nom, matricule et courriel)
+- Test: `.../security/permission/CgeCgeaMetierSeulementIntegrationTest.java`
+
+**Interfaces:**
+- Consumes: `RoleDefinitionRepository.findByRoleKeyWithPermissions(String)`, `AppPermission.category()`.
+- Produces: migration 029 qui retire à CGE et CGEA toutes les permissions des catégories « Administration », « Paramétrage » et « Audit » ainsi que `NOTIFICATION_FILE_VOIR` et `NOTIFICATION_FILE_GERER` (conservées : `DOSSIER_*`, `HABILITATION_*`, `STATISTIQUE_DEPASSEMENTS_VOIR`, `REGISTRE_AUDITIONS_VOIR` pour CGEA, et tout le métier).
+
+- [ ] **Step 1: Test (rouge)** `CgeCgeaMetierSeulementIntegrationTest` : (a) CGE et CGEA n'ont aucune permission dont la catégorie est Administration, Paramétrage ou Audit, ni `NOTIFICATION_FILE_*` ; (b) ADMIN_DDIC les a toutes (sauf celles que le code ne lui ouvrait pas : `DOSSIER_MES_DOSSIERS_VOIR`) ; (c) CGE garde `DOSSIER_CONFIDENTIALITE_MODIFIER`, `HABILITATION_ACCORDER`, `INVESTIGATION_CGE_STATUER` ; CGEA garde `REGISTRE_AUDITIONS_VOIR` et `INVESTIGATION_OUVRIR` ; (d) DCP n'a pas `AGENT_ANNUAIRE_VOIR`, les six rôles métier l'ont.
+- [ ] **Step 2: Lancer** : échec attendu (a et d).
+- [ ] **Step 3: Écrire la migration 029** (`DELETE FROM role_permission` ciblé sur CGE et CGEA et sur les permissions listées) ; ajouter `AGENT_ANNUAIRE_VOIR` au catalogue, au générateur de 028 (régénérer) et à `findActive`.
+- [ ] **Step 4: Lancer** : vert, ainsi que la suite complète. Régénérer `matrice-permissions.csv`. **Commit** `feat(security): CGE et CGEA limités au métier`.
+- [ ] **Step 5 (plan 2/3, front)** : le menu « Administration » n'est visible que pour ADMIN_DDIC ; « Dépassements par acteur » et « Registre des auditions » passent dans la section métier ; les listes d'agents du détail du dossier (habilitation) et du détail de l'investigation (équipe) utilisent `agentService.findActive()` au lieu de `findAll()`.
 
 ---
 
