@@ -67,10 +67,13 @@ class AccessEquivalenceIntegrationTest {
             }
             String autorite = AppPermission.AUTHORITY_PREFIX + actuel.permission().orElseThrow();
             for (String role : ROLES) {
-                boolean avantBascule = ancien.roles().contains(role);
+                // Seul écart voulu : la politique « CGE et CGEA : métier seulement » (migration 029).
+                boolean attendu = ancien.roles().contains(role)
+                        && !AccessFixtures.retireeParLaPolitiqueMetierSeulement(role, actuel.permission()
+                                .flatMap(AppPermission::of).orElseThrow());
                 boolean apresBascule = resolver.resolve(List.of(role)).contains(autorite);
-                if (avantBascule != apresBascule) {
-                    ecarts.add(ancien.handler() + " [" + role + "] : avant=" + avantBascule + " après=" + apresBascule);
+                if (attendu != apresBascule) {
+                    ecarts.add(ancien.handler() + " [" + role + "] : attendu=" + attendu + " après=" + apresBascule);
                 }
             }
         }
@@ -86,6 +89,12 @@ class AccessEquivalenceIntegrationTest {
             }
             EndpointAccess actuel = live.get(AccessFixtures.cle(ancien));
             assertThat(actuel).as(ancien.handler()).isNotNull();
+            if (ancien.handler().equals("AgentController#findActive()")) {
+                // Changement voulu : l'annuaire des agents n'est plus ouvert à tout utilisateur connecté (DCP exclue).
+                assertThat(actuel.kind()).isEqualTo(Kind.PERMISSION);
+                assertThat(actuel.permission()).contains(AppPermission.AGENT_ANNUAIRE_VOIR.key());
+                continue;
+            }
             assertThat(actuel.kind()).as(ancien.handler()).isEqualTo(ancien.kind());
             assertThat(Objects.toString(actuel.expression())).as(ancien.handler()).isEqualTo(Objects.toString(ancien.expression()));
         }

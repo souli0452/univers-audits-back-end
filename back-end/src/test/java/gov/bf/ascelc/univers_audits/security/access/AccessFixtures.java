@@ -23,6 +23,18 @@ final class AccessFixtures {
     private AccessFixtures() {
     }
 
+    /**
+     * Décision du 2026-11-14 : CGE et CGEA ne font que le métier. Les permissions d'administration, de
+     * paramétrage et d'audit, ainsi que la file des notifications, leur sont retirées par la migration 029.
+     */
+    static boolean retireeParLaPolitiqueMetierSeulement(String role, AppPermission permission) {
+        boolean directionMetier = role.equals("CGE") || role.equals("CGEA");
+        boolean technique = Set.of("Administration", "Paramétrage", "Audit").contains(permission.category())
+                || permission == AppPermission.NOTIFICATION_FILE_VOIR
+                || permission == AppPermission.NOTIFICATION_FILE_GERER;
+        return directionMetier && technique;
+    }
+
     static List<EndpointAccess> golden() {
         try {
             return new ObjectMapper().readValue(Files.readString(GOLDEN_AVANT), new TypeReference<>() { });

@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public enum AppPermission {
 
     // ─── Dossiers ──────────────────────────────────────────────────────────────
+    AGENT_ANNUAIRE_VOIR("Dossiers", "Consulter l'annuaire des agents actifs"),
     DOSSIER_CLORE("Dossiers", "Clore un dossier"),
     DOSSIER_CONFIDENTIALITE_MODIFIER("Dossiers", "Modifier la confidentialité d'un dossier"),
     DOSSIER_DEMANDER_COMPLEMENT("Dossiers", "Demander un complément d'information"),

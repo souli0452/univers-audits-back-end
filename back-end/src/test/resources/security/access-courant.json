@@ -25,9 +25,9 @@
 }, {
   "handler" : "AgentController#findActive()",
   "httpMethods" : "GET",
-  "kind" : "AUTHENTICATED",
+  "kind" : "PERMISSION",
   "roles" : [ ],
-  "expression" : "isAuthenticated()"
+  "expression" : "hasAuthority('PERM_AGENT_ANNUAIRE_VOIR')"
 }, {
   "handler" : "AgentController#findAll(int,int)",
   "httpMethods" : "GET",

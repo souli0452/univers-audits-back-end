@@ -33,6 +33,7 @@ INSERT INTO permission (id, permission_key, label, category, active, created_at)
     (gen_random_uuid(), 'PDF_CONVOCATION_CTADP_EXPORTER', 'Exporter la convocation CTADP', 'Documents', TRUE, now()),
     (gen_random_uuid(), 'PDF_LETTRE_INFORMATION_EXPORTER', 'Exporter la lettre d''information', 'Documents', TRUE, now()),
     (gen_random_uuid(), 'PDF_QUITUS_EXPORTER', 'Exporter le quitus', 'Documents', TRUE, now()),
+    (gen_random_uuid(), 'AGENT_ANNUAIRE_VOIR', 'Consulter l''annuaire des agents actifs', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'DOSSIER_CLORE', 'Clore un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'DOSSIER_CONFIDENTIALITE_MODIFIER', 'Modifier la confidentialité d''un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'DOSSIER_DEMANDER_COMPLEMENT', 'Demander un complément d''information', 'Dossiers', TRUE, now()),
@@ -136,7 +137,7 @@ INSERT INTO permission (id, permission_key, label, category, active, created_at)
 ON CONFLICT (permission_key) DO UPDATE
     SET label = EXCLUDED.label, category = EXCLUDED.category, active = TRUE;
 
--- ADMIN_DDIC : 120 permissions
+-- ADMIN_DDIC : 121 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -161,6 +162,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'PDF_CONVOCATION_CTADP_EXPORTER',
     'PDF_LETTRE_INFORMATION_EXPORTER',
     'PDF_QUITUS_EXPORTER',
+    'AGENT_ANNUAIRE_VOIR',
     'DOSSIER_CLORE',
     'DOSSIER_CONFIDENTIALITE_MODIFIER',
     'DOSSIER_DEMANDER_COMPLEMENT',
@@ -262,7 +264,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'ADMIN_DDIC'
 ON CONFLICT DO NOTHING;
 
--- CGE : 60 permissions
+-- CGE : 61 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -276,6 +278,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'PDF_CONVOCATION_CTADP_EXPORTER',
     'PDF_LETTRE_INFORMATION_EXPORTER',
     'PDF_QUITUS_EXPORTER',
+    'AGENT_ANNUAIRE_VOIR',
     'DOSSIER_CLORE',
     'DOSSIER_CONFIDENTIALITE_MODIFIER',
     'DOSSIER_PRIORISER',
@@ -328,7 +331,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'CGE'
 ON CONFLICT DO NOTHING;
 
--- CGEA : 81 permissions
+-- CGEA : 82 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -344,6 +347,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'PDF_CONVOCATION_CTADP_EXPORTER',
     'PDF_LETTRE_INFORMATION_EXPORTER',
     'PDF_QUITUS_EXPORTER',
+    'AGENT_ANNUAIRE_VOIR',
     'DOSSIER_CLORE',
     'DOSSIER_CONFIDENTIALITE_MODIFIER',
     'DOSSIER_MES_DOSSIERS_VOIR',
@@ -415,11 +419,12 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'CGEA'
 ON CONFLICT DO NOTHING;
 
--- CONSEILLER_JURIDIQUE : 33 permissions
+-- CONSEILLER_JURIDIQUE : 34 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'AUDITION_VOIR',
     'VISITE_TERRAIN_VOIR',
+    'AGENT_ANNUAIRE_VOIR',
     'DOSSIER_DEMANDER_COMPLEMENT',
     'DOSSIER_MES_DOSSIERS_VOIR',
     'DOSSIER_MODIFIER',
@@ -454,7 +459,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'CONSEILLER_JURIDIQUE'
 ON CONFLICT DO NOTHING;
 
--- CONTROLEUR_ETAT : 46 permissions
+-- CONTROLEUR_ETAT : 47 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'AUDITION_CONDUIRE',
@@ -464,6 +469,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'VISITE_TERRAIN_CONDUIRE',
     'VISITE_TERRAIN_PLANIFIER',
     'VISITE_TERRAIN_VOIR',
+    'AGENT_ANNUAIRE_VOIR',
     'DOSSIER_MES_DOSSIERS_VOIR',
     'DOSSIER_VOIR',
     'OBSERVATION_AJOUTER',
@@ -506,11 +512,12 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'CONTROLEUR_ETAT'
 ON CONFLICT DO NOTHING;
 
--- MEMBRE_CTADP : 28 permissions
+-- MEMBRE_CTADP : 29 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'AUDITION_VOIR',
     'VISITE_TERRAIN_VOIR',
+    'AGENT_ANNUAIRE_VOIR',
     'DOSSIER_DEMANDER_COMPLEMENT',
     'DOSSIER_VOIR',
     'OBSERVATION_AJOUTER',
@@ -540,10 +547,11 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'MEMBRE_CTADP'
 ON CONFLICT DO NOTHING;
 
--- AGENT_BRPD : 25 permissions
+-- AGENT_BRPD : 26 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'PDF_LETTRE_INFORMATION_EXPORTER',
+    'AGENT_ANNUAIRE_VOIR',
     'DOSSIER_ENREGISTRER',
     'DOSSIER_MES_DOSSIERS_VOIR',
     'DOSSIER_MODIFIER',
