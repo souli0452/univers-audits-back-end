@@ -1,12 +1,13 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.ImageStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +20,6 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/admin/images")
-@PreAuthorize("hasRole('ADMIN_DDIC')")
 @RequiredArgsConstructor
 public class ImageUploadController {
 
@@ -28,6 +28,7 @@ public class ImageUploadController {
     @Autowired(required = false)
     private AuditService auditService;
 
+    @HasPermission(AppPermission.PORTAIL_IMAGES_GERER)
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> upload(
             @RequestParam("file") MultipartFile file,
@@ -58,6 +59,7 @@ public class ImageUploadController {
         ));
     }
 
+    @HasPermission(AppPermission.PORTAIL_IMAGES_GERER)
     @GetMapping("/list/{context}")
     public ResponseEntity<List<Map<String, String>>> listImages(
             @PathVariable String context) {

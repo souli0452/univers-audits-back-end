@@ -4,6 +4,8 @@ import gov.bf.ascelc.univers_audits.model.dto.PermissionDto;
 import gov.bf.ascelc.univers_audits.model.dto.RoleDto;
 import gov.bf.ascelc.univers_audits.model.dto.request.CreateRoleRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.UpdateRoleRequest;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.RoleManagementService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +13,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import gov.bf.ascelc.univers_audits.shared.utils.RoleCombinationPolicy;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -21,39 +22,40 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/roles")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN_DDIC')")
 public class RoleManagementController {
 
     private final RoleManagementService roleService;
     private final AuditService          auditService;
 
-
     private String id(Jwt jwt)   { return jwt != null ? jwt.getSubject()             : "SYSTEM"; }
     private String name(Jwt jwt) { return jwt != null ? jwt.getClaimAsString("name") : null; }
 
-
+    @HasPermission(AppPermission.ROLE_VOIR)
     @GetMapping
     public ResponseEntity<List<RoleDto>> listAll() {
         return ResponseEntity.ok(roleService.findAll());
     }
 
+    @HasPermission(AppPermission.ROLE_VOIR)
     @GetMapping("/{roleKey}")
     public ResponseEntity<RoleDto> getOne(@PathVariable String roleKey) {
         return ResponseEntity.ok(roleService.findByRoleKey(roleKey));
     }
 
     /** Cumuls de rôles interdits ou à surveiller, pour le formulaire d'agent. */
+    @HasPermission(AppPermission.ROLE_VOIR)
     @GetMapping("/combinations")
     public ResponseEntity<List<RoleCombinationPolicy.Regle>> listCombinations() {
         return ResponseEntity.ok(RoleCombinationPolicy.regles());
     }
 
+    @HasPermission(AppPermission.ROLE_VOIR)
     @GetMapping("/permissions")
     public ResponseEntity<List<PermissionDto>> listPermissions() {
         return ResponseEntity.ok(roleService.findAllPermissions());
     }
 
-
+    @HasPermission(AppPermission.ROLE_CREER)
     @PostMapping
     public ResponseEntity<RoleDto> create(
             @Valid @RequestBody CreateRoleRequest req,
@@ -71,6 +73,7 @@ public class RoleManagementController {
         return ResponseEntity.status(201).body(result);
     }
 
+    @HasPermission(AppPermission.ROLE_MODIFIER)
     @PutMapping("/{roleKey}")
     public ResponseEntity<RoleDto> update(
             @PathVariable String roleKey,
@@ -89,6 +92,7 @@ public class RoleManagementController {
         return ResponseEntity.ok(result);
     }
 
+    @HasPermission(AppPermission.ROLE_SUPPRIMER)
     @DeleteMapping("/{roleKey}")
     public ResponseEntity<Void> delete(
             @PathVariable String roleKey,

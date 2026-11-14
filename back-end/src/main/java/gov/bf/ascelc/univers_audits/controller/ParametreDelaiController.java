@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.ParametreDelaiRequest;
 import gov.bf.ascelc.univers_audits.model.entity.ParametreDelai;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,13 +27,13 @@ public class ParametreDelaiController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.PARAMETRE_DELAI_GERER)
     public ResponseEntity<List<ParametreDelai>> getAll() {
         return ResponseEntity.ok(parametreDelaiService.findAll());
     }
 
     @PutMapping("/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.PARAMETRE_DELAI_GERER)
     public ResponseEntity<ParametreDelai> update(
             @PathVariable String code,
             @Valid @RequestBody ParametreDelaiRequest request) {

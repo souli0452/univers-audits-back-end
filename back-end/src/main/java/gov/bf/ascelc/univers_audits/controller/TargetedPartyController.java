@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.TargetedPartyRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.TargetedPartyResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.TargetedPartyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class TargetedPartyController {
 
     private final TargetedPartyService targetedPartyService;
 
+    @HasPermission(AppPermission.PARTIE_VISEE_VOIR)
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
             "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
@@ -30,7 +33,7 @@ public class TargetedPartyController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PARTIE_VISEE_GERER)
     public ResponseEntity<TargetedPartyResponse> create(
             @PathVariable UUID dossierId,
             @Valid @RequestBody TargetedPartyRequest request) {
@@ -40,7 +43,7 @@ public class TargetedPartyController {
     }
 
     @PutMapping("/{partyId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PARTIE_VISEE_GERER)
     public ResponseEntity<TargetedPartyResponse> update(
             @PathVariable UUID dossierId,
             @PathVariable UUID partyId,
@@ -50,7 +53,7 @@ public class TargetedPartyController {
     }
 
     @DeleteMapping("/{partyId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PARTIE_VISEE_SUPPRIMER)
     public ResponseEntity<Void> delete(
             @PathVariable UUID dossierId,
             @PathVariable UUID partyId) {

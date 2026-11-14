@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.EtudeOpportuniteRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.EtudeOpportuniteResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.EtudeOpportuniteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ public class EtudeOpportuniteController {
 
     private final EtudeOpportuniteService etudeOpportuniteService;
 
+    @HasPermission(AppPermission.ETUDE_OPPORTUNITE_VOIR)
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
             "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
@@ -28,7 +31,7 @@ public class EtudeOpportuniteController {
     }
 
     @PutMapping
-    @PreAuthorize("hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.ETUDE_OPPORTUNITE_REDIGER)
     public ResponseEntity<EtudeOpportuniteResponse> upsert(
             @PathVariable UUID dossierId,
             @Valid @RequestBody EtudeOpportuniteRequest request) {

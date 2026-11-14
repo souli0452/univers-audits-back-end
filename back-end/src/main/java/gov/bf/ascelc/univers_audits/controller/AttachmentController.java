@@ -4,6 +4,8 @@ import gov.bf.ascelc.univers_audits.enums.AttachmentSource;
 import gov.bf.ascelc.univers_audits.enums.ModeObtention;
 import gov.bf.ascelc.univers_audits.model.entity.Attachment;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.AttachmentStorageService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
@@ -14,7 +16,6 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,10 +30,6 @@ import java.util.UUID;
 @RequestMapping("/api/v1/attachments")
 @RequiredArgsConstructor
 public class AttachmentController {
-
-    private static final String DOSSIER_READ_ROLES =
-            "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP',"
-                    + "'CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')";
 
     private final AttachmentStorageService attachmentStorageService;
     private final DossierAccessGuard       accessGuard;
@@ -61,7 +58,7 @@ public class AttachmentController {
     }
 
     @GetMapping("/dossier/{dossierId}")
-    @PreAuthorize(DOSSIER_READ_ROLES)
+    @HasPermission(AppPermission.PIECE_JOINTE_VOIR)
     public ResponseEntity<?> listFiles(@PathVariable String dossierId) {
 
         UUID id = UUID.fromString(dossierId);
@@ -79,7 +76,7 @@ public class AttachmentController {
     }
 
     @GetMapping("/{attachmentId}/download")
-    @PreAuthorize(DOSSIER_READ_ROLES)
+    @HasPermission(AppPermission.PIECE_JOINTE_VOIR)
     public ResponseEntity<Resource> download(@PathVariable String attachmentId) {
 
         Attachment att = attachmentStorageService.getOrThrow(UUID.fromString(attachmentId));
@@ -121,7 +118,7 @@ public class AttachmentController {
     }
 
     @DeleteMapping("/{attachmentId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PIECE_JOINTE_SUPPRIMER)
     public ResponseEntity<?> delete(@PathVariable String attachmentId) {
 
         Attachment att = attachmentStorageService.getOrThrow(UUID.fromString(attachmentId));
@@ -139,7 +136,7 @@ public class AttachmentController {
     }
 
     @PatchMapping("/{attachmentId}/section")
-    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PIECE_JOINTE_RECLASSER)
     public ResponseEntity<?> reclasser(
             @PathVariable String attachmentId,
             @RequestBody Map<String, String> body) {

@@ -2,8 +2,11 @@ package gov.bf.ascelc.univers_audits.service;
 
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
+import gov.bf.ascelc.univers_audits.repository.RoleDefinitionRepository;
 import gov.bf.ascelc.univers_audits.security.access.EndpointAccess;
 import gov.bf.ascelc.univers_audits.security.access.EndpointAccessCollector;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.PermissionResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -49,6 +52,8 @@ public class AccessMatrixService {
             Map.entry("InformationPreoccupante", "Informations préoccupantes"));
 
     private final EndpointAccessCollector collector;
+    private final PermissionResolver permissionResolver;
+    private final RoleDefinitionRepository roleRepository;
     private final AgentRepository agentRepository;
     private final AgentService agentService;
 
@@ -69,10 +74,12 @@ public class AccessMatrixService {
     // ─── API ──────────────────────────────────────────────────────────────
 
     public Matrice matrice() {
-        List<Endpoint> endpoints = collecterEndpoints();
+        List<EndpointAccess> acces = collector.collect();
 
         Set<String> tousRoles = new LinkedHashSet<>(ROLES_CONNUS);
-        endpoints.stream().filter(e -> e.roles() != null).forEach(e -> tousRoles.addAll(e.roles()));
+        acces.stream().filter(a -> a.kind() == EndpointAccess.Kind.ROLES).forEach(a -> tousRoles.addAll(a.roles()));
+        roleRepository.findAllActiveWithPermissions().forEach(r -> tousRoles.add(r.getRoleKey()));
+        List<Endpoint> endpoints = versEndpoints(acces, tousRoles);
 
         Map<String, Integer> agentsParRole = compterAgentsParRole();
         List<RoleInfo> roles = tousRoles.stream()
@@ -125,13 +132,30 @@ public class AccessMatrixService {
 
     // ─── Lecture du code ──────────────────────────────────────────────────
 
-    private List<Endpoint> collecterEndpoints() {
+    /**
+     * Un point d'entrée protégé par une permission est ouvert aux rôles qui la détiennent en base ; les points
+     * d'entrée publics et les règles spécifiques restent hors matrice.
+     */
+    private List<Endpoint> versEndpoints(List<EndpointAccess> acces, Set<String> roles) {
+        Map<String, Set<String>> autoritesParRole = new HashMap<>();
+        roles.forEach(r -> autoritesParRole.put(r, permissionResolver.resolve(List.of(r))));
+
         List<Endpoint> resultat = new ArrayList<>();
-        for (EndpointAccess acces : collector.collect()) {
-            switch (acces.kind()) {
-                case AUTHENTICATED -> resultat.add(new Endpoint(acces.module(), acces.lecture(), null));
-                case ROLES -> resultat.add(new Endpoint(acces.module(), acces.lecture(), acces.roles()));
-                default -> { /* public, permission ou règle spécifique : hors matrice */ }
+        for (EndpointAccess a : acces) {
+            switch (a.kind()) {
+                case AUTHENTICATED -> resultat.add(new Endpoint(a.module(), a.lecture(), null));
+                case ROLES -> resultat.add(new Endpoint(a.module(), a.lecture(), a.roles()));
+                case PERMISSION -> {
+                    String autorite = AppPermission.AUTHORITY_PREFIX + a.permission().orElseThrow();
+                    Set<String> autorises = new LinkedHashSet<>();
+                    autoritesParRole.forEach((role, autorites) -> {
+                        if (autorites.contains(autorite)) {
+                            autorises.add(role);
+                        }
+                    });
+                    resultat.add(new Endpoint(a.module(), a.lecture(), autorises));
+                }
+                default -> { /* public ou règle spécifique : hors matrice */ }
             }
         }
         return resultat;

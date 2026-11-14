@@ -18,16 +18,20 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Instantané des contrôles d'accès de tous les points d'entrée. Un point d'entrée ajouté, retiré ou dont le
- * contrôle change fait échouer ce test : la décision doit alors être prise consciemment, puis l'instantané
+ * Instantané des contrôles d'accès actuels de tous les points d'entrée (permission portée par chacun). Un point
+ * d'entrée ajouté, retiré ou dont le contrôle change fait échouer ce test : la décision doit alors être prise
+ * consciemment, puis l'instantané
  * régénéré avec {@code -Dgolden.update=true} (puis relancer le test, le fichier n'étant copié dans le classpath
  * qu'à la compilation suivante) et relu dans le diff.
+ *
+ * <p>Ne pas confondre avec {@code access-golden-avant.json} : l'état d'avant la bascule vers les permissions,
+ * figé pour toujours, qui sert de référence à {@link AccessEquivalenceIntegrationTest}.
  */
 @SpringBootTest
 class AccessGoldenIntegrationTest {
 
-    private static final String RESSOURCE = "/security/access-golden-avant.json";
-    private static final Path FICHIER = Path.of("src/test/resources/security/access-golden-avant.json");
+    private static final String RESSOURCE = "/security/access-courant.json";
+    private static final Path FICHIER = Path.of("src/test/resources/security/access-courant.json");
 
     private final ObjectMapper json = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 

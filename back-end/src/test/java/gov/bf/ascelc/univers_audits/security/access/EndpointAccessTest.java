@@ -1,6 +1,9 @@
 package gov.bf.ascelc.univers_audits.security.access;
 
 import gov.bf.ascelc.univers_audits.security.access.EndpointAccess.Kind;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -53,6 +56,36 @@ class EndpointAccessTest {
         assertThat(access("").lecture()).isTrue();
         assertThat(access("POST").lecture()).isFalse();
         assertThat(access("DELETE,PUT").lecture()).isFalse();
+    }
+
+    static class Cible {
+        @HasPermission(AppPermission.DOSSIER_VOIR)
+        public void parPermission() {
+        }
+
+        @PreAuthorize("hasRole('CGE')")
+        public void parRole() {
+        }
+
+        public void sansControle() {
+        }
+    }
+
+    @Test
+    void expressionOf_litHasPermissionEtLaRendeSousLaFormeDUneAutorite() throws Exception {
+        assertThat(EndpointAccessCollector.expressionOf(Cible.class.getMethod("parPermission")))
+                .contains("hasAuthority('PERM_DOSSIER_VOIR')");
+    }
+
+    @Test
+    void expressionOf_litPreAuthorizeTelQuEcrit() throws Exception {
+        assertThat(EndpointAccessCollector.expressionOf(Cible.class.getMethod("parRole")))
+                .contains("hasRole('CGE')");
+    }
+
+    @Test
+    void expressionOf_videSansAucuneAnnotation() throws Exception {
+        assertThat(EndpointAccessCollector.expressionOf(Cible.class.getMethod("sansControle"))).isEmpty();
     }
 
     private static EndpointAccess access(String methodes) {

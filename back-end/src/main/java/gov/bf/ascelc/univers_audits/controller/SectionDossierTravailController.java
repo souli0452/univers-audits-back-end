@@ -2,13 +2,14 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.OrganisationDetailRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.SectionDetailCreateRequest;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.SectionDossierTravailService;
 import gov.bf.ascelc.univers_audits.service.SectionDossierTravailService.SectionDossierTravailResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,16 +21,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SectionDossierTravailController {
 
-    private static final String READ_ROLES =
-            "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP',"
-                    + "'CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')";
-
-    private static final String WRITE_ROLES =
-            "hasAnyRole('CONTROLEUR_ETAT','AGENT_BRPD','ADMIN_DDIC')";
-
     private final SectionDossierTravailService sectionDossierTravailService;
 
-    @PreAuthorize(READ_ROLES)
+    @HasPermission(AppPermission.SECTION_DOSSIER_TRAVAIL_VOIR)
     @GetMapping("/sections")
     public ResponseEntity<List<SectionDossierTravailResponse>> listerSections(
             @PathVariable String dossierId) {
@@ -37,7 +31,7 @@ public class SectionDossierTravailController {
                 sectionDossierTravailService.listerSections(UUID.fromString(dossierId)));
     }
 
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.SECTION_DOSSIER_TRAVAIL_GERER)
     @PostMapping("/organisation-detail")
     public ResponseEntity<?> definirOrganisationDetail(
             @PathVariable String dossierId,
@@ -47,7 +41,7 @@ public class SectionDossierTravailController {
         return ResponseEntity.ok().build();
     }
 
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.SECTION_DOSSIER_TRAVAIL_GERER)
     @PostMapping("/sections")
     public ResponseEntity<SectionDossierTravailResponse> creerSectionDetail(
             @PathVariable String dossierId,

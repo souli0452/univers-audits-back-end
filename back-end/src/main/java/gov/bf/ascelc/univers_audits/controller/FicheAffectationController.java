@@ -5,6 +5,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationCreateRequ
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.FicheAffectationResponse;
 import gov.bf.ascelc.univers_audits.model.entity.FicheAffectation;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.FicheAffectationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
@@ -26,7 +28,7 @@ public class FicheAffectationController {
     private final FicheAffectationService ficheAffectationService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.FICHE_AFFECTATION_CREER)
     public ResponseEntity<FicheAffectationResponse> creer(
             @PathVariable UUID id,
             @Valid @RequestBody FicheAffectationCreateRequest request) {
@@ -37,7 +39,7 @@ public class FicheAffectationController {
     }
 
     @PatchMapping("/affectation")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.FICHE_AFFECTATION_AFFECTER)
     public ResponseEntity<FicheAffectationResponse> affecter(
             @PathVariable UUID id,
             @Valid @RequestBody FicheAffectationAffectationRequest request) {

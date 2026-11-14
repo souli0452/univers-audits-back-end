@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.security.access;
 
 import gov.bf.ascelc.univers_audits.security.access.EndpointAccess.Kind;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -11,6 +12,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,6 +21,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -59,16 +62,26 @@ public class EndpointAccessCollector {
                 + Arrays.stream(methode.getParameterTypes()).map(Class::getSimpleName).collect(Collectors.joining(","))
                 + ")";
 
-        PreAuthorize pa = AnnotatedElementUtils.findMergedAnnotation(methode, PreAuthorize.class);
-        if (pa == null) {
-            pa = AnnotatedElementUtils.findMergedAnnotation(type, PreAuthorize.class);
-        }
-        if (pa == null) {
+        Optional<String> expression = expressionOf(methode).or(() -> expressionOf(type));
+        if (expression.isEmpty()) {
             return new EndpointAccess(handler, httpMethods, Kind.NONE, new TreeSet<>(), null);
         }
-        Kind kind = kindOf(pa.value());
-        Set<String> roles = kind == Kind.ROLES ? roles(pa.value()) : Set.of();
-        return new EndpointAccess(handler, httpMethods, kind, new TreeSet<>(roles), pa.value());
+        Kind kind = kindOf(expression.get());
+        Set<String> roles = kind == Kind.ROLES ? roles(expression.get()) : Set.of();
+        return new EndpointAccess(handler, httpMethods, kind, new TreeSet<>(roles), expression.get());
+    }
+
+    /**
+     * Expression de contrôle d'accès portée par un élément : {@link HasPermission} (rendue sous la forme
+     * {@code hasAuthority('PERM_X')}) ou, à défaut, {@link PreAuthorize} telle qu'écrite.
+     */
+    static Optional<String> expressionOf(AnnotatedElement element) {
+        HasPermission permission = AnnotatedElementUtils.findMergedAnnotation(element, HasPermission.class);
+        if (permission != null) {
+            return Optional.of("hasAuthority('" + permission.value().authority() + "')");
+        }
+        PreAuthorize preAuthorize = AnnotatedElementUtils.findMergedAnnotation(element, PreAuthorize.class);
+        return Optional.ofNullable(preAuthorize).map(PreAuthorize::value);
     }
 
     private static String methodesHttp(RequestMappingInfo info) {

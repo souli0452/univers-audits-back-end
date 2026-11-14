@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.WitnessRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.WitnessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class WitnessController {
 
     private final WitnessService witnessService;
 
+    @HasPermission(AppPermission.TEMOIN_VOIR)
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
             "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
@@ -30,7 +33,7 @@ public class WitnessController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.TEMOIN_GERER)
     public ResponseEntity<WitnessResponse> create(
             @PathVariable UUID dossierId,
             @Valid @RequestBody WitnessRequest request) {
@@ -40,7 +43,7 @@ public class WitnessController {
     }
 
     @PutMapping("/{witnessId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.TEMOIN_GERER)
     public ResponseEntity<WitnessResponse> update(
             @PathVariable UUID dossierId,
             @PathVariable UUID witnessId,
@@ -50,7 +53,7 @@ public class WitnessController {
     }
 
     @DeleteMapping("/{witnessId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.TEMOIN_SUPPRIMER)
     public ResponseEntity<Void> delete(
             @PathVariable UUID dossierId,
             @PathVariable UUID witnessId) {

@@ -1,5 +1,7 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.DocumentOfficielPdfService;
 import gov.bf.ascelc.univers_audits.service.PdfExportService;
 import lombok.RequiredArgsConstructor;
@@ -52,7 +54,7 @@ public class PdfController {
     }
 
     @GetMapping("/convocation-ctadp/{seanceId}")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PDF_CONVOCATION_CTADP_EXPORTER)
     public ResponseEntity<byte[]> exportConvocationCtadp(
             @PathVariable UUID seanceId) {
 
@@ -67,7 +69,7 @@ public class PdfController {
     }
 
     @GetMapping("/quitus/{dossierId}")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PDF_QUITUS_EXPORTER)
     public ResponseEntity<byte[]> exportQuitus(
             @PathVariable UUID dossierId) {
 
@@ -82,7 +84,7 @@ public class PdfController {
     }
 
     @GetMapping("/lettre-information/{dossierId}")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.PDF_LETTRE_INFORMATION_EXPORTER)
     public ResponseEntity<byte[]> exportLettreInformation(
             @PathVariable UUID dossierId) {
 

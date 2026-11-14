@@ -2,12 +2,13 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.HabilitationGrantRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierHabilitationResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,14 +22,14 @@ public class DossierHabilitationController {
     private final DossierHabilitationService habilitationService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.HABILITATION_VOIR)
     public ResponseEntity<List<DossierHabilitationResponse>> findActive(
             @PathVariable UUID dossierId) {
         return ResponseEntity.ok(habilitationService.findActiveByDossier(dossierId));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.HABILITATION_ACCORDER)
     public ResponseEntity<DossierHabilitationResponse> grant(
             @PathVariable UUID dossierId,
             @Valid @RequestBody HabilitationGrantRequest request) {
@@ -38,7 +39,7 @@ public class DossierHabilitationController {
     }
 
     @DeleteMapping("/{agentId}")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.HABILITATION_RETIRER)
     public ResponseEntity<Void> revoke(
             @PathVariable UUID dossierId,
             @PathVariable UUID agentId,

@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.ObservationRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.ObservationResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.ObservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +22,7 @@ public class ObservationController {
 
     private final ObservationService observationService;
 
-
+    @HasPermission(AppPermission.OBSERVATION_VOIR)
     @GetMapping
     @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
             "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
@@ -30,7 +32,7 @@ public class ObservationController {
                 observationService.findByDossierId(dossierId));
     }
 
-
+    @HasPermission(AppPermission.OBSERVATION_AJOUTER)
     @PostMapping
     @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
             "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
