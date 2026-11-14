@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.shared.utils;
 
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -55,6 +56,15 @@ public class SecurityUtils {
     }
 
 
+
+    /** Vrai si l'utilisateur connecté détient cette permission (autorité {@code PERM_xxx} du jeton). */
+    public boolean hasPermission(AppPermission permission) {
+        Authentication auth = getAuthentication();
+        if (auth == null) return false;
+
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(permission.authority()));
+    }
 
     private Authentication getAuthentication() {
         return SecurityContextHolder.getContext().getAuthentication();

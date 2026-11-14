@@ -26,4 +26,12 @@ public interface RoleDefinitionRepository extends JpaRepository<RoleDefinition, 
         WHERE rd.roleKey = :roleKey
     """)
     Optional<RoleDefinition> findByRoleKeyWithPermissions(@Param("roleKey") String roleKey);
+
+    /** Rôles actifs parmi les clés données, avec leurs permissions (résolution des droits à la connexion). */
+    @Query("""
+        SELECT DISTINCT rd FROM RoleDefinition rd
+        LEFT JOIN FETCH rd.permissions
+        WHERE rd.active = true AND rd.roleKey IN :roleKeys
+    """)
+    List<RoleDefinition> findActiveByRoleKeyInWithPermissions(@Param("roleKeys") Collection<String> roleKeys);
 }
