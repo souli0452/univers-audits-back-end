@@ -6,6 +6,7 @@ import gov.bf.ascelc.univers_audits.model.entity.Declarant;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.Investigation;
 import gov.bf.ascelc.univers_audits.model.entity.Witness;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,7 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,7 +51,7 @@ class AuditionDisplayNameMaskerTest {
         Declarant declarant = Declarant.builder().id(UUID.randomUUID())
                 .firstName("Amidou").lastName("Sawadogo").protectionRequested(true).build();
         Audition audition = buildDeclarantAudition(declarant, false);
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
+        when(securityUtils.hasPermission(any(AppPermission.class))).thenReturn(false);
 
         assertThat(masker.mask(audition))
                 .isEqualTo("Lanceur d'alerte protégé");
@@ -61,7 +62,7 @@ class AuditionDisplayNameMaskerTest {
         Declarant declarant = Declarant.builder().id(UUID.randomUUID())
                 .firstName("Amidou").lastName("Sawadogo").protectionRequested(true).build();
         Audition audition = buildDeclarantAudition(declarant, false);
-        when(securityUtils.hasRole("CGE")).thenReturn(true);
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
 
         assertThat(masker.mask(audition)).isEqualTo("Amidou Sawadogo");
     }

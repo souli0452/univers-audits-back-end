@@ -4,6 +4,7 @@ import gov.bf.ascelc.univers_audits.enums.IntervieweeType;
 import gov.bf.ascelc.univers_audits.model.entity.Audition;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -22,8 +23,7 @@ public class AuditionDisplayNameMasker {
         Declarant declarant = dossier.getDeclarant();
         if (declarant != null
                 && Boolean.TRUE.equals(declarant.getProtectionRequested())
-                && !securityUtils.hasRole("CGE")
-                && !securityUtils.hasRole("CGEA")) {
+                && !securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)) {
             raw = "Lanceur d'alerte protégé";
         }
         if (Boolean.TRUE.equals(dossier.getAnonymous())) {

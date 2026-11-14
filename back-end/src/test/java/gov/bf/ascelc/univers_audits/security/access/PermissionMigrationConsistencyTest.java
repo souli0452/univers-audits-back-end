@@ -91,6 +91,21 @@ class PermissionMigrationConsistencyTest {
     }
 
     @Test
+    void chaquePermissionDuCatalogueEstAttribueeAuMoinsAUnRole() {
+        Map<AppPermission, SortedSet<String>> roles = PermissionMigrationSql.rolesParPermission(golden, table);
+        for (AppPermission p : AppPermission.values()) {
+            assertThat(roles.get(p)).as("rôles de " + p.key()).isNotEmpty();
+        }
+    }
+
+    @Test
+    void lesPermissionsSansPointDentreeAttribuentDesRolesConnus() {
+        // Contrôles faits dans le code (pas sur un endpoint) : leurs attributions sont déclarées à part.
+        PermissionMigrationSql.ATTRIBUTIONS_COMPLEMENTAIRES.forEach((permission, roles) ->
+                assertThat(table.containsValue(permission)).as(permission.key() + " ne doit pas avoir de point d'entrée").isFalse());
+    }
+
+    @Test
     void lesAnciennesPermissionsIndicativesSontDesactiveesSansEtreSupprimees() throws IOException {
         String sql = Files.readString(MIGRATION);
         assertThat(sql).contains("UPDATE permission SET active = FALSE");

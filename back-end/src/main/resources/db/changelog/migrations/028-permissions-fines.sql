@@ -44,11 +44,13 @@ INSERT INTO permission (id, permission_key, label, category, active, created_at)
     (gen_random_uuid(), 'DOSSIER_STATUER_RECEVABILITE', 'Statuer sur la recevabilité d''un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'DOSSIER_TRANSFERER', 'Transférer un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'DOSSIER_VOIR', 'Consulter les dossiers', 'Dossiers', TRUE, now()),
+    (gen_random_uuid(), 'DOSSIER_VOIR_TOUS', 'Consulter tous les dossiers, y compris les dossiers confidentiels', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'FICHE_AFFECTATION_AFFECTER', 'Affecter un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'FICHE_AFFECTATION_CREER', 'Créer une fiche d''affectation', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'HABILITATION_ACCORDER', 'Habiliter un agent sur un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'HABILITATION_RETIRER', 'Retirer une habilitation', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'HABILITATION_VOIR', 'Consulter les habilitations sur les dossiers', 'Dossiers', TRUE, now()),
+    (gen_random_uuid(), 'LANCEUR_ALERTE_PROTEGE_TRAITER', 'Voir et traiter les dossiers de lanceurs d''alerte protégés', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'OBSERVATION_AJOUTER', 'Ajouter une observation', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'OBSERVATION_VOIR', 'Consulter les observations', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'PARTIE_VISEE_GERER', 'Enregistrer ou modifier une partie visée', 'Dossiers', TRUE, now()),
@@ -134,7 +136,7 @@ INSERT INTO permission (id, permission_key, label, category, active, created_at)
 ON CONFLICT (permission_key) DO UPDATE
     SET label = EXCLUDED.label, category = EXCLUDED.category, active = TRUE;
 
--- ADMIN_DDIC : 119 permissions
+-- ADMIN_DDIC : 120 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -169,6 +171,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'DOSSIER_STATUER_RECEVABILITE',
     'DOSSIER_TRANSFERER',
     'DOSSIER_VOIR',
+    'DOSSIER_VOIR_TOUS',
     'FICHE_AFFECTATION_AFFECTER',
     'FICHE_AFFECTATION_CREER',
     'HABILITATION_ACCORDER',
@@ -259,7 +262,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'ADMIN_DDIC'
 ON CONFLICT DO NOTHING;
 
--- CGE : 58 permissions
+-- CGE : 60 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -279,10 +282,12 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'DOSSIER_STATUER_RECEVABILITE',
     'DOSSIER_TRANSFERER',
     'DOSSIER_VOIR',
+    'DOSSIER_VOIR_TOUS',
     'FICHE_AFFECTATION_CREER',
     'HABILITATION_ACCORDER',
     'HABILITATION_RETIRER',
     'HABILITATION_VOIR',
+    'LANCEUR_ALERTE_PROTEGE_TRAITER',
     'OBSERVATION_AJOUTER',
     'OBSERVATION_VOIR',
     'PARTIE_VISEE_VOIR',
@@ -323,7 +328,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
 WHERE r.role_key = 'CGE'
 ON CONFLICT DO NOTHING;
 
--- CGEA : 79 permissions
+-- CGEA : 81 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -346,10 +351,12 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'DOSSIER_SOUMETTRE_CTADP',
     'DOSSIER_TRANSFERER',
     'DOSSIER_VOIR',
+    'DOSSIER_VOIR_TOUS',
     'FICHE_AFFECTATION_AFFECTER',
     'HABILITATION_ACCORDER',
     'HABILITATION_RETIRER',
     'HABILITATION_VOIR',
+    'LANCEUR_ALERTE_PROTEGE_TRAITER',
     'OBSERVATION_AJOUTER',
     'OBSERVATION_VOIR',
     'PARTIE_VISEE_SUPPRIMER',

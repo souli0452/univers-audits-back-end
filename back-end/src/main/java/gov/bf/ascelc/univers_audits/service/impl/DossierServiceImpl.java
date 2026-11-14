@@ -12,6 +12,7 @@ import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
@@ -118,7 +119,7 @@ public class DossierServiceImpl implements DossierService {
         Agent agent = agentContextResolver.getCurrentAgent();
         log.debug("[Dossiers] Accès restreint — agent: {} voit uniquement ses dossiers habilités",
                 agent.getMatricule());
-        if (securityUtils.hasRole("AGENT_BRPD")) {
+        if (securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)) {
             // le BRPD reçoit aussi les dépôts du portail qui attendent leur enregistrement
             return dossierRepository
                     .findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable)
@@ -686,14 +687,14 @@ public class DossierServiceImpl implements DossierService {
 
         boolean isProtected = dossier.getDeclarant() != null
                 && Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
-        boolean isCge  = securityUtils.hasRole("CGE");
-        boolean isCgea = securityUtils.hasRole("CGEA");
+        boolean peutTraiterLanceurAlerte =
+                securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER);
 
-        if (isProtected && !isCge && !isCgea) {
+        if (isProtected && !peutTraiterLanceurAlerte) {
             throw new BusinessException(
                     "Modification restreinte — ce dossier concerne un lanceur "
                             + "d'alerte sous protection. "
-                            + "Seuls le CGE et le CGEA sont habilités à le modifier.");
+                            + "Seuls les agents habilités à traiter ces dossiers peuvent le modifier.");
         }
 
         dossierMapper.updateEntity(request, dossier);
@@ -715,14 +716,14 @@ public class DossierServiceImpl implements DossierService {
 
         boolean isProtected = dossier.getDeclarant() != null
                 && Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
-        boolean isCge  = securityUtils.hasRole("CGE");
-        boolean isCgea = securityUtils.hasRole("CGEA");
+        boolean peutTraiterLanceurAlerte =
+                securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER);
 
-        if (isProtected && !value && !isCge && !isCgea) {
+        if (isProtected && !value && !peutTraiterLanceurAlerte) {
             throw new BusinessException(
                     "Impossible de retirer la confidentialité d'un dossier "
                             + "lanceur d'alerte protégé. "
-                            + "Cette action est réservée au CGE et au CGEA.");
+                            + "Cette action est réservée aux agents habilités à traiter ces dossiers.");
         }
 
         dossier.setIsConfidential(value);
@@ -749,10 +750,10 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(dossierId);
         Agent agent = agentContextResolver.getCurrentAgent();
 
-        if (!securityUtils.hasRole("CGE") && !securityUtils.hasRole("CGEA")) {
+        if (!securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)) {
             throw new BusinessException(
-                    "Seuls le CGE et le CGEA peuvent révoquer "
-                            + "une protection lanceur d'alerte.");
+                    "Seuls les agents habilités à traiter les dossiers de lanceurs d'alerte "
+                            + "peuvent révoquer une protection.");
         }
 
         if (request.getReason() == null || request.getReason().isBlank()) {
@@ -1048,10 +1049,7 @@ public class DossierServiceImpl implements DossierService {
 
     private DossierResponse maskSensitiveData(DossierResponse response) {
 
-        boolean isCge   = securityUtils.hasRole("CGE");
-        boolean isCgea  = securityUtils.hasRole("CGEA");
-        boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
-        boolean canSeeConfidential = isCge || isCgea || isAdmin;
+        boolean canSeeConfidential = accessGuard.canSeeConfidential();
 
         if (Boolean.TRUE.equals(response.getIsConfidential())
                 && !canSeeConfidential) {
@@ -1075,7 +1073,7 @@ public class DossierServiceImpl implements DossierService {
         if (response.getDeclarant() != null
                 && Boolean.TRUE.equals(
                 response.getDeclarant().getProtectionRequested())
-                && !isCge && !isCgea) {
+                && !securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)) {
             response.getDeclarant().setFirstName(null);
             response.getDeclarant().setLastName(null);
             response.getDeclarant().setEmail(null);

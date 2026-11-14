@@ -10,6 +10,7 @@ import gov.bf.ascelc.univers_audits.repository.DepartementRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.FicheAffectationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -380,7 +381,7 @@ class FicheAffectationServiceTest {
         when(accessGuard.canSeeConfidential()).thenReturn(false);
         when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-brpd"));
         when(agentRepository.findByKeycloakId("kc-brpd")).thenReturn(Optional.of(agentBrpd));
-        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(true);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)).thenReturn(true);
         when(ficheAffectationRepository.save(any(FicheAffectation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -466,7 +467,7 @@ class FicheAffectationServiceTest {
         when(accessGuard.canSeeConfidential()).thenReturn(false);
         when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-autre"));
         when(agentRepository.findByKeycloakId("kc-autre")).thenReturn(Optional.of(agentNonBrpd));
-        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)).thenReturn(false);
 
         assertThatThrownBy(() -> service.getOrThrow(dossierId))
                 .isInstanceOf(BusinessException.class)

@@ -158,8 +158,7 @@ public class DossierHabilitationServiceImpl implements DossierHabilitationServic
     private void requirePrivilegedRole() {
         if (!accessGuard.canSeeConfidential()) {
             throw new BusinessException(
-                    "Seuls les rôles CGE, CGEA ou ADMIN_DDIC peuvent gérer "
-                            + "les habilitations d'un dossier.");
+                    "Vous n'avez pas le droit de gérer les habilitations d'un dossier.");
         }
     }
 }

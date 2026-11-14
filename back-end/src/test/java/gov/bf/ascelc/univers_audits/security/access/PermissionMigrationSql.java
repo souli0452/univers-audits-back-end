@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -27,6 +28,14 @@ final class PermissionMigrationSql {
             "VALIDER_INVESTIGATION", "VOIR_RAPPORT", "CREER_RAPPORT", "VALIDER_RAPPORT", "VOIR_AGENT",
             "CREER_AGENT", "MODIFIER_AGENT", "DESACTIVER_AGENT", "GERER_ROLES", "VOIR_STATISTIQUES",
             "EXPORTER_STATISTIQUES");
+
+    /**
+     * Permissions vérifiées dans le code (services, gardes) et non sur un point d'entrée : l'instantané ne peut pas
+     * les déduire, leurs attributions de départ sont donc déclarées ici, à l'identique du comportement d'avant.
+     */
+    static final Map<AppPermission, Set<String>> ATTRIBUTIONS_COMPLEMENTAIRES = Map.of(
+            AppPermission.DOSSIER_VOIR_TOUS, Set.of("ADMIN_DDIC", "CGE", "CGEA"),
+            AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER, Set.of("CGE", "CGEA"));
 
     private static final List<String> ORDRE_DES_ROLES = List.of(
             "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP", "AGENT_BRPD", "DCP");
@@ -59,6 +68,13 @@ final class PermissionMigrationSql {
                         + ") — scinder cette permission");
             }
         }
+        ATTRIBUTIONS_COMPLEMENTAIRES.forEach((permission, roles) -> {
+            if (resultat.containsKey(permission)) {
+                throw new IllegalStateException(permission.key()
+                        + " a un point d'entrée : retirer son attribution complémentaire");
+            }
+            resultat.put(permission, new TreeSet<>(roles));
+        });
         return resultat;
     }
 

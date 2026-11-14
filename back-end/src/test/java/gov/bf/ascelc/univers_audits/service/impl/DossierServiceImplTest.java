@@ -29,6 +29,7 @@ import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.EtudeOpportuniteRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -249,7 +250,7 @@ class DossierServiceImplTest {
         Pageable pageable = PageRequest.of(0, 20);
 
         when(accessGuard.canSeeConfidential()).thenReturn(false);
-        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(true);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)).thenReturn(true);
         when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
         when(dossierRepository.findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable))
                 .thenReturn(new PageImpl<>(List.of()));
@@ -333,9 +334,7 @@ class DossierServiceImplTest {
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
         when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-investigator"));
         when(realAgentRepository.findByKeycloakId("kc-investigator")).thenReturn(Optional.of(agent));
         // Ne dépend pas de la source (AGENT_IN_CHARGE vs INVESTIGATION_TEAM) —
@@ -374,7 +373,6 @@ class DossierServiceImplTest {
         when(dossierRepository.existsByNumber(anyString())).thenReturn(false);
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.registerReception(dossierId, request, "127.0.0.1");
 
@@ -404,7 +402,6 @@ class DossierServiceImplTest {
         when(dossierRepository.existsByNumber(anyString())).thenReturn(false);
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.registerReception(dossierId, request, "127.0.0.1");
 
@@ -480,7 +477,6 @@ class DossierServiceImplTest {
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(dossierMapper.toResponse(dossier)).thenReturn(response);
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         DossierResponse result = service.findById(dossierId);
 
@@ -502,7 +498,7 @@ class DossierServiceImplTest {
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
+        when(securityUtils.hasPermission(any(AppPermission.class))).thenReturn(false);
 
         assertThatCode(() -> service.update(dossierId, request)).doesNotThrowAnyException();
 
@@ -555,7 +551,6 @@ class DossierServiceImplTest {
         when(etudeOpportuniteRepository.existsByDossierId(dossierId)).thenReturn(true);
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.submitToCtadp(dossierId, request, "127.0.0.1");
 
@@ -574,7 +569,6 @@ class DossierServiceImplTest {
 
         when(dossierRepository.findByAccessCode(accessCode)).thenReturn(Optional.of(dossier));
         when(dossierMapper.toResponse(dossier)).thenReturn(response);
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         DossierResponse result = service.findByAccessCode(accessCode);
 
@@ -595,7 +589,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.orientAdministratif(dossierId, request, "127.0.0.1");
 
@@ -651,7 +644,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.declareAdmissible(dossierId, request, "127.0.0.1");
 
@@ -674,7 +666,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.declareInadmissible(dossierId, request, "127.0.0.1");
 
@@ -699,7 +690,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.transfer(dossierId, request, "127.0.0.1");
 

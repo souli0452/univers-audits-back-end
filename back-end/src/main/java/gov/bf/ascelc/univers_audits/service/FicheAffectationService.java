@@ -17,6 +17,7 @@ import gov.bf.ascelc.univers_audits.repository.DepartementRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.FicheAffectationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -158,7 +159,7 @@ public class FicheAffectationService {
                     && agent.getDepartement().getId().equals(fiche.getDepartementDesigne().getId());
             case AGENT_CJ -> fiche.getAgentDesigne() != null
                     && agent.getId().equals(fiche.getAgentDesigne().getId());
-            case BRPD -> securityUtils.hasRole("AGENT_BRPD");
+            case BRPD -> securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER);
         };
         if (!autorise) {
             throw new BusinessException(
