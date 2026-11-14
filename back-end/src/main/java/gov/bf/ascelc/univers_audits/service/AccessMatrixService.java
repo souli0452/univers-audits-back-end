@@ -2,20 +2,13 @@ package gov.bf.ascelc.univers_audits.service;
 
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
+import gov.bf.ascelc.univers_audits.security.access.EndpointAccess;
+import gov.bf.ascelc.univers_audits.security.access.EndpointAccessCollector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationContext;
-import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.method.HandlerMethod;
-import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * « Qui peut faire quoi » : matrice des accès par rôle, calculée à partir des contrôles d'accès réellement
@@ -55,7 +48,7 @@ public class AccessMatrixService {
             Map.entry("LeconAPartager", "Leçons à partager"),
             Map.entry("InformationPreoccupante", "Informations préoccupantes"));
 
-    private final ApplicationContext context;
+    private final EndpointAccessCollector collector;
     private final AgentRepository agentRepository;
     private final AgentService agentService;
 
@@ -121,20 +114,7 @@ public class AccessMatrixService {
      * ensemble vide = règle spécifique (non représentable dans la matrice).
      */
     static Set<String> roles(String expression) {
-        Set<String> trouves = new LinkedHashSet<>();
-        Matcher any = Pattern.compile("hasAnyRole\\(([^)]*)\\)").matcher(expression);
-        while (any.find()) {
-            Matcher q = Pattern.compile("'([^']+)'").matcher(any.group(1));
-            while (q.find()) trouves.add(q.group(1));
-        }
-        Matcher one = Pattern.compile("hasRole\\('([^']+)'\\)").matcher(expression);
-        while (one.find()) trouves.add(one.group(1));
-        Matcher auth = Pattern.compile("hasAuthority\\('ROLE_([^']+)'\\)").matcher(expression);
-        while (auth.find()) trouves.add(auth.group(1));
-
-        if (!trouves.isEmpty()) return trouves;
-        if (expression.contains("isAuthenticated()")) return null;
-        return Collections.emptySet();
+        return EndpointAccessCollector.roles(expression);
     }
 
     static String libelle(String module) {
@@ -147,25 +127,12 @@ public class AccessMatrixService {
 
     private List<Endpoint> collecterEndpoints() {
         List<Endpoint> resultat = new ArrayList<>();
-        RequestMappingHandlerMapping mapping =
-                context.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class);
-        for (Map.Entry<RequestMappingInfo, HandlerMethod> e : mapping.getHandlerMethods().entrySet()) {
-            HandlerMethod hm = e.getValue();
-            Class<?> type = hm.getBeanType();
-            if (!type.getName().startsWith("gov.bf.ascelc")) continue;
-
-            PreAuthorize pa = AnnotatedElementUtils.findMergedAnnotation(hm.getMethod(), PreAuthorize.class);
-            if (pa == null) pa = AnnotatedElementUtils.findMergedAnnotation(type, PreAuthorize.class);
-            if (pa == null) continue;                              // point d'entrée public ou géré ailleurs
-
-            Set<String> roles = roles(pa.value());
-            if (roles != null && roles.isEmpty()) continue;        // règle spécifique : hors matrice
-
-            Set<RequestMethod> methodes = e.getKey().getMethodsCondition().getMethods();
-            boolean lecture = methodes.isEmpty() || methodes.contains(RequestMethod.GET)
-                    || methodes.contains(RequestMethod.HEAD);
-            String nom = type.getSimpleName().replaceAll("Controller$", "");
-            resultat.add(new Endpoint(nom, lecture, roles));
+        for (EndpointAccess acces : collector.collect()) {
+            switch (acces.kind()) {
+                case AUTHENTICATED -> resultat.add(new Endpoint(acces.module(), acces.lecture(), null));
+                case ROLES -> resultat.add(new Endpoint(acces.module(), acces.lecture(), acces.roles()));
+                default -> { /* public, permission ou règle spécifique : hors matrice */ }
+            }
         }
         return resultat;
     }
