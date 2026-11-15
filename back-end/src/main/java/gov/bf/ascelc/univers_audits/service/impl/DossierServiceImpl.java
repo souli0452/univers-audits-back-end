@@ -80,7 +80,6 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(id);
         logSensitiveAccessIfProtected(dossier, "findById");
         accessGuard.checkReadAccess(dossier);
-        recordProtectedIdentityConsultation(dossier);
         return enrichAndMaskDetail(dossier);
     }
 
@@ -884,6 +883,9 @@ public class DossierServiceImpl implements DossierService {
      * provoquerait un N+1 sur chaque ligne.
      */
     private DossierResponse enrichAndMaskDetail(Dossier dossier) {
+        // Toute réponse de détail (ouverture, modification, confidentialité, transitions) passe ici : la trace
+        // de l'identité d'un lanceur d'alerte protégé ne dépend donc pas de l'écran qui la demande.
+        recordProtectedIdentityConsultation(dossier);
         DossierResponse response = enrichAndMask(dossier);
 
         response.setWitnesses(dossier.getWitnesses().stream()

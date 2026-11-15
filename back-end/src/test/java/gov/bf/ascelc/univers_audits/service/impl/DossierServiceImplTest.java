@@ -567,6 +567,34 @@ class DossierServiceImplTest {
     }
 
     @Test
+    void update_tracePersistantLIdentiteRenvoyeeEnClairAuLanceurDAlerteProtege() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.update(dossierId, DossierUpdateRequest.builder().object("Objet corrigé").build());
+
+        verify(currentUserAuditor, times(1)).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                eq(dossierId.toString()), contains("DOS-2026-001"));
+    }
+
+    @Test
+    void findById_neTraceQuUneFoisParOuverture() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findById(dossierId);
+
+        verify(currentUserAuditor, times(1)).record(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
     void update_propagatesGuardRejectionWithoutSaving() {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = Dossier.builder().id(dossierId).build();
