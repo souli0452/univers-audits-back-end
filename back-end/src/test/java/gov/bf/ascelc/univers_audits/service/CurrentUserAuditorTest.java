@@ -23,6 +23,7 @@ import static org.mockito.Mockito.verify;
 class CurrentUserAuditorTest {
 
     @Mock private AuditService audit;
+    @Mock private ProtectedIdentityAlertService alerts;
 
     @AfterEach
     void tearDown() {
@@ -31,7 +32,7 @@ class CurrentUserAuditorTest {
     }
 
     private CurrentUserAuditor auditor() {
-        return new CurrentUserAuditor(audit);
+        return new CurrentUserAuditor(audit, alerts);
     }
 
     private static void connecterAvecRoles(String... roles) {
@@ -68,5 +69,27 @@ class CurrentUserAuditorTest {
 
         verify(audit).logAction(eq("SYSTEM"), isNull(), isNull(), eq("A"), eq("DOSSIER"), eq("d-1"),
                 eq("x"), isNull(), isNull());
+    }
+
+    @Test
+    void alerteLaSecuriteQuandLActionConcerneUneIdentiteProtegee() {
+        connecterAvecRoles("ADMIN_DDIC");
+
+        auditor().record("CONSULTER_IDENTITE_LANCEUR_ALERTE", "DOSSIER", "d-1", "Consultation dossier DOS-1");
+
+        verify(alerts).notifyAccess("kc-42", "Awa Test", "ADMIN_DDIC", "CONSULTER_IDENTITE_LANCEUR_ALERTE", "d-1",
+                "Consultation dossier DOS-1");
+    }
+
+    @Test
+    void ecritToujoursAuJournalMemeSiLAlerteEchoue() {
+        connecterAvecRoles("CGE");
+        org.mockito.Mockito.doThrow(new RuntimeException("SMTP en panne")).when(alerts)
+                .notifyAccess(any(), any(), any(), any(), any(), any());
+
+        auditor().record("EXPORTER_IDENTITE_LANCEUR_ALERTE", "DOSSIER", "d-1", "Export");
+
+        verify(audit).logAction(eq("kc-42"), any(), eq("CGE"), eq("EXPORTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                eq("d-1"), eq("Export"), isNull(), isNull());
     }
 }

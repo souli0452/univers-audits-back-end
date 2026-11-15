@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -19,6 +20,7 @@ import java.util.Set;
  * lus ici, dans le thread de la requête, puis l'écriture asynchrone est confiée à {@link AuditService}. À utiliser
  * quand le contrôleur n'est pas l'endroit où l'on sait qu'il faut journaliser (règle métier dans un service).
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CurrentUserAuditor {
@@ -28,6 +30,7 @@ public class CurrentUserAuditor {
     private static final String PREFIXE_ROLE_PAR_DEFAUT = "default-roles-";
 
     private final AuditService audit;
+    private final ProtectedIdentityAlertService alerts;
 
     public void record(String action, String entityType, String entityId, String description) {
         String acteurId = "SYSTEM";
@@ -47,6 +50,17 @@ public class CurrentUserAuditor {
             userAgent = AuditService.extractUserAgent(request);
         }
         audit.logAction(acteurId, acteurNom, roles, action, entityType, entityId, description, ip, userAgent);
+        alerter(acteurId, acteurNom, roles, action, entityId, description);
+    }
+
+    /** L'alerte ne doit jamais empêcher l'écriture au journal ni l'action métier : toute panne est seulement logguée. */
+    private void alerter(String acteurId, String acteurNom, String roles, String action, String entityId,
+                         String description) {
+        try {
+            alerts.notifyAccess(acteurId, acteurNom, roles, action, entityId, description);
+        } catch (RuntimeException e) {
+            log.error("[Audit] Alerte sécurité non envoyée pour l'action {} : {}", action, e.getMessage());
+        }
     }
 
     private static String rolesMetier(Jwt jwt) {
