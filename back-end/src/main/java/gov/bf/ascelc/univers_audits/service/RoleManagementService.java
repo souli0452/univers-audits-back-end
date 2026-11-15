@@ -34,7 +34,7 @@ public class RoleManagementService {
         return roleRepo.findAllActiveWithPermissions()
                 .stream()
                 .map(r -> {
-                    List<PermissionDto> perms = r.getPermissions().stream()
+                    List<PermissionDto> perms = activesDe(r).stream()
                             .map(this::toPermDto)
                             .sorted(Comparator.comparing(PermissionDto::category)
                                     .thenComparing(PermissionDto::label))
@@ -50,7 +50,7 @@ public class RoleManagementService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Rôle introuvable : " + roleKey));
 
-        List<PermissionDto> perms = role.getPermissions().stream()
+        List<PermissionDto> perms = activesDe(role).stream()
                 .map(this::toPermDto)
                 .sorted(Comparator.comparing(PermissionDto::category)
                         .thenComparing(PermissionDto::label))
@@ -120,11 +120,11 @@ public class RoleManagementService {
         if (req.displayOrder() != null) role.setDisplayOrder(req.displayOrder());
         if (req.visible()      != null) role.setVisible(req.visible());
 
-        Set<String> avant = cles(role.getPermissions());
+        Set<String> avant = cles(activesDe(role));
         if (nouvelles != null) {
             role.setPermissions(nouvelles);
         }
-        Set<String> apres = cles(role.getPermissions());
+        Set<String> apres = cles(activesDe(role));
 
         roleRepo.save(role);
         apresValidation(resolver::invalidate);
@@ -217,6 +217,16 @@ public class RoleManagementService {
                 "Permissions du rôle " + roleKey + " — avant : " + new TreeSet<>(avant)
                         + " ; après : " + new TreeSet<>(apres)
                         + " ; ajoutées : " + ajoutees + " ; retirées : " + retirees);
+    }
+
+    /**
+     * Permissions actives du rôle. Les anciennes permissions indicatives (migration 004), désactivées par la 028,
+     * restent liées au rôle en base mais ne comptent plus : on ne les affiche ni ne les compare.
+     */
+    private static Set<Permission> activesDe(RoleDefinition role) {
+        return role.getPermissions().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .collect(Collectors.toSet());
     }
 
     private static Set<String> cles(Collection<Permission> permissions) {

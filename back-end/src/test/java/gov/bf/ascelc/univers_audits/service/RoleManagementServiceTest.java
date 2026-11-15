@@ -90,6 +90,27 @@ class RoleManagementServiceTest {
                 .forEach(s -> s.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
     }
 
+    // ───────────────────────────── lecture ─────────────────────────────
+
+    @Test
+    void findAll_neListePasLesPermissionsDesactivees() {
+        RoleDefinition cge = role("CGE", false, perm("DOSSIER_VOIR"), perm("VOIR_DOSSIER", false));
+        when(roleRepo.findAllActiveWithPermissions()).thenReturn(List.of(cge));
+
+        var roles = service.findAll();
+
+        assertThat(roles.get(0).permissions()).extracting(p -> p.permissionKey()).containsExactly("DOSSIER_VOIR");
+    }
+
+    @Test
+    void findByRoleKey_neListePasLesPermissionsDesactivees() {
+        RoleDefinition cge = role("CGE", false, perm("DOSSIER_VOIR"), perm("VOIR_DOSSIER", false));
+        when(roleRepo.findByRoleKeyWithPermissions("CGE")).thenReturn(Optional.of(cge));
+
+        assertThat(service.findByRoleKey("CGE").permissions()).extracting(p -> p.permissionKey())
+                .containsExactly("DOSSIER_VOIR");
+    }
+
     // ───────────────────────────── modification ─────────────────────────────
 
     @Test
