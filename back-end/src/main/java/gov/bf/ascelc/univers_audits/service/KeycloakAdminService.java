@@ -182,6 +182,22 @@ public class KeycloakAdminService {
         }
     }
 
+    /**
+     * Nombre d'utilisateurs qui portent le rôle realm. Contrairement à {@link #getUserIdsByRole}, ne masque
+     * jamais une panne : l'appelant doit refuser d'agir plutôt que de supposer « personne ».
+     */
+    public int countRoleMembers(String roleKey) {
+        try {
+            return realmResource().roles().get(roleKey).getUserMembers().size();
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            return 0;
+        } catch (Exception e) {
+            log.error("Erreur lecture des membres du rôle '{}': {}", roleKey, e.getMessage(), e);
+            throw new RuntimeException(
+                    "Impossible de vérifier dans Keycloak qui porte le rôle '" + roleKey + "' : " + e.getMessage());
+        }
+    }
+
     public void deleteRealmRole(String roleKey) {
         try {
             realmResource().roles().get(roleKey).remove();
