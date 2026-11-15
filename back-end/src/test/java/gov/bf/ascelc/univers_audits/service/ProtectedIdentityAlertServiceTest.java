@@ -1,15 +1,19 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -17,8 +21,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ProtectedIdentityAlertServiceTest {
 
     private static final String CONSULTATION = "CONSULTER_IDENTITE_LANCEUR_ALERTE";
@@ -27,8 +33,22 @@ class ProtectedIdentityAlertServiceTest {
 
     private final MutableClock horloge = new MutableClock(Instant.parse("2026-11-15T10:00:00Z"));
 
+    @BeforeEach
+    void livraisonReussieParDefaut() {
+        when(email.sendInternalAlertTracked(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(true));
+    }
+
     private ProtectedIdentityAlertService service(String destinataire) {
         return new ProtectedIdentityAlertService(email, destinataire, Duration.ofHours(1), horloge);
+    }
+
+    private void envoyer(ProtectedIdentityAlertService service, String acteur, String entite, String description) {
+        service.notifyAccess(acteur, "Awa Test", "CGE", CONSULTATION, entite, description);
+    }
+
+    private void verifierEnvois(int attendus) {
+        verify(email, times(attendus)).sendInternalAlertTracked(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -37,14 +57,14 @@ class ProtectedIdentityAlertServiceTest {
                 "Consultation de l'identité du lanceur d'alerte protégé — dossier DOS-1");
 
         ArgumentCaptor<String> corps = ArgumentCaptor.forClass(String.class);
-        verify(email).sendInternalAlert(eq("dsi@asce-lc.bf"), anyString(), anyString(), corps.capture());
+        verify(email).sendInternalAlertTracked(eq("dsi@asce-lc.bf"), anyString(), anyString(), corps.capture());
         assertThat(corps.getValue()).contains("Awa Test").contains("ADMIN_DDIC").contains("DOS-1");
     }
 
     @Test
     void neFaitRienSansAdresseConfiguree() {
-        service("").notifyAccess("kc-1", "Awa Test", "ADMIN_DDIC", CONSULTATION, "d-1", "x");
-        service(null).notifyAccess("kc-1", "Awa Test", "ADMIN_DDIC", CONSULTATION, "d-1", "x");
+        envoyer(service(""), "kc-1", "d-1", "x");
+        envoyer(service(null), "kc-1", "d-1", "x");
 
         verifyNoInteractions(email);
     }
@@ -61,33 +81,90 @@ class ProtectedIdentityAlertServiceTest {
     void neRenvoiePasLaMemeAlertePendantLaFenetre() {
         ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
 
-        service.notifyAccess("kc-1", "Awa Test", "CGE", CONSULTATION, "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
         horloge.avancer(Duration.ofMinutes(59));
-        service.notifyAccess("kc-1", "Awa Test", "CGE", CONSULTATION, "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
 
-        verify(email, times(1)).sendInternalAlert(anyString(), anyString(), anyString(), anyString());
+        verifierEnvois(1);
     }
 
     @Test
     void renvoieLAlerteUneFoisLaFenetreEcoulee() {
         ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
 
-        service.notifyAccess("kc-1", "Awa Test", "CGE", CONSULTATION, "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
         horloge.avancer(Duration.ofMinutes(61));
-        service.notifyAccess("kc-1", "Awa Test", "CGE", CONSULTATION, "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
 
-        verify(email, times(2)).sendInternalAlert(anyString(), anyString(), anyString(), anyString());
+        verifierEnvois(2);
     }
 
     @Test
     void uneAutrePersonneOuUnAutreDossierDeclencheUneNouvelleAlerte() {
         ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
 
-        service.notifyAccess("kc-1", "Awa Test", "CGE", CONSULTATION, "d-1", "x");
-        service.notifyAccess("kc-2", "Issa Test", "CGE", CONSULTATION, "d-1", "x");
-        service.notifyAccess("kc-1", "Awa Test", "CGE", CONSULTATION, "d-2", "x");
+        envoyer(service, "kc-1", "d-1", "x");
+        envoyer(service, "kc-2", "d-1", "x");
+        envoyer(service, "kc-1", "d-2", "x");
 
-        verify(email, times(3)).sendInternalAlert(anyString(), anyString(), anyString(), anyString());
+        verifierEnvois(3);
+    }
+
+    @Test
+    void deuxListesDifferentesSansIdentifiantNeSeMasquentPasMutuellement() {
+        ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
+
+        envoyer(service, "kc-1", null, "2 lanceur(s) — dossier(s) : DOS-1, DOS-2");
+        envoyer(service, "kc-1", null, "1 lanceur(s) — dossier(s) : DOS-9");
+
+        verifierEnvois(2);
+    }
+
+    @Test
+    void laMemeListeRepeteeNeDeclencheQuUneAlerte() {
+        ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
+
+        envoyer(service, "kc-1", null, "2 lanceur(s) — dossier(s) : DOS-1, DOS-2");
+        envoyer(service, "kc-1", null, "2 lanceur(s) — dossier(s) : DOS-1, DOS-2");
+
+        verifierEnvois(1);
+    }
+
+    @Test
+    void unEnvoiEchoueNeBloquePasLaProchaineAlerte() {
+        when(email.sendInternalAlertTracked(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(false))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
+
+        envoyer(service, "kc-1", "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
+
+        verifierEnvois(2);
+    }
+
+    @Test
+    void unEnvoiEnErreurNeBloquePasLaProchaineAlerte() {
+        when(email.sendInternalAlertTracked(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("SMTP en panne")))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
+
+        envoyer(service, "kc-1", "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
+
+        verifierEnvois(2);
+    }
+
+    @Test
+    void unEnvoiReussiGardeLeCreneauReserve() {
+        ProtectedIdentityAlertService service = service("dsi@asce-lc.bf");
+
+        envoyer(service, "kc-1", "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
+        envoyer(service, "kc-1", "d-1", "x");
+
+        verifierEnvois(1);
     }
 
     /** Horloge de test dont on avance le temps à la main. */
