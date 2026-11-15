@@ -35,7 +35,8 @@ final class PermissionMigrationSql {
      */
     static final Map<AppPermission, Set<String>> ATTRIBUTIONS_COMPLEMENTAIRES = Map.of(
             AppPermission.DOSSIER_VOIR_TOUS, Set.of("ADMIN_DDIC", "CGE", "CGEA"),
-            AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER, Set.of("CGE", "CGEA"),
+            // Décision du 2026-11-15 : l'administrateur voit tout, identité des lanceurs d'alerte protégés comprise.
+            AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER, Set.of("ADMIN_DDIC", "CGE", "CGEA"),
             // Annuaire des agents actifs (nom, matricule, courriel) pour les écrans métier : tous les rôles métier,
             // pas la communication (DCP), qui ne doit voir que des statistiques.
             AppPermission.AGENT_ANNUAIRE_VOIR, Set.of("ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE",

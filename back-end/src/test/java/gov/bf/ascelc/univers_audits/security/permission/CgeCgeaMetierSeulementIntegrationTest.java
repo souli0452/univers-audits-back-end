@@ -43,14 +43,19 @@ class CgeCgeaMetierSeulementIntegrationTest {
     void lAdministrateurGardeToutLeTechniqueEtLeMetier() {
         Set<String> admin = resolver.resolve(List.of("ADMIN_DDIC"));
         for (AppPermission p : AppPermission.values()) {
-            // Deux exceptions qui existaient déjà : sa liste personnelle de dossiers, et l'identité des lanceurs
-            // d'alerte protégés, que seuls le CGE et le CGEA voient (même l'administrateur technique ne la voit pas).
-            boolean exception = p == AppPermission.DOSSIER_MES_DOSSIERS_VOIR
-                    || p == AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER;
+            // Seule exception : sa liste personnelle de dossiers (il n'en a pas). Décision du 2026-11-15 :
+            // l'administrateur voit tout, y compris l'identité des lanceurs d'alerte protégés.
+            boolean exception = p == AppPermission.DOSSIER_MES_DOSSIERS_VOIR;
             if (!exception) {
                 assertThat(admin).as("ADMIN_DDIC doit avoir " + p.key()).contains(p.authority());
             }
         }
+    }
+
+    @Test
+    void lAdministrateurVoitLIdentiteDesLanceursDAlerteProteges() {
+        assertThat(resolver.resolve(List.of("ADMIN_DDIC")))
+                .contains(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER.authority());
     }
 
     @Test

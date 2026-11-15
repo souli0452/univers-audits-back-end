@@ -63,13 +63,14 @@ class PermissionResolverIntegrationTest {
     @Test
     void lesPermissionsVerifieesDansLeCodeSontAttribueesCommeAvantLaBascule() {
         // Avant : canSeeConfidential() = CGE, CGEA ou ADMIN_DDIC ; protection des lanceurs d'alerte = CGE ou CGEA.
+        // Depuis le 2026-11-15 l'administrateur voit aussi l'identité des lanceurs d'alerte protégés.
         for (String role : List.of("ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT",
                 "MEMBRE_CTADP", "AGENT_BRPD", "DCP")) {
             Set<String> autorites = resolver.resolve(List.of(role));
             assertThat(autorites.contains(AppPermission.DOSSIER_VOIR_TOUS.authority()))
                     .as(role + " : voir tous les dossiers").isEqualTo(Set.of("ADMIN_DDIC", "CGE", "CGEA").contains(role));
             assertThat(autorites.contains(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER.authority()))
-                    .as(role + " : traiter les lanceurs d'alerte").isEqualTo(Set.of("CGE", "CGEA").contains(role));
+                    .as(role + " : traiter les lanceurs d'alerte").isEqualTo(Set.of("ADMIN_DDIC", "CGE", "CGEA").contains(role));
         }
     }
 

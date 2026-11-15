@@ -27,8 +27,8 @@ redéployer, et l'écran « Rôles & Permissions » n'était qu'indicatif : il n
    même si la base les lui retire ou ne répond pas. `RoleManagementService` refuse de les lui retirer.
 7. **Politique** : ADMIN_DDIC a tout (technique et métier) ; CGE et CGEA font le métier seulement, sans
    administration, paramétrage, audit ni file de notifications ; la DCP ne voit que des statistiques globales.
-   L'identité d'un lanceur d'alerte protégé n'est visible que du CGE et du CGEA (permission
-   `LANCEUR_ALERTE_PROTEGE_TRAITER`), pas de l'administrateur.
+   L'identité d'un lanceur d'alerte protégé est visible de ADMIN_DDIC, du CGE et du CGEA (permission
+   `LANCEUR_ALERTE_PROTEGE_TRAITER`, décision du 2026-11-15 : l'administrateur voit tout).
 
 ## Preuves d'équivalence
 

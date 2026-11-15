@@ -137,7 +137,7 @@ INSERT INTO permission (id, permission_key, label, category, active, created_at)
 ON CONFLICT (permission_key) DO UPDATE
     SET label = EXCLUDED.label, category = EXCLUDED.category, active = TRUE;
 
--- ADMIN_DDIC : 121 permissions
+-- ADMIN_DDIC : 122 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -179,6 +179,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'HABILITATION_ACCORDER',
     'HABILITATION_RETIRER',
     'HABILITATION_VOIR',
+    'LANCEUR_ALERTE_PROTEGE_TRAITER',
     'OBSERVATION_AJOUTER',
     'OBSERVATION_VOIR',
     'PARTIE_VISEE_GERER',
