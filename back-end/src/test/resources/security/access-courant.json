@@ -179,6 +179,12 @@
   "roles" : [ ],
   "expression" : "hasAuthority('PERM_AUDITION_PLANIFIER')"
 }, {
+  "handler" : "AuthPermissionsController#permissions(Authentication)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
   "handler" : "ChecklistDossierTravailController#getChecklist(UUID)",
   "httpMethods" : "GET",
   "kind" : "PERMISSION",

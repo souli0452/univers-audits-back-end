@@ -20,6 +20,14 @@ final class AccessFixtures {
     static final Path GOLDEN_AVANT = Path.of("src/test/resources/security/access-golden-avant.json");
     static final Path TABLE = Path.of("src/test/resources/security/endpoint-permission.csv");
 
+    /**
+     * Points d'entrée créés après l'instantané « avant » : ils n'ont pas d'équivalent à comparer, mais chaque ajout
+     * doit être déclaré ici pour qu'un point d'entrée ne s'ajoute pas sans qu'on s'en aperçoive.
+     */
+    static final Set<String> POINTS_DENTREE_AJOUTES = Set.of(
+            // Permissions de l'utilisateur connecté, pour l'interface (tout utilisateur connecté).
+            "AuthPermissionsController#permissions(Authentication);GET");
+
     private AccessFixtures() {
     }
 

@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -146,7 +147,10 @@ class AccessEquivalenceIntegrationTest {
     }
 
     @Test
-    void le_nombre_de_points_dentree_est_celui_de_avant() {
-        assertThat(collector.collect()).hasSameSizeAs(avant);
+    void les_points_dentree_sont_ceux_de_avant_plus_les_ajouts_declares() {
+        Set<String> attendus = new LinkedHashSet<>(AccessFixtures.cles(avant));
+        attendus.addAll(AccessFixtures.POINTS_DENTREE_AJOUTES);
+
+        assertThat(AccessFixtures.cles(collector.collect())).isEqualTo(attendus);
     }
 }
