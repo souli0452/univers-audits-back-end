@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -182,14 +183,15 @@ public class AuditionServiceImpl implements AuditionService {
             return List.of();
         }
 
-        return auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigationId)
-                .stream()
-                .map(a -> {
-                    AuditionResponse r = mapper.toResponse(a);
-                    r.setIntervieweeDisplayName(displayNameMasker.mask(a));
-                    return r;
-                })
-                .toList();
+        List<Audition> auditions = auditionRepository.findByInvestigationIdOrderByScheduledAtAsc(investigationId);
+        List<String> noms = displayNameMasker.maskAll(auditions);
+        List<AuditionResponse> reponses = new ArrayList<>();
+        for (int i = 0; i < auditions.size(); i++) {
+            AuditionResponse r = mapper.toResponse(auditions.get(i));
+            r.setIntervieweeDisplayName(noms.get(i));
+            reponses.add(r);
+        }
+        return reponses;
     }
 
     private List<Agent> resolveInvestigators(List<UUID> investigatorIds) {

@@ -67,8 +67,8 @@ class RegistreAuditionsServiceImplTest {
                 .thenReturn(new PageImpl<>(List.of(withFinalizedPv, withoutPv)));
         when(pvAuditionRepository.findByAuditionIdIn(any()))
                 .thenReturn(List.of(finalizedPv));
-        when(displayNameMasker.mask(withFinalizedPv)).thenReturn("Déclarant anonyme");
-        when(displayNameMasker.mask(withoutPv)).thenReturn("Partie visée X");
+        when(displayNameMasker.maskAll(List.of(withFinalizedPv, withoutPv)))
+                .thenReturn(List.of("Déclarant anonyme", "Partie visée X"));
 
         Page<RegistreAuditionEntryResponse> page = service.findAll(PageRequest.of(0, 20));
 

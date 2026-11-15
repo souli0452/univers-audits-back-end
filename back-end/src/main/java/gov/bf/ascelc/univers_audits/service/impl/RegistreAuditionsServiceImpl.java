@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -35,10 +37,16 @@ public class RegistreAuditionsServiceImpl implements RegistreAuditionsService {
                 .stream()
                 .collect(Collectors.toMap(pv -> pv.getAudition().getId(), pv -> pv));
 
-        return auditions.map(a -> toEntry(a, pvByAuditionId.get(a.getId())));
+        // Noms calculés d'un seul bloc : une seule trace d'audit pour la page, pas une par ligne.
+        List<String> noms = displayNameMasker.maskAll(auditions.getContent());
+        Map<Audition, String> nomParAudition = new IdentityHashMap<>();
+        for (int i = 0; i < noms.size(); i++) {
+            nomParAudition.put(auditions.getContent().get(i), noms.get(i));
+        }
+        return auditions.map(a -> toEntry(a, pvByAuditionId.get(a.getId()), nomParAudition.get(a)));
     }
 
-    private RegistreAuditionEntryResponse toEntry(Audition audition, PVAudition pv) {
+    private RegistreAuditionEntryResponse toEntry(Audition audition, PVAudition pv, String nomAffiche) {
         RegistreAuditionEntryResponse.PvStatus pvStatus = RegistreAuditionEntryResponse.PvStatus.AUCUN_PV;
         Integer pvVersion = 0;
         if (pv != null) {
@@ -52,7 +60,7 @@ public class RegistreAuditionsServiceImpl implements RegistreAuditionsService {
                 .investigationId(audition.getInvestigation().getId())
                 .dossierNumber(audition.getInvestigation().getDossier().getNumber())
                 .intervieweeType(audition.getIntervieweeType())
-                .intervieweeDisplayName(displayNameMasker.mask(audition))
+                .intervieweeDisplayName(nomAffiche)
                 .scheduledAt(audition.getScheduledAt())
                 .status(audition.getStatus())
                 .pvStatus(pvStatus)
