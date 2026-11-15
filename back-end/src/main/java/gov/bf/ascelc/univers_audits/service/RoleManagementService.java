@@ -8,18 +8,12 @@ import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.security.permission.PermissionResolver;
 import gov.bf.ascelc.univers_audits.shared.exceptions.*;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -33,7 +27,7 @@ public class RoleManagementService {
     private final PermissionRepository     permRepo;
     private final PermissionResolver       resolver;
     private final KeycloakAdminService     keycloak;
-    private final AuditService             audit;
+    private final CurrentUserAuditor       auditor;
 
     @Transactional(readOnly = true)
     public List<RoleDto> findAll() {
@@ -219,26 +213,10 @@ public class RoleManagementService {
         Set<String> retirees = new TreeSet<>(avant);
         retirees.removeAll(apres);
 
-        String acteurId = "SYSTEM";
-        String acteurNom = null;
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
-            acteurId = jwt.getSubject();
-            acteurNom = jwt.getClaimAsString("name");
-        }
-        String ip = null;
-        String userAgent = null;
-        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
-            HttpServletRequest request = attrs.getRequest();
-            ip = AuditService.extractIp(request);
-            userAgent = AuditService.extractUserAgent(request);
-        }
-        audit.logAction(acteurId, acteurNom, PermissionResolver.ROLE_ADMINISTRATEUR,
-                "MODIFIER_PERMISSIONS_ROLE", "ROLE", roleKey,
+        auditor.record("MODIFIER_PERMISSIONS_ROLE", "ROLE", roleKey,
                 "Permissions du rôle " + roleKey + " — avant : " + new TreeSet<>(avant)
                         + " ; après : " + new TreeSet<>(apres)
-                        + " ; ajoutées : " + ajoutees + " ; retirées : " + retirees,
-                ip, userAgent);
+                        + " ; ajoutées : " + ajoutees + " ; retirées : " + retirees);
     }
 
     private static Set<String> cles(Collection<Permission> permissions) {

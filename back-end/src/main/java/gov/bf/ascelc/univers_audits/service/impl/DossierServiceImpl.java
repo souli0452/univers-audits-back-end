@@ -13,6 +13,7 @@ import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.service.CurrentUserAuditor;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
@@ -67,6 +68,7 @@ public class DossierServiceImpl implements DossierService {
     private final EtudeOpportuniteRepository    etudeOpportuniteRepository;
     private final DecisionCGERepository         decisionCGERepository;
     private final DeadlineCalculator            deadlineCalculator;
+    private final CurrentUserAuditor            currentUserAuditor;
 
 
     // ════════════════════════════════════════════════════════════
@@ -78,6 +80,7 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(id);
         logSensitiveAccessIfProtected(dossier, "findById");
         accessGuard.checkReadAccess(dossier);
+        recordProtectedIdentityConsultation(dossier);
         return enrichAndMaskDetail(dossier);
     }
 
@@ -1045,6 +1048,22 @@ public class DossierServiceImpl implements DossierService {
                         + "dossier: {}, méthode: {}, appelant: {}, horodatage: {}",
                 dossier.getNumber() != null ? dossier.getNumber() : dossier.getId(),
                 method, callerInfo, Instant.now());
+    }
+
+    /**
+     * Trace dans le journal d'audit qui a consulté l'identité d'un lanceur d'alerte protégé. N'écrit que si
+     * l'identité est réellement renvoyée en clair (l'agent détient la permission) et que l'accès au dossier est
+     * accordé : les agents qui ne voient qu'un nom masqué ne laissent pas de trace.
+     */
+    private void recordProtectedIdentityConsultation(Dossier dossier) {
+        if (dossier.getDeclarant() == null
+                || !Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested())
+                || !securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)) {
+            return;
+        }
+        currentUserAuditor.record("CONSULTER_IDENTITE_LANCEUR_ALERTE", "DOSSIER", dossier.getId().toString(),
+                "Consultation de l'identité du lanceur d'alerte protégé — dossier "
+                        + (dossier.getNumber() != null ? dossier.getNumber() : dossier.getId()));
     }
 
     private DossierResponse maskSensitiveData(DossierResponse response) {

@@ -18,13 +18,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -49,7 +46,7 @@ class RoleManagementServiceTest {
     @Mock private PermissionRepository permRepo;
     @Mock private PermissionResolver resolver;
     @Mock private KeycloakAdminService keycloak;
-    @Mock private AuditService audit;
+    @Mock private CurrentUserAuditor audit;
 
     private RoleManagementService service;
 
@@ -57,15 +54,11 @@ class RoleManagementServiceTest {
     void setUp() {
         service = new RoleManagementService(roleRepo, permRepo, resolver, keycloak, audit);
         TransactionSynchronizationManager.initSynchronization();
-        Jwt jwt = Jwt.withTokenValue("t").header("alg", "none").subject("kc-admin")
-                .claim("name", "Admin Test").issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60)).build();
-        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
     }
 
     @AfterEach
     void tearDown() {
         TransactionSynchronizationManager.clearSynchronization();
-        SecurityContextHolder.clearContext();
     }
 
     private static Permission perm(String key, boolean active) {
@@ -176,8 +169,7 @@ class RoleManagementServiceTest {
         verify(resolver).invalidate();
 
         ArgumentCaptor<String> description = ArgumentCaptor.forClass(String.class);
-        verify(audit).logAction(anyString(), anyString(), anyString(), anyString(), anyString(), anyString(),
-                description.capture(), any(), any());
+        verify(audit).record(eq("MODIFIER_PERMISSIONS_ROLE"), eq("ROLE"), eq("CGE"), description.capture());
         assertThat(description.getValue()).contains("CGE").contains("avant").contains("après")
                 .contains("DOSSIER_VOIR").contains("DOSSIER_CREER");
     }

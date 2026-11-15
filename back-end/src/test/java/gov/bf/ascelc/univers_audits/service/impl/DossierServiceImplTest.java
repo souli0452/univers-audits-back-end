@@ -30,6 +30,7 @@ import gov.bf.ascelc.univers_audits.repository.EtudeOpportuniteRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
 import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.service.CurrentUserAuditor;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -84,6 +85,7 @@ class DossierServiceImplTest {
     @Mock private ParametreDelaiService parametreDelaiService;
     @Mock private NatureSaisineResolver natureSaisineResolver;
     @Mock private DossierAccessGuard accessGuard;
+    @Mock private CurrentUserAuditor currentUserAuditor;
     @Mock private DossierHabilitationService habilitationService;
     @Mock private PortalConfigService portalConfigService;
     @Mock private EtudeOpportuniteRepository etudeOpportuniteRepository;
@@ -213,6 +215,64 @@ class DossierServiceImplTest {
         service.findById(dossierId);
 
         verify(accessGuard).checkReadAccess(dossier);
+    }
+
+    private Dossier dossierDeLanceurDAlerteProtege(UUID dossierId) {
+        Declarant declarant = Declarant.builder().protectionRequested(true).build();
+        return Dossier.builder().id(dossierId).number("DOS-2026-001").declarant(declarant).build();
+    }
+
+    @Test
+    void findById_tracePersistantLaConsultationDeLIdentiteDUnLanceurDAlerteProtegeParUnAgentHabilite() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findById(dossierId);
+
+        verify(currentUserAuditor).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                eq(dossierId.toString()), contains("DOS-2026-001"));
+    }
+
+    @Test
+    void findById_neTracePasLaConsultationQuandLIdentiteEstMasquee() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(false);
+
+        service.findById(dossierId);
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findById_neTracePasLaConsultationSiLAccesAuDossierEstRefuse() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        // L'agent détiendrait la permission : seul le refus du garde doit empêcher la trace.
+        lenient().when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.findById(dossierId)).isInstanceOf(BusinessException.class);
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findById_neTracePasUnDossierSansLanceurDAlerteProtege() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+
+        service.findById(dossierId);
+
+        verifyNoInteractions(currentUserAuditor);
     }
 
     @Test
@@ -351,7 +411,7 @@ class DossierServiceImplTest {
                 dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
                 notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
                 natureSaisineResolver, realGuard, habilitationService, portalConfigService,
-                etudeOpportuniteRepository, decisionCGERepository, deadlineCalculator);
+                etudeOpportuniteRepository, decisionCGERepository, deadlineCalculator, currentUserAuditor);
 
         assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
                 .doesNotThrowAnyException();
