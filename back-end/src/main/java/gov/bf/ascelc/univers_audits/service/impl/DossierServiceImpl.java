@@ -9,6 +9,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.SetPriorityRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResume;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
@@ -74,6 +75,13 @@ public class DossierServiceImpl implements DossierService {
     // ════════════════════════════════════════════════════════════
     //  LECTURE
     // ════════════════════════════════════════════════════════════
+
+    @Override
+    public DossierResume findResume(UUID id) {
+        Dossier dossier = getDossierOrThrow(id);
+        accessGuard.checkReadAccess(dossier);
+        return new DossierResume(dossier.getReceptionDate(), dossier.getStatus());
+    }
 
     @Override
     public DossierResponse findById(UUID id) {

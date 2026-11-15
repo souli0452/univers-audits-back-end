@@ -16,6 +16,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResume;
 import gov.bf.ascelc.univers_audits.model.dto.response.EtudeOpportuniteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
@@ -273,6 +274,33 @@ class DossierServiceImplTest {
         service.findById(dossierId);
 
         verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findResume_controleLAccesEtNeTracePasLIdentite() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        dossier.setStatus(DossierStatus.EN_ETUDE_OPPORTUNITE);
+        dossier.setReceptionDate(java.time.Instant.parse("2026-03-02T10:00:00Z"));
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        lenient().when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        DossierResume resume = service.findResume(dossierId);
+
+        assertThat(resume.receptionDate()).isEqualTo(java.time.Instant.parse("2026-03-02T10:00:00Z"));
+        assertThat(resume.status()).isEqualTo(DossierStatus.EN_ETUDE_OPPORTUNITE);
+        verify(accessGuard).checkReadAccess(dossier);
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findResume_propageLeRefusDuGarde() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.findResume(dossierId)).isInstanceOf(BusinessException.class);
     }
 
     @Test
