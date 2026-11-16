@@ -198,7 +198,7 @@ class FicheAffectationServiceTest {
                 org.mockito.ArgumentCaptor.forClass(gov.bf.ascelc.univers_audits.model.entity.Notification.class);
         verify(notificationRepository, times(1)).save(notifications.capture());
         assertThat(notifications.getValue().getRecipient()).isEqualTo("kc-chef-dei");
-        verify(habilitationService).grant(eq(dossier), eq(chefDei), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.MANUAL), eq(agentCourant), contains("DEI"));
+        verify(habilitationService).grant(eq(dossier), eq(chefDei), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.AFFECTATION), eq(agentCourant), contains("DEI"));
         verifyNoMoreInteractions(habilitationService);
     }
 
@@ -217,6 +217,77 @@ class FicheAffectationServiceTest {
 
         verify(ficheAffectationRepository, never()).save(any());
         verifyNoInteractions(notificationRepository, habilitationService);
+    }
+
+    // ───────────────────────────── réaffectation ─────────────────────────────
+
+    private gov.bf.ascelc.univers_audits.model.entity.DossierHabilitation habilitationAffectation(Agent agent) {
+        return gov.bf.ascelc.univers_audits.model.entity.DossierHabilitation.builder()
+                .dossier(dossier).agent(agent)
+                .source(gov.bf.ascelc.univers_audits.enums.HabilitationSource.AFFECTATION).build();
+    }
+
+    @Test
+    void reaffecter_retireLesHabilitationsIssuesDeLAffectationPrecedente() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(UUID.randomUUID()).code("DEI").libelle("DEI").build();
+        gov.bf.ascelc.univers_audits.model.entity.Departement dac =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(UUID.randomUUID()).code("DAC").libelle("DAC").build();
+        Agent ancienChef = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-ancien").actif(true).departement(dei).build();
+        Agent agentRepartiAvant = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-avant").actif(true).departement(dei).build();
+        Agent nouveauChef = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-nouveau").actif(true).departement(dac).build();
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                .departementDesigne(dei).build();
+        stubAgentCourant();
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(departementRepository.findById(dac.getId())).thenReturn(Optional.of(dac));
+        when(keycloakAdminService.getUserIdsByRole("CHEF_DAC")).thenReturn(java.util.List.of("kc-nouveau"));
+        when(agentRepository.findByKeycloakId("kc-nouveau")).thenReturn(Optional.of(nouveauChef));
+        when(ficheAffectationRepository.save(any(FicheAffectation.class))).thenAnswer(i -> i.getArgument(0));
+        when(portalConfigService.resolveNotificationText(any(), any())).thenReturn("texte");
+        when(habilitationRepository.findByDossierIdAndRevokedAtIsNull(dossierId)).thenReturn(java.util.List.of(
+                habilitationAffectation(ancienChef), habilitationAffectation(agentRepartiAvant),
+                gov.bf.ascelc.univers_audits.model.entity.DossierHabilitation.builder().dossier(dossier)
+                        .agent(Agent.builder().id(UUID.randomUUID()).build())
+                        .source(gov.bf.ascelc.univers_audits.enums.HabilitationSource.INVESTIGATION_TEAM).build()));
+
+        service.affecter(dossierId, gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                .departementDesigneId(dac.getId()).build());
+
+        verify(habilitationService).revokeBySource(dossier, ancienChef,
+                gov.bf.ascelc.univers_audits.enums.HabilitationSource.AFFECTATION, agentCourant);
+        verify(habilitationService).revokeBySource(dossier, agentRepartiAvant,
+                gov.bf.ascelc.univers_audits.enums.HabilitationSource.AFFECTATION, agentCourant);
+        // l'habilitation de l'équipe d'investigation n'est pas touchée
+        verify(habilitationService, times(2)).revokeBySource(any(), any(), any(), any());
+        verify(habilitationService).grant(eq(dossier), eq(nouveauChef),
+                eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.AFFECTATION), eq(agentCourant), anyString());
+    }
+
+    @Test
+    void premiereAffectation_neRetireAucuneHabilitation() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei =
+                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                        .id(UUID.randomUUID()).code("DEI").libelle("DEI").build();
+        Agent chef = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-chef").actif(true).departement(dei).build();
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        stubAgentCourant();
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(departementRepository.findById(dei.getId())).thenReturn(Optional.of(dei));
+        when(keycloakAdminService.getUserIdsByRole("CHEF_DEI")).thenReturn(java.util.List.of("kc-chef"));
+        when(agentRepository.findByKeycloakId("kc-chef")).thenReturn(Optional.of(chef));
+        when(ficheAffectationRepository.save(any(FicheAffectation.class))).thenAnswer(i -> i.getArgument(0));
+        when(portalConfigService.resolveNotificationText(any(), any())).thenReturn("texte");
+
+        service.affecter(dossierId, gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                .departementDesigneId(dei.getId()).build());
+
+        verify(habilitationService, never()).revokeBySource(any(), any(), any(), any());
     }
 
     // ───────────────────────────── répartition par le chef ─────────────────────────────
@@ -251,8 +322,8 @@ class FicheAffectationServiceTest {
 
         service.repartir(dossierId, java.util.List.of(a1.getId(), a2.getId(), a1.getId()));
 
-        verify(habilitationService).grant(eq(dossier), eq(a1), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.MANUAL), eq(chef), contains("DEI"));
-        verify(habilitationService).grant(eq(dossier), eq(a2), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.MANUAL), eq(chef), contains("DEI"));
+        verify(habilitationService).grant(eq(dossier), eq(a1), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.AFFECTATION), eq(chef), contains("DEI"));
+        verify(habilitationService).grant(eq(dossier), eq(a2), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.AFFECTATION), eq(chef), contains("DEI"));
         verify(notificationRepository, times(2)).save(any());
     }
 

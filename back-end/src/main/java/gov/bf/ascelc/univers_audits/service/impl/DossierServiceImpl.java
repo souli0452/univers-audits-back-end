@@ -15,6 +15,7 @@ import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
 import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.service.CurrentUserAuditor;
+import gov.bf.ascelc.univers_audits.service.ProtectedIdentityExportAuditor;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
@@ -106,24 +107,24 @@ public class DossierServiceImpl implements DossierService {
     @Override
     public Page<DossierResponse> findByStatus(
             DossierStatus status, Pageable pageable) {
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findByStatus(status, pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
     @Override
     public Page<DossierResponse> findMyDossiers(Pageable pageable) {
         Agent agent = agentContextResolver.getCurrentAgent();
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findByAgentInChargeId(agent.getId(), pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
     @Override
     public Page<DossierResponse> findAll(Pageable pageable) {
         if (accessGuard.canSeeConfidential()) {
-            return dossierRepository.findAll(pageable)
-                    .map(this::enrichAndMask);
+            return tracerListe(dossierRepository.findAll(pageable)
+                    .map(this::enrichAndMask));
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
@@ -131,31 +132,31 @@ public class DossierServiceImpl implements DossierService {
                 agent.getMatricule());
         if (securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)) {
             // le BRPD reçoit aussi les dépôts du portail qui attendent leur enregistrement
-            return dossierRepository
+            return tracerListe(dossierRepository
                     .findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable)
-                    .map(this::enrichAndMask);
+                    .map(this::enrichAndMask));
         }
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findAccessibleByAgentId(agent.getId(), pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
     @Override
     public Page<DossierResponse> findByReceptionDateBetween(
             Instant start, Instant end, Pageable pageable) {
         if (accessGuard.canSeeConfidential()) {
-            return dossierRepository
+            return tracerListe(dossierRepository
                     .findByReceptionDateBetween(start, end, pageable)
-                    .map(this::enrichAndMask);
+                    .map(this::enrichAndMask));
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
         log.debug("[Dossiers] Accès restreint (période) — agent: {} voit uniquement "
                         + "ses dossiers habilités",
                 agent.getMatricule());
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findAccessibleByAgentIdAndReceptionDateBetween(agent.getId(), start, end, pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
 
@@ -1076,6 +1077,27 @@ public class DossierServiceImpl implements DossierService {
                         + (dossier.getNumber() != null ? dossier.getNumber() : dossier.getId()));
     }
 
+    /**
+     * Les listes renvoient aussi l'identité en clair d'un lanceur d'alerte protégé à un agent habilité : comme pour le
+     * détail, la consultation est écrite au journal d'audit, une seule entrée par liste (nombre et numéros de dossier).
+     */
+    private Page<DossierResponse> tracerListe(Page<DossierResponse> page) {
+        List<DossierResponse> exposes = page.getContent().stream()
+                .filter(r -> r.getDeclarant() != null
+                        && Boolean.TRUE.equals(r.getDeclarant().getProtectionRequested())
+                        && ProtectedIdentityExportAuditor.identiteEnClair(r.getDeclarant()))
+                .toList();
+        if (!exposes.isEmpty()) {
+            String numeros = exposes.stream().map(DossierResponse::getNumber).filter(java.util.Objects::nonNull)
+                    .distinct().limit(5).collect(java.util.stream.Collectors.joining(", "));
+            currentUserAuditor.record("CONSULTER_IDENTITE_LANCEUR_ALERTE", "DOSSIER", null,
+                    "Consultation de l'identité de " + exposes.size()
+                            + " lanceur(s) d'alerte protégé(s) dans une liste de dossiers"
+                            + (numeros.isEmpty() ? "" : " — dossier(s) : " + numeros));
+        }
+        return page;
+    }
+
     private DossierResponse maskSensitiveData(DossierResponse response) {
 
         boolean canSeeConfidential = accessGuard.canSeeConfidential();
@@ -1113,6 +1135,7 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setCellulaire(null);
             response.getDeclarant().setLocalite(null);
             response.getDeclarant().setProfession(null);
+            response.getDeclarant().setOrganizationName(null);
             response.getDeclarant().setDisplayName(
                     "Lanceur d'alerte protégé");
             log.debug("Dossier {} — identité lanceur d'alerte masquée",
@@ -1130,6 +1153,7 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setProvince(null);
             response.getDeclarant().setCellulaire(null);
             response.getDeclarant().setLocalite(null);
+            response.getDeclarant().setOrganizationName(null);
             response.getDeclarant().setDisplayName("Déclarant anonyme");
         }
 

@@ -484,6 +484,12 @@ public class InvestigationServiceImpl implements InvestigationService {
     @Transactional
     public InvestigationResponse approveDei(UUID investigationId, String ipAddress) {
         Investigation inv = getInvestigationOrThrow(investigationId);
+        // Le chef du DEI ne voit pas tous les dossiers : il doit être habilité sur celui-ci pour en approuver le rapport.
+        accessGuard.checkReadAccess(inv.getDossier());
+
+        if (inv.getDeiApprovedAt() != null) {
+            throw new BusinessException("L'étape DEI a déjà été approuvée pour ce rapport.");
+        }
 
         if (inv.getLegalAdvisorApprovedAt() == null) {
             throw new BusinessException(
@@ -604,6 +610,7 @@ public class InvestigationServiceImpl implements InvestigationService {
             UUID investigationId, String motif, String ipAddress) {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
+        accessGuard.checkReadAccess(inv.getDossier());
 
         if (inv.getLegalAdvisorApprovedAt() == null) {
             throw new BusinessException(

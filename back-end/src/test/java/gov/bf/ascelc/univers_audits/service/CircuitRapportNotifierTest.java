@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +32,7 @@ class CircuitRapportNotifierTest {
 
     @Mock private AgentService agentService;
     @Mock private NotificationRepository notifications;
+    @Mock private org.springframework.transaction.PlatformTransactionManager transactions;
 
     @InjectMocks
     private CircuitRapportNotifier notifier;
@@ -77,6 +79,51 @@ class CircuitRapportNotifierTest {
         assertThat(envoyee.getValue().getRecipient()).isEqualTo("kc-cj");
         assertThat(envoyee.getValue().getSubject()).contains("renvoyé").contains("DOS-1");
         assertThat(envoyee.getValue().getContent()).contains("Preuves insuffisantes");
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void nettoyerLaTransaction() {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void dansUneTransactionRienNEstEnvoyeAvantLeCommit() {
+        when(agentService.findActiveByKeycloakRole("CHEF_DEI")).thenReturn(List.of(agent("kc-1")));
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+
+        notifier.prevenirEtape(investigation("DOS-1"), EtapeCircuitRapport.DEI);
+
+        verify(notifications, never()).save(any());
+        org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()
+                .forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+        verify(notifications, times(1)).save(any());
+    }
+
+    @Test
+    void uneActionAnnuleeNEnvoieRien() {
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+
+        notifier.prevenirEtape(investigation("DOS-1"), EtapeCircuitRapport.DEI);
+        org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations().forEach(
+                s -> s.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK));
+
+        verifyNoInteractions(agentService);
+        verify(notifications, never()).save(any());
+    }
+
+    @Test
+    void uneErreurDeBaseApresLeCommitNeRemonteJamaisALAppelant() {
+        when(agentService.findActiveByKeycloakRole("CHEF_DEI")).thenReturn(List.of(agent("kc-1")));
+        org.mockito.Mockito.doThrow(new RuntimeException("base indisponible")).when(notifications).save(any());
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+
+        notifier.prevenirEtape(investigation("DOS-1"), EtapeCircuitRapport.DEI);
+
+        assertThatCode(() -> org.springframework.transaction.support.TransactionSynchronizationManager
+                .getSynchronizations().forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit))
+                .doesNotThrowAnyException();
     }
 
     @Test

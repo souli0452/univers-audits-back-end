@@ -24,7 +24,7 @@ public class ProtectedIdentityExportAuditor {
         DeclarantResponse declarant = dossier.getDeclarant();
         if (declarant == null
                 || !Boolean.TRUE.equals(declarant.getProtectionRequested())
-                || !identiteVisible(declarant)) {
+                || !identiteEnClair(declarant)) {
             return;
         }
         auditor.record("EXPORTER_IDENTITE_LANCEUR_ALERTE", "DOSSIER", String.valueOf(dossier.getId()),
@@ -33,8 +33,15 @@ public class ProtectedIdentityExportAuditor {
                         + " — identité du lanceur d'alerte protégé visible par l'exportateur");
     }
 
-    private static boolean identiteVisible(DeclarantResponse declarant) {
-        return notBlank(declarant.getFirstName()) || notBlank(declarant.getLastName());
+    /**
+     * Vrai si la réponse porte encore une donnée qui identifie le déclarant (nom, organisation, courriel, téléphone) :
+     * c'est-à-dire qu'elle n'a pas été masquée pour l'utilisateur connecté.
+     */
+    public static boolean identiteEnClair(DeclarantResponse declarant) {
+        return declarant != null
+                && (notBlank(declarant.getFirstName()) || notBlank(declarant.getLastName())
+                || notBlank(declarant.getOrganizationName()) || notBlank(declarant.getEmail())
+                || notBlank(declarant.getPhoneNumber()));
     }
 
     private static boolean notBlank(String valeur) {

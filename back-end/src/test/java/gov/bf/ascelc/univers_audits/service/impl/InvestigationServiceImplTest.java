@@ -428,6 +428,49 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void approveDei_controleLAccesAuDossierEtRefuseSansHabilitation() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(investigation.getDossier());
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectDei_controleLAccesAuDossierEtRefuseSansHabilitation() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(investigation.getDossier());
+
+        assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveDei_refuseUneSecondeApprobation() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà");
+
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
     void approveCgea_rejetteSiDeiNaPasApprouve() {
         Investigation investigation = buildCompletedInvestigation();
         investigation.setLegalAdvisorApprovedAt(Instant.now());

@@ -25,8 +25,12 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 /**
- * Parcours réel, avec la base : une consultation d'identité protégée écrite par {@link CurrentUserAuditor} (écriture
+ * Le tuyau d'écriture du journal, avec la vraie base : une entrée écrite par {@link CurrentUserAuditor} (écriture
  * asynchrone) est relue par l'API du Journal d'audit, que seul l'administrateur peut ouvrir.
+ *
+ * <p>Ce test appelle {@code auditor.record} directement : il ne prouve PAS que les services de dossier et d'audition
+ * déclenchent la trace. Ce déclenchement est vérifié dans {@code DossierServiceImplTest} (détail et listes),
+ * {@code AuditionDisplayNameMaskerTest} et {@code PdfExportServiceTest}.
  */
 @SpringBootTest
 @AutoConfigureMockMvc

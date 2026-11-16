@@ -39,6 +39,29 @@ class ProtectedIdentityExportAuditorTest {
     }
 
     @Test
+    void traceAussiUneIdentiteQuiNEstQueUneOrganisationUnCourrielOuUnTelephone() {
+        for (DeclarantResponse declarant : java.util.List.of(
+                DeclarantResponse.builder().protectionRequested(true).organizationName("Association X").build(),
+                DeclarantResponse.builder().protectionRequested(true).email("a@b.bf").build(),
+                DeclarantResponse.builder().protectionRequested(true).phoneNumber("70000000").build())) {
+            org.mockito.Mockito.clearInvocations(auditor);
+
+            new ProtectedIdentityExportAuditor(auditor).record(dossier(UUID.randomUUID(), declarant), "Récépissé");
+
+            verify(auditor).record(eq("EXPORTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"), org.mockito.ArgumentMatchers.anyString(),
+                    contains("Récépissé"));
+        }
+    }
+
+    @Test
+    void identiteEnClair_estFauxQuandToutEstMasque() {
+        org.assertj.core.api.Assertions.assertThat(ProtectedIdentityExportAuditor.identiteEnClair(
+                DeclarantResponse.builder().protectionRequested(true).displayName("Lanceur d'alerte protégé").build()))
+                .isFalse();
+        org.assertj.core.api.Assertions.assertThat(ProtectedIdentityExportAuditor.identiteEnClair(null)).isFalse();
+    }
+
+    @Test
     void neTracePasQuandLIdentiteEstMasquee() {
         new ProtectedIdentityExportAuditor(auditor)
                 .record(dossier(UUID.randomUUID(), declarant(true, null, null)), "Récépissé");

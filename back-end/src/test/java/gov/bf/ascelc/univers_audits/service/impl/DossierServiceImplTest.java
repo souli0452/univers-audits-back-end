@@ -66,6 +66,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -314,6 +315,111 @@ class DossierServiceImplTest {
 
         assertThatThrownBy(() -> service.findById(dossierId))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    // ───────── listes de dossiers : l'identité en clair d'un lanceur d'alerte protégé est tracée ─────────
+
+    private DossierResponse reponseAvecLanceurDAlerte(String numero, String prenom, String nom, String organisation) {
+        return DossierResponse.builder()
+                .number(numero)
+                .declarant(DeclarantResponse.builder()
+                        .protectionRequested(true).firstName(prenom).lastName(nom)
+                        .organizationName(organisation).build())
+                .build();
+    }
+
+    private void listeDeDeuxDossiersProteges() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        Dossier d2 = Dossier.builder().id(UUID.randomUUID()).number("DOS-2").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1, d2)));
+        when(dossierMapper.toResponse(d1)).thenReturn(reponseAvecLanceurDAlerte("DOS-1", "Awa", "Kaboré", null));
+        when(dossierMapper.toResponse(d2)).thenReturn(reponseAvecLanceurDAlerte("DOS-2", "Issa", "Zongo", null));
+    }
+
+    @Test
+    void findAll_traceUneSeuleFoisLIdentiteDesLanceursDAlerteProtegesDeLaListe() {
+        listeDeDeuxDossiersProteges();
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findAll(PageRequest.of(0, 20));
+
+        verify(currentUserAuditor, times(1)).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                isNull(), contains("2 lanceur"));
+    }
+
+    @Test
+    void findAll_neTracePasQuandLIdentiteEstMasquee() {
+        listeDeDeuxDossiersProteges();
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(false);
+
+        service.findAll(PageRequest.of(0, 20));
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findAll_neTracePasUneListeSansLanceurDAlerteProtege() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierMapper.toResponse(d1)).thenReturn(DossierResponse.builder().number("DOS-1")
+                .declarant(DeclarantResponse.builder().firstName("Awa").lastName("Kaboré").build()).build());
+
+        service.findAll(PageRequest.of(0, 20));
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void lesAutresListesTracentAussiLIdentiteDesLanceursDAlerteProteges() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        when(dossierRepository.findByStatus(any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierRepository.findByAgentInChargeId(any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierRepository.findByReceptionDateBetween(any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(d1)));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierMapper.toResponse(d1)).thenAnswer(inv -> reponseAvecLanceurDAlerte("DOS-1", "Awa", "Kaboré", null));
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findByStatus(DossierStatus.SOUMIS, PageRequest.of(0, 20));
+        service.findMyDossiers(PageRequest.of(0, 20));
+        service.findByReceptionDateBetween(java.time.Instant.now().minusSeconds(60), java.time.Instant.now(),
+                PageRequest.of(0, 20));
+
+        verify(currentUserAuditor, times(3)).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                isNull(), contains("1 lanceur"));
+    }
+
+    @Test
+    void leNomDUneOrganisationLanceuseDAlerteEstMasqueEgalementPourUnAgentNonHabilite() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierMapper.toResponse(d1)).thenReturn(reponseAvecLanceurDAlerte("DOS-1", null, null, "Association Burkin Intègre"));
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(false);
+
+        DossierResponse reponse = service.findAll(PageRequest.of(0, 20)).getContent().get(0);
+
+        assertThat(reponse.getDeclarant().getOrganizationName()).isNull();
+        assertThat(reponse.getDeclarant().getDisplayName()).isEqualTo("Lanceur d'alerte protégé");
+    }
+
+    @Test
+    void leNomDUneOrganisationDansUnDossierAnonymeEstMasqueAussi() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        DossierResponse anonyme = reponseAvecLanceurDAlerte("DOS-1", null, null, "Association Burkin Intègre");
+        anonyme.setAnonymous(true);
+        when(dossierMapper.toResponse(d1)).thenReturn(anonyme);
+        lenient().when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        DossierResponse reponse = service.findAll(PageRequest.of(0, 20)).getContent().get(0);
+
+        assertThat(reponse.getDeclarant().getOrganizationName()).isNull();
     }
 
     @Test

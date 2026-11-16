@@ -92,6 +92,8 @@ public class FicheAffectationService {
         accessGuard.checkReadAccess(fiche.getDossier());
 
         List<Agent> destinataires = resolveDestinataires(request);
+        Agent agentCgea = getCurrentAgentOrThrow();
+        retirerLesHabilitationsDeLAffectationPrecedente(fiche, agentCgea);
 
         fiche.setTypeDesignation(request.getTypeDesignation());
         fiche.setDepartementDesigne(
@@ -110,7 +112,7 @@ public class FicheAffectationService {
         if (request.getTypeDesignation() == TypeDesignation.DEPARTEMENT) {
             // Le chef du département reçoit l'accès au dossier : c'est lui qui le répartira à ses agents.
             for (Agent chef : destinataires) {
-                habilitationService.grant(saved.getDossier(), chef, HabilitationSource.MANUAL, saved.getAgentCgea(),
+                habilitationService.grant(saved.getDossier(), chef, HabilitationSource.AFFECTATION, saved.getAgentCgea(),
                         "Imputation au département " + saved.getDepartementDesigne().getCode());
             }
         }
@@ -228,6 +230,19 @@ public class FicheAffectationService {
         };
     }
 
+    /**
+     * Une réaffectation retire l'accès donné par l'affectation précédente (le chef de l'ancien département et les
+     * agents qu'il avait choisis) ; les habilitations manuelles et celles de l'équipe d'investigation restent.
+     */
+    private void retirerLesHabilitationsDeLAffectationPrecedente(FicheAffectation fiche, Agent revokedBy) {
+        habilitationRepository.findByDossierIdAndRevokedAtIsNull(fiche.getDossier().getId()).stream()
+                .filter(h -> h.getSource() == HabilitationSource.AFFECTATION)
+                .map(h -> h.getAgent())
+                .distinct()
+                .forEach(agent -> habilitationService.revokeBySource(
+                        fiche.getDossier(), agent, HabilitationSource.AFFECTATION, revokedBy));
+    }
+
     /** Rôle Keycloak du chef d'un département : CHEF_ + code (CHEF_DEI, CHEF_DAC). */
     static String roleDuChef(Departement departement) {
         return "CHEF_" + departement.getCode();
@@ -285,7 +300,7 @@ public class FicheAffectationService {
         }
 
         for (Agent agent : agents) {
-            habilitationService.grant(fiche.getDossier(), agent, HabilitationSource.MANUAL, chef,
+            habilitationService.grant(fiche.getDossier(), agent, HabilitationSource.AFFECTATION, chef,
                     "Répartition par le chef du département " + departement.getCode());
         }
         notifierDestinataires(fiche, agents);
