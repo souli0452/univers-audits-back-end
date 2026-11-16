@@ -51,6 +51,14 @@ final class AccessFixtures {
         return role.equals("CGE") && permission == AppPermission.REGISTRE_AUDITIONS_VOIR;
     }
 
+    /**
+     * Décision du 2026-11-16 : le workflow (étape 22) donne l'approbation du rapport de synthèse au « C.DEI », le
+     * chef du DEI, pas au CGEA. Le rôle CHEF_DEI la reçoit par la migration 031 ; le CGEA la perd.
+     */
+    static boolean deplaceeVersLeChefDuDei(String role, AppPermission permission) {
+        return role.equals("CGEA") && permission == AppPermission.INVESTIGATION_DEI_STATUER;
+    }
+
     static List<EndpointAccess> golden() {
         try {
             return new ObjectMapper().readValue(Files.readString(GOLDEN_AVANT), new TypeReference<>() { });

@@ -31,6 +31,15 @@ public final class RoleCombinationPolicy {
 
     public static final String ADMIN = "ADMIN_DDIC";
 
+    /**
+     * Rôles qui n'ont de sens qu'avec un autre : un chef de département est d'abord un contrôleur d'État (manuel des
+     * procédures, processus C) et en garde tous les droits ; son rôle de chef n'ajoute que ses pouvoirs propres
+     * (approbation du chef du DEI à l'étape 22 du workflow, registre des auditions).
+     */
+    private static final java.util.Map<String, String> ROLE_REQUIS = java.util.Map.of(
+            "CHEF_DEI", "CONTROLEUR_ETAT",
+            "CHEF_DAC", "CONTROLEUR_ETAT");
+
     private static final List<Regle> REGLES;
 
     static {
@@ -45,6 +54,8 @@ public final class RoleCombinationPolicy {
         }
         r.add(interdit("CONTROLEUR_ETAT", "CONSEILLER_JURIDIQUE",
                 "Elle rédigerait le rapport d'enquête (étape 20) puis le validerait juridiquement (étape 21)."));
+        r.add(interdit("CHEF_DEI", "CHEF_DAC",
+                "Un agent ne dirige qu'un seul département : le DEI ou le DAC."));
         r.add(interdit("CGE", "CGEA",
                 "Le CGE donne le quitus sur le travail du CGEA (étape 9) : une même personne approuverait deux fois."));
         r.add(interdit("MEMBRE_CTADP", "CGE",
@@ -101,7 +112,11 @@ public final class RoleCombinationPolicy {
 
     /** Lève une BusinessException qui nomme chaque cumul interdit. */
     public static void verifier(Collection<String> roles) {
-        if (roles == null || roles.size() < 2) {
+        if (roles == null) {
+            return;
+        }
+        verifierRolesRequis(roles);
+        if (roles.size() < 2) {
             return;
         }
         List<Regle> interdits = interdits(roles);
@@ -117,5 +132,18 @@ public final class RoleCombinationPolicy {
             message.append(r.roleA()).append(" + ").append(r.roleB()).append(" — ").append(r.raison());
         }
         throw new BusinessException(message.toString());
+    }
+
+    private static void verifierRolesRequis(Collection<String> roles) {
+        Set<String> set = Set.copyOf(roles);
+        List<String> manques = new ArrayList<>();
+        ROLE_REQUIS.entrySet().stream()
+                .sorted(java.util.Map.Entry.comparingByKey())
+                .filter(e -> set.contains(e.getKey()) && !set.contains(e.getValue()))
+                .forEach(e -> manques.add(e.getKey() + " exige aussi le rôle " + e.getValue()
+                        + " : un chef de département reste un contrôleur d'État."));
+        if (!manques.isEmpty()) {
+            throw new BusinessException("Rôles incomplets : " + String.join(" ; ", manques));
+        }
     }
 }

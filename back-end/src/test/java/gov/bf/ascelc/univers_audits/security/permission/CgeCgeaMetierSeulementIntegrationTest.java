@@ -21,6 +21,9 @@ class CgeCgeaMetierSeulementIntegrationTest {
     @Autowired
     private PermissionResolver resolver;
 
+    @Autowired
+    private gov.bf.ascelc.univers_audits.repository.RoleDefinitionRepository roles;
+
     private static boolean technique(AppPermission p) {
         return CATEGORIES_TECHNIQUES.contains(p.category())
                 || p == AppPermission.NOTIFICATION_FILE_VOIR
@@ -70,6 +73,33 @@ class CgeCgeaMetierSeulementIntegrationTest {
             assertThat(resolver.resolve(List.of(role))).as(role)
                     .doesNotContain(AppPermission.REGISTRE_AUDITIONS_VOIR.authority());
         }
+    }
+
+    @Test
+    void leChefDuDeiRecoitLApprobationDeiEtLeRegistreEnPlusDuControleur() {
+        // Workflow PGPD_GU V3, étape 22 : « C.DEI » (chef du DEI) approuve les rapports de synthèse ; manuel,
+        // processus C : le chef du DEI a accès à l'archive. Décision du 2026-11-16 (C.DEI = chef du DEI).
+        Set<String> chef = resolver.resolve(List.of("CHEF_DEI"));
+        assertThat(chef).containsExactlyInAnyOrder(
+                AppPermission.INVESTIGATION_DEI_STATUER.authority(),
+                AppPermission.REGISTRE_AUDITIONS_VOIR.authority());
+
+        Set<String> controleur = resolver.resolve(List.of("CONTROLEUR_ETAT"));
+        assertThat(resolver.resolve(List.of("CHEF_DEI", "CONTROLEUR_ETAT")))
+                .containsAll(controleur).contains(AppPermission.INVESTIGATION_DEI_STATUER.authority());
+    }
+
+    @Test
+    void leChefDuDacExisteMaisNAPourLInstantAucunePermissionEnPlusDuControleur() {
+        assertThat(roles.findByRoleKey("CHEF_DAC")).isPresent();
+        assertThat(resolver.resolve(List.of("CHEF_DAC"))).isEmpty();
+    }
+
+    @Test
+    void lApprobationDeiQuitteLeCgeaPourLeChefDuDei() {
+        assertThat(resolver.resolve(List.of("CGEA"))).doesNotContain(AppPermission.INVESTIGATION_DEI_STATUER.authority());
+        assertThat(resolver.resolve(List.of("CGE"))).doesNotContain(AppPermission.INVESTIGATION_DEI_STATUER.authority());
+        assertThat(resolver.resolve(List.of("ADMIN_DDIC"))).contains(AppPermission.INVESTIGATION_DEI_STATUER.authority());
     }
 
     @Test

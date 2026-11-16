@@ -69,10 +69,12 @@ class AccessEquivalenceIntegrationTest {
             String autorite = AppPermission.AUTHORITY_PREFIX + actuel.permission().orElseThrow();
             for (String role : ROLES) {
                 // Seuls écarts voulus : la politique « CGE et CGEA : métier seulement » (migration 029) et le registre
-                // des auditions ouvert au CGE (migration 030).
+                // des auditions ouvert au CGE (migration 030), et l'approbation DEI déplacée du CGEA vers le chef du DEI
+                // (migration 031).
                 AppPermission permission = actuel.permission().flatMap(AppPermission::of).orElseThrow();
                 boolean attendu = (ancien.roles().contains(role)
-                        && !AccessFixtures.retireeParLaPolitiqueMetierSeulement(role, permission))
+                        && !AccessFixtures.retireeParLaPolitiqueMetierSeulement(role, permission)
+                        && !AccessFixtures.deplaceeVersLeChefDuDei(role, permission))
                         || AccessFixtures.accordeeParLaPolitique(role, permission);
                 boolean apresBascule = resolver.resolve(List.of(role)).contains(autorite);
                 if (attendu != apresBascule) {
