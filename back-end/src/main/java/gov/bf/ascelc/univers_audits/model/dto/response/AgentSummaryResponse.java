@@ -15,5 +15,6 @@ public class AgentSummaryResponse {
     private String lastName;
     private String email;
     private String matricule;
+    private UUID departementId;
     private String departementLabel;
 }
