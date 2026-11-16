@@ -487,6 +487,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserLAutoApprobationDei(investigationId, agent);
         inv.setDeiApprovedAt(Instant.now());
         inv.setDeiApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
@@ -498,6 +499,20 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         log.info("DEI approuvé — investigation: {}", investigationId);
         return buildResponseWithFreshMembers(saved, investigationId);
+    }
+
+    /**
+     * Séparation des tâches : le chef du DEI approuve (ou rejette) le rapport de l'équipe, il ne peut donc pas être
+     * lui-même membre de cette équipe. Dans ce cas, c'est une autre personne qui doit décider.
+     */
+    private void refuserLAutoApprobationDei(UUID investigationId, Agent approbateur) {
+        boolean membre = memberRepository.findByInvestigationIdAndActiveTrue(investigationId).stream()
+                .anyMatch(m -> m.getAgent() != null && m.getAgent().getId() != null
+                        && m.getAgent().getId().equals(approbateur.getId()));
+        if (membre) {
+            throw new BusinessException("Vous faites partie de l'équipe de cette investigation : l'approbation DEI "
+                    + "doit être donnée par une autre personne (un autre chef ou l'administrateur).");
+        }
     }
 
     @Override
@@ -596,6 +611,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserLAutoApprobationDei(investigationId, agent);
         inv.setLegalAdvisorApprovedAt(null);
         inv.setLegalAdvisorApprovedBy(null);
         Investigation saved = investigationRepository.save(inv);

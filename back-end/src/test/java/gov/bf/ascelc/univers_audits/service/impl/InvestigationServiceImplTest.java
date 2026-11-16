@@ -336,6 +336,60 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void approveDei_refuseSiLApprobateurFaitPartieDeLEquipeDEnquete() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of(InvestigationMember.builder().agent(chef).build()));
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(investigation.getDeiApprovedAt()).isNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectDei_refuseSiLApprobateurFaitPartieDeLEquipeDEnquete() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of(InvestigationMember.builder().agent(chef).build()));
+
+        assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveDei_accepteUnChefQuiNEstPasDansLEquipeEvenSiLEquipeExiste() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        Agent enqueteur = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(investigationRepository.save(any(Investigation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of(InvestigationMember.builder().agent(enqueteur).build()));
+        when(investigationMapper.toResponse(investigation)).thenReturn(InvestigationResponse.builder().build());
+
+        service.approveDei(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getDeiApprovedBy()).isEqualTo(chef);
+    }
+
+    @Test
     void approveCgea_rejetteSiDeiNaPasApprouve() {
         Investigation investigation = buildCompletedInvestigation();
         investigation.setLegalAdvisorApprovedAt(Instant.now());
