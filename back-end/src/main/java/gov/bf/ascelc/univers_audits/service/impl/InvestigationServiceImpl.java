@@ -16,6 +16,7 @@ import gov.bf.ascelc.univers_audits.model.dto.response.ProcedureUrgenceResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MesureConservatoireResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.service.CircuitRapportNotifier;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
@@ -76,6 +77,7 @@ public class InvestigationServiceImpl implements InvestigationService {
     private final RapportEnqueteRepository       rapportEnqueteRepository;
     private final NoteRecommandationsRepository   noteRecommandationsRepository;
     private final ChecklistDossierTravailService checklistDossierTravailService;
+    private final CircuitRapportNotifier         circuitNotifier;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -445,6 +447,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Rapport final soumis. Conclusions : " + rapport.getConclusions(),
                 true, agentContextResolver.getCurrentAgent());
 
+        circuitNotifier.prevenirEtape(saved, EtapeCircuitRapport.JURIDIQUE);
         log.info("Rapport soumis — investigation: {}", investigationId);
         return investigationMapper.toResponse(saved);
     }
@@ -472,6 +475,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                         + "(délai légal : 10 jours ouvrables).",
                 true, agent);
 
+        circuitNotifier.prevenirEtape(saved, EtapeCircuitRapport.DEI);
         log.info("Conseiller juridique approuvé — investigation: {}", investigationId);
         return buildResponseWithFreshMembers(saved, investigationId);
     }
@@ -497,6 +501,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Rapport approuvé par le DEI (délai légal : 15 jours ouvrables).",
                 true, agent);
 
+        circuitNotifier.prevenirEtape(saved, EtapeCircuitRapport.CGEA);
         log.info("DEI approuvé — investigation: {}", investigationId);
         return buildResponseWithFreshMembers(saved, investigationId);
     }
@@ -536,6 +541,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Rapport approuvé par le CGEA (délai légal : 10 jours ouvrables).",
                 true, agent);
 
+        circuitNotifier.prevenirEtape(saved, EtapeCircuitRapport.CGE);
         log.info("CGEA approuvé — investigation: {}", investigationId);
         return buildResponseWithFreshMembers(saved, investigationId);
     }
@@ -622,6 +628,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Rapport rejeté par le DEI, renvoyé au Conseiller Juridique. Motif : " + motif,
                 true, agent);
 
+        circuitNotifier.prevenirRejet(saved, EtapeCircuitRapport.JURIDIQUE, motif);
         log.info("DEI rejeté — investigation: {}", investigationId);
         return buildResponseWithFreshMembers(saved, investigationId);
     }
@@ -655,6 +662,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Rapport rejeté par le CGEA, renvoyé au DEI. Motif : " + motif,
                 true, agent);
 
+        circuitNotifier.prevenirRejet(saved, EtapeCircuitRapport.DEI, motif);
         log.info("CGEA rejeté — investigation: {}", investigationId);
         return buildResponseWithFreshMembers(saved, investigationId);
     }

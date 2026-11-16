@@ -25,6 +25,7 @@ import gov.bf.ascelc.univers_audits.model.entity.PlanInvestigation;
 import gov.bf.ascelc.univers_audits.model.entity.RevisionPlan;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.enums.StatutProcedureUrgence;
+import gov.bf.ascelc.univers_audits.enums.EtapeCircuitRapport;
 import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
 import gov.bf.ascelc.univers_audits.enums.InvestigationOutcome;
 import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest;
@@ -42,6 +43,7 @@ import gov.bf.ascelc.univers_audits.model.entity.MesureConservatoire;
 import gov.bf.ascelc.univers_audits.repository.ProcedureUrgenceRepository;
 import gov.bf.ascelc.univers_audits.repository.MesureConservatoireRepository;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.service.CircuitRapportNotifier;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -86,6 +88,7 @@ class InvestigationServiceImplTest {
     @Mock private InvestigationMapper           investigationMapper;
     @Mock private SecurityUtils                 securityUtils;
     @Mock private AgentContextResolver          agentContextResolver;
+    @Mock private CircuitRapportNotifier        circuitNotifier;
     @Mock private DossierAuditRecorder          auditRecorder;
     @Mock private ParametreDelaiService         parametreDelaiService;
     @Mock private DossierHabilitationService    habilitationService;
@@ -270,6 +273,7 @@ class InvestigationServiceImplTest {
         assertThat(investigation.getStatus()).isEqualTo(InvestigationStatus.COMPLETED);
         assertThat(investigation.getOutcome()).isEqualTo(InvestigationOutcome.ARCHIVED);
         verify(dossierRepository).save(investigation.getDossier());
+        verify(circuitNotifier).prevenirEtape(any(Investigation.class), eq(EtapeCircuitRapport.JURIDIQUE));
     }
 
     @Test
@@ -301,6 +305,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
         assertThat(investigation.getLegalAdvisorApprovedBy()).isEqualTo(agent);
+        verify(circuitNotifier).prevenirEtape(investigation, EtapeCircuitRapport.DEI);
     }
 
     @Test
@@ -333,6 +338,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getDeiApprovedAt()).isNotNull();
         assertThat(investigation.getDeiApprovedBy()).isEqualTo(agent);
+        verify(circuitNotifier).prevenirEtape(investigation, EtapeCircuitRapport.CGEA);
     }
 
     @Test
@@ -453,6 +459,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getCgeaApprovedAt()).isNotNull();
         assertThat(investigation.getCgeaApprovedBy()).isEqualTo(agent);
+        verify(circuitNotifier).prevenirEtape(investigation, EtapeCircuitRapport.CGE);
     }
 
     @Test
@@ -537,6 +544,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getLegalAdvisorApprovedAt()).isNull();
         assertThat(investigation.getLegalAdvisorApprovedBy()).isNull();
+        verify(circuitNotifier).prevenirRejet(investigation, EtapeCircuitRapport.JURIDIQUE, "Preuves insuffisantes");
     }
 
     @Test
@@ -585,6 +593,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getDeiApprovedAt()).isNull();
         assertThat(investigation.getDeiApprovedBy()).isNull();
+        verify(circuitNotifier).prevenirRejet(investigation, EtapeCircuitRapport.DEI, "Analyse incomplète");
     }
 
     @Test
