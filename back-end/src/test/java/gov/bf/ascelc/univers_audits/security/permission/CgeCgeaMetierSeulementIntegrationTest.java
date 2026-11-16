@@ -59,6 +59,20 @@ class CgeCgeaMetierSeulementIntegrationTest {
     }
 
     @Test
+    void leRegistreDesAuditionsEstOuvertAuCgeAuCgeaEtALAdministrateurSeulement() {
+        // Manuel des procédures, processus C (p. 54-56) : l'accès aux dossiers d'investigation est limité au CGE,
+        // au CGEA et au chef du DEI ; décision du 2026-11-16 : le CGE rejoint le CGEA et l'administrateur.
+        for (String role : List.of("ADMIN_DDIC", "CGE", "CGEA")) {
+            assertThat(resolver.resolve(List.of(role))).as(role)
+                    .contains(AppPermission.REGISTRE_AUDITIONS_VOIR.authority());
+        }
+        for (String role : List.of("CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP", "AGENT_BRPD", "DCP")) {
+            assertThat(resolver.resolve(List.of(role))).as(role)
+                    .doesNotContain(AppPermission.REGISTRE_AUDITIONS_VOIR.authority());
+        }
+    }
+
+    @Test
     void leCgeGardeSesPouvoirsMetier() {
         assertThat(resolver.resolve(List.of("CGE"))).contains(
                 AppPermission.DOSSIER_VOIR_TOUS.authority(),

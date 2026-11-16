@@ -43,6 +43,14 @@ final class AccessFixtures {
         return directionMetier && technique;
     }
 
+    /**
+     * Décision du 2026-11-16 : le CGE consulte le registre des auditions, comme le CGEA (le manuel des procédures,
+     * processus C, limite l'accès aux dossiers d'investigation au CGE, au CGEA et au chef du DEI). Migration 030.
+     */
+    static boolean accordeeParLaPolitique(String role, AppPermission permission) {
+        return role.equals("CGE") && permission == AppPermission.REGISTRE_AUDITIONS_VOIR;
+    }
+
     static List<EndpointAccess> golden() {
         try {
             return new ObjectMapper().readValue(Files.readString(GOLDEN_AVANT), new TypeReference<>() { });
