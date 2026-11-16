@@ -83,11 +83,24 @@ class CgeCgeaMetierSeulementIntegrationTest {
         assertThat(chef).containsExactlyInAnyOrder(
                 AppPermission.INVESTIGATION_DEI_STATUER.authority(),
                 AppPermission.REGISTRE_AUDITIONS_VOIR.authority(),
-                AppPermission.FICHE_AFFECTATION_REPARTIR.authority());
+                AppPermission.FICHE_AFFECTATION_REPARTIR.authority(),
+                AppPermission.INVESTIGATION_PLAN_VALIDER.authority());
 
         Set<String> controleur = resolver.resolve(List.of("CONTROLEUR_ETAT"));
         assertThat(resolver.resolve(List.of("CHEF_DEI", "CONTROLEUR_ETAT")))
                 .containsAll(controleur).contains(AppPermission.INVESTIGATION_DEI_STATUER.authority());
+    }
+
+    @Test
+    void laValidationDuPlanDEnqueteEstAuChefDuDeiEtPlusAuCgea() {
+        // Manuel des procédures, processus C (C.2.4.3) : « plan d'investigation validé par le chef DEI » ;
+        // le workflow (étape 17) confie le plan d'enquête opérationnel au DEI. Décision du 2026-11-16.
+        assertThat(resolver.resolve(List.of("CHEF_DEI"))).contains(AppPermission.INVESTIGATION_PLAN_VALIDER.authority());
+        assertThat(resolver.resolve(List.of("ADMIN_DDIC"))).contains(AppPermission.INVESTIGATION_PLAN_VALIDER.authority());
+        for (String role : List.of("CGE", "CGEA", "CONTROLEUR_ETAT", "CHEF_DAC", "CONSEILLER_JURIDIQUE", "MEMBRE_CTADP")) {
+            assertThat(resolver.resolve(List.of(role))).as(role)
+                    .doesNotContain(AppPermission.INVESTIGATION_PLAN_VALIDER.authority());
+        }
     }
 
     @Test

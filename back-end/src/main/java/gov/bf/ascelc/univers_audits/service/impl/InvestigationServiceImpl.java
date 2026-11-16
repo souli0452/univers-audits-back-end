@@ -513,6 +513,26 @@ public class InvestigationServiceImpl implements InvestigationService {
     }
 
     /**
+     * Séparation des tâches : le chef du DEI valide le plan préparé par l'équipe, il ne peut donc ni l'avoir envoyé ni
+     * avoir fait partie de l'équipe (même retirée depuis).
+     */
+    private void refuserLAutoValidationDuPlan(UUID investigationId, Agent validateur, PlanInvestigation plan) {
+        boolean auteur = plan.getSubmittedBy() != null && plan.getSubmittedBy().getId() != null
+                && plan.getSubmittedBy().getId().equals(validateur.getId());
+        if (auteur) {
+            throw new BusinessException("Vous ne pouvez pas valider votre propre plan d'investigation : "
+                    + "il doit être validé par une autre personne (un autre chef ou l'administrateur).");
+        }
+        boolean aFaitPartieDeLEquipe = memberRepository
+                .findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigationId, validateur.getId())
+                .isPresent();
+        if (aFaitPartieDeLEquipe) {
+            throw new BusinessException("Vous faites partie de l'équipe de cette investigation : la validation du "
+                    + "plan doit être donnée par une autre personne (un autre chef ou l'administrateur).");
+        }
+    }
+
+    /**
      * Séparation des tâches : le chef du DEI approuve (ou rejette) le rapport de l'équipe, il ne peut donc pas avoir
      * fait partie de cette équipe. On regarde tout l'historique, y compris un membre retiré depuis : sinon il suffirait
      * de se faire retirer de l'équipe avant d'approuver.
@@ -955,6 +975,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                 "Plan d'investigation soumis par " + currentAgent.getNomComplet(),
                 true, currentAgent);
 
+        circuitNotifier.prevenirValidationDuPlan(inv);
         log.info("Plan d'investigation soumis — investigation: {}", investigationId);
         return toPlanInvestigationResponse(saved);
     }
@@ -1004,6 +1025,7 @@ public class InvestigationServiceImpl implements InvestigationService {
                         + " — motif : " + request.getMotifRevision(),
                 true, currentAgent);
 
+        circuitNotifier.prevenirValidationDuPlan(inv);
         log.info("Plan d'investigation révisé — investigation: {}, nouvelle version: {}",
                 investigationId, saved.getPlanVersion());
         return toPlanInvestigationResponse(saved);
@@ -1014,6 +1036,8 @@ public class InvestigationServiceImpl implements InvestigationService {
     public PlanInvestigationResponse validatePlan(UUID investigationId, String ipAddress) {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
+        // Le chef du DEI ne voit pas tous les dossiers : il doit être habilité sur celui-ci pour valider son plan.
+        accessGuard.checkReadAccess(inv.getDossier());
 
         PlanInvestigation plan = planInvestigationRepository
                 .findByInvestigationId(investigationId)
@@ -1026,6 +1050,7 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
 
         Agent currentAgent = agentContextResolver.getCurrentAgent();
+        refuserLAutoValidationDuPlan(investigationId, currentAgent, plan);
         plan.setValidatedAt(Instant.now());
         plan.setValidatedBy(currentAgent);
         PlanInvestigation saved = planInvestigationRepository.save(plan);

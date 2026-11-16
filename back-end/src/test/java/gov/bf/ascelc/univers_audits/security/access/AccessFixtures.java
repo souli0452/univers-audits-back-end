@@ -60,7 +60,9 @@ final class AccessFixtures {
      * chef du DEI, pas au CGEA. Le rôle CHEF_DEI la reçoit par la migration 031 ; le CGEA la perd.
      */
     static boolean deplaceeVersLeChefDuDei(String role, AppPermission permission) {
-        return role.equals("CGEA") && permission == AppPermission.INVESTIGATION_DEI_STATUER;
+        return role.equals("CGEA")
+                && (permission == AppPermission.INVESTIGATION_DEI_STATUER
+                || permission == AppPermission.INVESTIGATION_PLAN_VALIDER);
     }
 
     static List<EndpointAccess> golden() {

@@ -127,6 +127,18 @@ class CircuitRapportNotifierTest {
     }
 
     @Test
+    void unPlanAValiderPrevientLeChefDuDei() {
+        when(agentService.findActiveByKeycloakRole("CHEF_DEI")).thenReturn(List.of(agent("kc-chef")));
+
+        notifier.prevenirValidationDuPlan(investigation("DOS-1"));
+
+        ArgumentCaptor<Notification> envoyee = ArgumentCaptor.forClass(Notification.class);
+        verify(notifications).save(envoyee.capture());
+        assertThat(envoyee.getValue().getRecipient()).isEqualTo("kc-chef");
+        assertThat(envoyee.getValue().getSubject()).contains("Plan d'investigation").contains("DOS-1");
+    }
+
+    @Test
     void sansPersonneActiveNiNotificationNiErreur() {
         when(agentService.findActiveByKeycloakRole("CHEF_DEI")).thenReturn(List.of());
 

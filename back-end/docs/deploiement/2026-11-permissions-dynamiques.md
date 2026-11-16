@@ -1,6 +1,6 @@
 # Déploiement — permissions pilotées par la base, chefs de département, circuit du rapport
 
-Version préparée le 2026-11-16. Back : branche `feature/permissions-dynamiques` (migrations 028 à 033).
+Version préparée le 2026-11-16. Back : branche `feature/permissions-dynamiques` (migrations 028 à 034).
 Front : branche `feat/menus-metier-seulement`. **Le back et le front partent ensemble.**
 
 Décision d'architecture : `back-end/docs/adr/0001-permissions-dynamiques.md`.
@@ -11,9 +11,9 @@ Décision d'architecture : `back-end/docs/adr/0001-permissions-dynamiques.md`.
 |---|---|---|
 | ADMIN_DDIC | tout | tout, y compris l'identité des lanceurs d'alerte protégés (tracée, courriel à la DSI) |
 | CGE, CGEA | métier + administration | métier seulement (plus d'agents, rôles, paramètres, audit, file des notifications) |
-| CGEA | approuvait l'étape DEI du rapport | n'approuve plus l'étape DEI (chef du DEI) ; approuve toujours l'étape CGEA |
+| CGEA | approuvait l'étape DEI du rapport et validait le plan d'enquête | ne fait plus ni l'un ni l'autre (chef du DEI) ; approuve toujours l'étape CGEA |
 | CGE | n'avait pas le registre des auditions | a le registre des auditions |
-| Nouveau rôle CHEF_DEI | — | approuve/rejette l'étape DEI, registre des auditions, répartit les dossiers de son département |
+| Nouveau rôle CHEF_DEI | — | approuve/rejette l'étape DEI du rapport, **valide le plan d'enquête**, registre des auditions, répartit les dossiers de son département |
 | Nouveau rôle CHEF_DAC | — | répartit les dossiers de son département |
 | Imputation à un département | tous les agents du département prévenus | seul le chef est prévenu et habilité ; il répartit à ses agents |
 | Rôles | codés en dur | modifiables dans l'écran Rôles & Permissions, effet immédiat |
@@ -83,7 +83,7 @@ bash scripts/deploy.sh
 SELECT id FROM databasechangelog WHERE id >= '028' ORDER BY id;
 ```
 
-Attendu : 028, 029, 030, 031, 032, 033.
+Attendu : 028, 029, 030, 031, 032, 033, 034.
 
 ```sql
 SELECT count(*) FROM permission WHERE active;
@@ -115,7 +115,7 @@ Le serveur refuse un chef sans le rôle Contrôleur d'État, et refuse un agent 
 | ADMIN_DDIC | menu Administration complet ; écran Rôles & Permissions : 10 rôles ; Journal d'audit lisible |
 | CGE | pas de groupe Administration ; « Dépassements par acteur » et « Registre des auditions » visibles |
 | CGEA | pas de groupe Administration ; peut ouvrir la fenêtre d'affectation (liste des conseillers juridiques avec étiquettes « CJ/… ») |
-| Chef du DEI | « Approuver DEI » apparaît seulement quand le juridique a approuvé ; registre visible |
+| Chef du DEI | « Approuver DEI » apparaît seulement quand le juridique a approuvé ; « Valider » le plan d'enquête ; registre visible |
 | DCP | uniquement statistiques, profil, notifications |
 | AGENT_BRPD | enregistre un dépôt comme avant |
 
@@ -142,4 +142,4 @@ En dernier recours seulement (perd les données saisies depuis le déploiement) 
 - Un rôle supprimé depuis l'écran est désactivé : sa clé ne peut plus être recréée.
 - La suppression d'un rôle est refusée tant que des agents le portent (comptés parmi les porteurs directs dans Keycloak).
 - Le circuit du rapport prévient désormais chaque étape ; un échec de notification est seulement écrit dans les journaux.
-- La validation du plan d'enquête reste au CGEA ; le manuel (processus C) la donne au chef du DEI : décision à prendre.
+- La validation du plan d'enquête est au chef du DEI (migration 034) : les plans déjà soumis et non validés devront être validés par lui. Requête : `SELECT d.number FROM plan_investigation p JOIN investigation i ON i.id = p.investigation_id JOIN dossier d ON d.id = i.case_id WHERE p.validated_at IS NULL;`

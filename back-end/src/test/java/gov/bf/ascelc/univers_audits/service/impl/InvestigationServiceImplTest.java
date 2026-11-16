@@ -1586,6 +1586,81 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void validatePlan_controleLAccesAuDossierEtRefuseSansHabilitation() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+
+        verify(planInvestigationRepository, never()).save(any());
+    }
+
+    @Test
+    void validatePlan_refuseUnMembreActifOuAncienDeLEquipe() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        PlanInvestigation plan = PlanInvestigation.builder().id(UUID.randomUUID()).investigation(investigation)
+                .submittedBy(Agent.builder().id(UUID.randomUUID()).build()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId())).thenReturn(Optional.of(plan));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(false).build()));
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(plan.getValidatedAt()).isNull();
+        verify(planInvestigationRepository, never()).save(any());
+    }
+
+    @Test
+    void validatePlan_refuseCeluiQuiAEnvoyeLePlan() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent auteur = Agent.builder().id(UUID.randomUUID()).build();
+        PlanInvestigation plan = PlanInvestigation.builder().id(UUID.randomUUID()).investigation(investigation)
+                .submittedBy(auteur).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId())).thenReturn(Optional.of(plan));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(auteur);
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("votre propre plan");
+
+        verify(planInvestigationRepository, never()).save(any());
+    }
+
+    @Test
+    void submitPlan_previentLeChefDuDeiQuIlAUnPlanAValider() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId())).thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgent()).thenReturn(Agent.builder().id(UUID.randomUUID()).build());
+        when(planInvestigationRepository.save(any(PlanInvestigation.class))).thenAnswer(inv -> {
+            PlanInvestigation p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        service.submitPlan(investigation.getId(),
+                PlanInvestigationSubmitRequest.builder().objectifs("Établir les faits").methodologie("Auditions").build(),
+                "127.0.0.1");
+
+        verify(circuitNotifier).prevenirValidationDuPlan(investigation);
+    }
+
+    @Test
     void validatePlan_rejectsWhenNoPlanExists() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = buildInvestigation(dossier);
@@ -1628,7 +1703,7 @@ class InvestigationServiceImplTest {
         PlanInvestigation existingPlan = PlanInvestigation.builder()
                 .id(UUID.randomUUID())
                 .investigation(investigation)
-                .submittedBy(currentAgent)
+                .submittedBy(Agent.builder().id(UUID.randomUUID()).build())
                 .validatedAt(null)
                 .build();
 

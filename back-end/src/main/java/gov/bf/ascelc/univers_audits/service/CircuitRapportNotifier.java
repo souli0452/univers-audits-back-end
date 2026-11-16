@@ -50,6 +50,15 @@ public class CircuitRapportNotifier {
                 "Le rapport d'enquête du dossier " + numero + " attend votre décision (" + etape.libelle() + ").");
     }
 
+    /** Un plan d'investigation vient d'être soumis ou révisé : le chef du DEI doit le valider. */
+    public void prevenirValidationDuPlan(Investigation inv) {
+        String numero = numero(inv);
+        apresValidation(inv, EtapeCircuitRapport.DEI,
+                "Plan d'investigation à valider — dossier " + numero,
+                "Le plan d'investigation du dossier " + numero + " attend votre validation (" +
+                        EtapeCircuitRapport.DEI.libelle() + ").");
+    }
+
     /** Le rapport a été rejeté : cette étape doit le corriger. */
     public void prevenirRejet(Investigation inv, EtapeCircuitRapport etapeACorriger, String motif) {
         String numero = numero(inv);

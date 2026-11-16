@@ -29,7 +29,7 @@ redéployer, et l'écran « Rôles & Permissions » n'était qu'indicatif : il n
    administration, paramétrage, audit ni file de notifications ; le registre des auditions est ouvert au CGE, au
    CGEA et à l'administrateur (manuel des procédures, processus C : accès aux dossiers d'investigation limité au
    CGE, au CGEA et au chef du DEI ; migration 030) ; le chef du DEI (« C.DEI », étape 22 du workflow) approuve les
-   rapports de synthèse à la place du CGEA (migration 031) ; la DCP ne voit que des statistiques globales.
+   rapports de synthèse à la place du CGEA (migration 031) et valide le plan d'enquête (manuel C.2.4.3 ; migration 034) ; la DCP ne voit que des statistiques globales.
    L'identité d'un lanceur d'alerte protégé est visible de ADMIN_DDIC, du CGE et du CGEA (permission
    `LANCEUR_ALERTE_PROTEGE_TRAITER`, décision du 2026-11-15 : l'administrateur voit tout).
 8. **Chefs de département.** Les rôles `CHEF_DEI` et `CHEF_DAC` se cumulent avec `CONTROLEUR_ETAT` (la politique de
