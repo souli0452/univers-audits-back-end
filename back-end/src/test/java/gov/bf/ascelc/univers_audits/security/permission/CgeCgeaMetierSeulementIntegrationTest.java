@@ -82,7 +82,8 @@ class CgeCgeaMetierSeulementIntegrationTest {
         Set<String> chef = resolver.resolve(List.of("CHEF_DEI"));
         assertThat(chef).containsExactlyInAnyOrder(
                 AppPermission.INVESTIGATION_DEI_STATUER.authority(),
-                AppPermission.REGISTRE_AUDITIONS_VOIR.authority());
+                AppPermission.REGISTRE_AUDITIONS_VOIR.authority(),
+                AppPermission.FICHE_AFFECTATION_REPARTIR.authority());
 
         Set<String> controleur = resolver.resolve(List.of("CONTROLEUR_ETAT"));
         assertThat(resolver.resolve(List.of("CHEF_DEI", "CONTROLEUR_ETAT")))
@@ -90,9 +91,23 @@ class CgeCgeaMetierSeulementIntegrationTest {
     }
 
     @Test
-    void leChefDuDacExisteMaisNAPourLInstantAucunePermissionEnPlusDuControleur() {
+    void leChefDuDacNAQueLaRepartitionDesDossiersEnPlusDuControleur() {
         assertThat(roles.findByRoleKey("CHEF_DAC")).isPresent();
-        assertThat(resolver.resolve(List.of("CHEF_DAC"))).isEmpty();
+        assertThat(resolver.resolve(List.of("CHEF_DAC")))
+                .containsExactly(AppPermission.FICHE_AFFECTATION_REPARTIR.authority());
+    }
+
+    @Test
+    void seulsLesChefsDeDepartementEtLAdministrateurRepartissentUnDossier() {
+        for (String role : List.of("CHEF_DEI", "CHEF_DAC", "ADMIN_DDIC")) {
+            assertThat(resolver.resolve(List.of(role))).as(role)
+                    .contains(AppPermission.FICHE_AFFECTATION_REPARTIR.authority());
+        }
+        for (String role : List.of("CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP",
+                "AGENT_BRPD", "DCP")) {
+            assertThat(resolver.resolve(List.of(role))).as(role)
+                    .doesNotContain(AppPermission.FICHE_AFFECTATION_REPARTIR.authority());
+        }
     }
 
     @Test

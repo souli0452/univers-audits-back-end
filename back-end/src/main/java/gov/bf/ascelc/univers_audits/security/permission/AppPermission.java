@@ -37,6 +37,7 @@ public enum AppPermission {
     DOSSIER_VOIR_TOUS("Dossiers", "Consulter tous les dossiers, y compris les dossiers confidentiels"),
     FICHE_AFFECTATION_AFFECTER("Dossiers", "Affecter un dossier"),
     FICHE_AFFECTATION_CREER("Dossiers", "Créer une fiche d'affectation"),
+    FICHE_AFFECTATION_REPARTIR("Dossiers", "Répartir un dossier affecté à son département"),
     HABILITATION_ACCORDER("Dossiers", "Habiliter un agent sur un dossier"),
     HABILITATION_RETIRER("Dossiers", "Retirer une habilitation"),
     HABILITATION_VOIR("Dossiers", "Consulter les habilitations sur les dossiers"),

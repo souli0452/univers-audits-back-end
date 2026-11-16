@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationRepartitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.FicheAffectationResponse;
@@ -46,6 +47,17 @@ public class FicheAffectationController {
 
         log.info("Affectation CGEA — dossier {}, type {}", id, request.getTypeDesignation());
         FicheAffectation fiche = ficheAffectationService.affecter(id, request);
+        return ResponseEntity.ok(toResponse(fiche));
+    }
+
+    @PostMapping("/repartition")
+    @HasPermission(AppPermission.FICHE_AFFECTATION_REPARTIR)
+    public ResponseEntity<FicheAffectationResponse> repartir(
+            @PathVariable UUID id,
+            @Valid @RequestBody FicheAffectationRepartitionRequest request) {
+
+        log.info("Répartition par le chef de département — dossier {}, {} agent(s)", id, request.getAgentIds().size());
+        FicheAffectation fiche = ficheAffectationService.repartir(id, request.getAgentIds());
         return ResponseEntity.ok(toResponse(fiche));
     }
 

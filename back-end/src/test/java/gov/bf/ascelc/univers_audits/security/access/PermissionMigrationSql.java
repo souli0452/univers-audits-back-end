@@ -40,7 +40,10 @@ final class PermissionMigrationSql {
             // Annuaire des agents actifs (nom, matricule, courriel) pour les écrans métier : tous les rôles métier,
             // pas la communication (DCP), qui ne doit voir que des statistiques.
             AppPermission.AGENT_ANNUAIRE_VOIR, Set.of("ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE",
-                    "CONTROLEUR_ETAT", "MEMBRE_CTADP", "AGENT_BRPD"));
+                    "CONTROLEUR_ETAT", "MEMBRE_CTADP", "AGENT_BRPD"),
+            // Répartition d'un dossier par le chef du département (point d'entrée créé après l'instantané) :
+            // l'administrateur la garde ; les chefs la reçoivent par la migration 032.
+            AppPermission.FICHE_AFFECTATION_REPARTIR, Set.of("ADMIN_DDIC"));
 
     private static final List<String> ORDRE_DES_ROLES = List.of(
             "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP", "AGENT_BRPD", "DCP");

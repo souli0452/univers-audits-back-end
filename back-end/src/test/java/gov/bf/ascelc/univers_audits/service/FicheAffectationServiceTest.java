@@ -7,6 +7,7 @@ import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.model.entity.FicheAffectation;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DepartementRepository;
+import gov.bf.ascelc.univers_audits.repository.DossierHabilitationRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.FicheAffectationRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
@@ -45,6 +46,8 @@ class FicheAffectationServiceTest {
     @Mock private KeycloakAdminService keycloakAdminService;
     @Mock private SecurityUtils securityUtils;
     @Mock private DossierAccessGuard accessGuard;
+    @Mock private DossierHabilitationService habilitationService;
+    @Mock private DossierHabilitationRepository habilitationRepository;
 
     @InjectMocks
     private FicheAffectationService service;
@@ -144,20 +147,21 @@ class FicheAffectationServiceTest {
                 .hasMessageContaining("Agent non authentifié");
     }
 
-    @Test
-    void affecter_departementEligible_metAJourLaFicheEtNotifieLesAgentsDuDepartement() {
-        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
-        UUID departementId = UUID.randomUUID();
-        Agent agentDep1 = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-dep-1").actif(true).build();
-        Agent agentDep2Inactif = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-dep-2").actif(false).build();
-        gov.bf.ascelc.univers_audits.model.entity.Departement dei =
-                gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
-                        .id(departementId).code("DEI").libelle("Enquête et Investigation")
-                        .agents(java.util.List.of(agentDep1, agentDep2Inactif))
-                        .build();
+    private gov.bf.ascelc.univers_audits.model.entity.Departement departement(String code) {
+        return gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
+                .id(UUID.randomUUID()).code(code).libelle("Département " + code).build();
+    }
 
+    private gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest imputationA(gov.bf.ascelc.univers_audits.model.entity.Departement departement) {
+        return gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                .departementDesigneId(departement.getId())
+                .build();
+    }
+
+    private void stubImputation(FicheAffectation fiche, gov.bf.ascelc.univers_audits.model.entity.Departement dep) {
         when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
-        when(departementRepository.findById(departementId)).thenReturn(Optional.of(dei));
+        when(departementRepository.findById(dep.getId())).thenReturn(Optional.of(dep));
         stubAgentCourant();
         when(ficheAffectationRepository.save(any(FicheAffectation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -165,20 +169,162 @@ class FicheAffectationServiceTest {
                 .thenReturn("sujet");
         when(portalConfigService.resolveNotificationText(eq("notif_content_affectation_dossier"), any()))
                 .thenReturn("contenu");
+    }
 
-        gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest request =
-                gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest.builder()
-                        .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
-                        .departementDesigneId(departementId)
-                        .build();
+    @Test
+    void affecter_departementEligible_neNotifieNiNHabiliteQueLeChefDuDepartement() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        gov.bf.ascelc.univers_audits.model.entity.Departement dac = departement("DAC");
+        Agent chefDei = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-chef-dei").actif(true)
+                .departement(dei).build();
+        Agent chefDeiInactif = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-chef-inactif").actif(false)
+                .departement(dei).build();
+        Agent chefAilleurs = Agent.builder().id(UUID.randomUUID()).keycloakId("kc-chef-ailleurs").actif(true)
+                .departement(dac).build();
+        stubImputation(fiche, dei);
+        when(keycloakAdminService.getUserIdsByRole("CHEF_DEI"))
+                .thenReturn(java.util.List.of("kc-chef-dei", "kc-chef-inactif", "kc-chef-ailleurs"));
+        when(agentRepository.findByKeycloakId("kc-chef-dei")).thenReturn(Optional.of(chefDei));
+        when(agentRepository.findByKeycloakId("kc-chef-inactif")).thenReturn(Optional.of(chefDeiInactif));
+        when(agentRepository.findByKeycloakId("kc-chef-ailleurs")).thenReturn(Optional.of(chefAilleurs));
 
-        FicheAffectation result = service.affecter(dossierId, request);
+        FicheAffectation result = service.affecter(dossierId, imputationA(dei));
 
         assertThat(result.getDepartementDesigne()).isEqualTo(dei);
         assertThat(result.getAgentCgea()).isEqualTo(agentCourant);
         assertThat(result.getDateImputation()).isNotNull();
-        // Un seul agent actif dans le département -> une seule notification créée
-        verify(notificationRepository, times(1)).save(any());
+        org.mockito.ArgumentCaptor<gov.bf.ascelc.univers_audits.model.entity.Notification> notifications =
+                org.mockito.ArgumentCaptor.forClass(gov.bf.ascelc.univers_audits.model.entity.Notification.class);
+        verify(notificationRepository, times(1)).save(notifications.capture());
+        assertThat(notifications.getValue().getRecipient()).isEqualTo("kc-chef-dei");
+        verify(habilitationService).grant(eq(dossier), eq(chefDei), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.MANUAL), eq(agentCourant), contains("DEI"));
+        verifyNoMoreInteractions(habilitationService);
+    }
+
+    @Test
+    void affecter_departementSansChef_estRefuseAvecUnMessageClair() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier).build();
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(departementRepository.findById(dei.getId())).thenReturn(Optional.of(dei));
+        when(keycloakAdminService.getUserIdsByRole("CHEF_DEI")).thenReturn(java.util.List.of());
+
+        assertThatThrownBy(() -> service.affecter(dossierId, imputationA(dei)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Aucun chef")
+                .hasMessageContaining("CHEF_DEI");
+
+        verify(ficheAffectationRepository, never()).save(any());
+        verifyNoInteractions(notificationRepository, habilitationService);
+    }
+
+    // ───────────────────────────── répartition par le chef ─────────────────────────────
+
+    private FicheAffectation ficheImputeeA(gov.bf.ascelc.univers_audits.model.entity.Departement departement) {
+        return FicheAffectation.builder().dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.DEPARTEMENT)
+                .departementDesigne(departement).build();
+    }
+
+    private Agent agentDuDepartement(String kc, gov.bf.ascelc.univers_audits.model.entity.Departement departement, boolean actif) {
+        return Agent.builder().id(UUID.randomUUID()).keycloakId(kc).actif(actif).departement(departement).build();
+    }
+
+    private void stubChefCourant(Agent chef) {
+        when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of(chef.getKeycloakId()));
+        when(agentRepository.findByKeycloakId(chef.getKeycloakId())).thenReturn(Optional.of(chef));
+    }
+
+    @Test
+    void repartir_habiliteEtPrevientLesAgentsChoisisDeSonDepartement() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        Agent chef = agentDuDepartement("kc-chef", dei, true);
+        Agent a1 = agentDuDepartement("kc-a1", dei, true);
+        Agent a2 = agentDuDepartement("kc-a2", dei, true);
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(ficheImputeeA(dei)));
+        stubChefCourant(chef);
+        when(agentRepository.findById(a1.getId())).thenReturn(Optional.of(a1));
+        when(agentRepository.findById(a2.getId())).thenReturn(Optional.of(a2));
+        when(portalConfigService.resolveNotificationText(eq("notif_subject_affectation_dossier"), any())).thenReturn("sujet");
+        when(portalConfigService.resolveNotificationText(eq("notif_content_affectation_dossier"), any())).thenReturn("contenu");
+
+        service.repartir(dossierId, java.util.List.of(a1.getId(), a2.getId(), a1.getId()));
+
+        verify(habilitationService).grant(eq(dossier), eq(a1), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.MANUAL), eq(chef), contains("DEI"));
+        verify(habilitationService).grant(eq(dossier), eq(a2), eq(gov.bf.ascelc.univers_audits.enums.HabilitationSource.MANUAL), eq(chef), contains("DEI"));
+        verify(notificationRepository, times(2)).save(any());
+    }
+
+    @Test
+    void repartir_refuseUnAgentQuiNEstPasDuDepartement() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        gov.bf.ascelc.univers_audits.model.entity.Departement dac = departement("DAC");
+        Agent chef = agentDuDepartement("kc-chef", dei, true);
+        Agent ailleurs = agentDuDepartement("kc-dac", dac, true);
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(ficheImputeeA(dei)));
+        stubChefCourant(chef);
+        when(agentRepository.findById(ailleurs.getId())).thenReturn(Optional.of(ailleurs));
+
+        assertThatThrownBy(() -> service.repartir(dossierId, java.util.List.of(ailleurs.getId())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("n'appartient pas au département");
+
+        verifyNoInteractions(habilitationService, notificationRepository);
+    }
+
+    @Test
+    void repartir_refuseUnAgentInactif() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        Agent chef = agentDuDepartement("kc-chef", dei, true);
+        Agent parti = agentDuDepartement("kc-parti", dei, false);
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(ficheImputeeA(dei)));
+        stubChefCourant(chef);
+        when(agentRepository.findById(parti.getId())).thenReturn(Optional.of(parti));
+
+        assertThatThrownBy(() -> service.repartir(dossierId, java.util.List.of(parti.getId())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("actif");
+
+        verifyNoInteractions(habilitationService);
+    }
+
+    @Test
+    void repartir_refuseQuelquUnQuiNEstPasDuDepartementDesigne() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        gov.bf.ascelc.univers_audits.model.entity.Departement dac = departement("DAC");
+        Agent chefDac = agentDuDepartement("kc-chef-dac", dac, true);
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(ficheImputeeA(dei)));
+        stubChefCourant(chefDac);
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.repartir(dossierId, java.util.List.of(UUID.randomUUID())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("chef du département désigné");
+
+        verifyNoInteractions(habilitationService);
+    }
+
+    @Test
+    void repartir_refuseUnDossierNonAffecteAUnDepartement() {
+        FicheAffectation fiche = FicheAffectation.builder().dossier(dossier)
+                .typeDesignation(gov.bf.ascelc.univers_audits.enums.TypeDesignation.BRPD).build();
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+
+        assertThatThrownBy(() -> service.repartir(dossierId, java.util.List.of(UUID.randomUUID())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("département");
+    }
+
+    @Test
+    void repartir_refuseUneListeVide() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        Agent chef = agentDuDepartement("kc-chef", dei, true);
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(ficheImputeeA(dei)));
+        stubChefCourant(chef);
+
+        assertThatThrownBy(() -> service.repartir(dossierId, java.util.List.of()))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
@@ -279,7 +425,7 @@ class FicheAffectationServiceTest {
     }
 
     @Test
-    void suivre_agentDuDepartementDesigne_estAutorise() {
+    void suivre_leChefDuDepartementDesigne_estAutorise() {
         gov.bf.ascelc.univers_audits.model.entity.Departement dei =
                 gov.bf.ascelc.univers_audits.model.entity.Departement.builder()
                         .id(UUID.randomUUID()).code("DEI").build();
@@ -296,6 +442,7 @@ class FicheAffectationServiceTest {
         when(accessGuard.canSeeConfidential()).thenReturn(false);
         when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-dep"));
         when(agentRepository.findByKeycloakId("kc-dep")).thenReturn(Optional.of(agentDuDepartement));
+        when(securityUtils.hasPermission(AppPermission.FICHE_AFFECTATION_REPARTIR)).thenReturn(true);
         when(ficheAffectationRepository.save(any(FicheAffectation.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -311,6 +458,46 @@ class FicheAffectationServiceTest {
                 .isEqualTo(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.CLOTURE);
         assertThat(result.getAgentSuivi()).isEqualTo(agentDuDepartement);
         assertThat(result.getDateRetour()).isNotNull();
+    }
+
+    @Test
+    void suivre_unMembreDuDepartementNiChefNiHabilite_estRefuse() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        Agent membre = agentDuDepartement("kc-membre", dei, true);
+        FicheAffectation fiche = ficheImputeeA(dei);
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        stubChefCourant(membre);
+        when(securityUtils.hasPermission(AppPermission.FICHE_AFFECTATION_REPARTIR)).thenReturn(false);
+        when(habilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, membre.getId()))
+                .thenReturn(false);
+
+        var request = gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.EN_COURS).build();
+
+        assertThatThrownBy(() -> service.suivre(dossierId, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("ne vous a pas été affecté");
+    }
+
+    @Test
+    void suivre_unMembreDuDepartementHabilitePourLeDossier_estAutorise() {
+        gov.bf.ascelc.univers_audits.model.entity.Departement dei = departement("DEI");
+        Agent membre = agentDuDepartement("kc-membre", dei, true);
+        FicheAffectation fiche = ficheImputeeA(dei);
+        when(ficheAffectationRepository.findByDossierId(dossierId)).thenReturn(Optional.of(fiche));
+        when(accessGuard.canSeeConfidential()).thenReturn(false);
+        stubChefCourant(membre);
+        when(securityUtils.hasPermission(AppPermission.FICHE_AFFECTATION_REPARTIR)).thenReturn(false);
+        when(habilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(dossierId, membre.getId()))
+                .thenReturn(true);
+        when(ficheAffectationRepository.save(any(FicheAffectation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var request = gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest.builder()
+                .etatAvancement(gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation.EN_COURS).build();
+
+        assertThat(service.suivre(dossierId, request).getAgentSuivi()).isEqualTo(membre);
     }
 
     @Test

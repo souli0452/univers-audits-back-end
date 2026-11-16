@@ -48,6 +48,7 @@ INSERT INTO permission (id, permission_key, label, category, active, created_at)
     (gen_random_uuid(), 'DOSSIER_VOIR_TOUS', 'Consulter tous les dossiers, y compris les dossiers confidentiels', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'FICHE_AFFECTATION_AFFECTER', 'Affecter un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'FICHE_AFFECTATION_CREER', 'Créer une fiche d''affectation', 'Dossiers', TRUE, now()),
+    (gen_random_uuid(), 'FICHE_AFFECTATION_REPARTIR', 'Répartir un dossier affecté à son département', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'HABILITATION_ACCORDER', 'Habiliter un agent sur un dossier', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'HABILITATION_RETIRER', 'Retirer une habilitation', 'Dossiers', TRUE, now()),
     (gen_random_uuid(), 'HABILITATION_VOIR', 'Consulter les habilitations sur les dossiers', 'Dossiers', TRUE, now()),
@@ -137,7 +138,7 @@ INSERT INTO permission (id, permission_key, label, category, active, created_at)
 ON CONFLICT (permission_key) DO UPDATE
     SET label = EXCLUDED.label, category = EXCLUDED.category, active = TRUE;
 
--- ADMIN_DDIC : 122 permissions
+-- ADMIN_DDIC : 123 permissions
 INSERT INTO role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key IN (
     'ACCES_MATRICE_VOIR',
@@ -176,6 +177,7 @@ SELECT r.id, p.id FROM role_definition r JOIN permission p ON p.permission_key I
     'DOSSIER_VOIR_TOUS',
     'FICHE_AFFECTATION_AFFECTER',
     'FICHE_AFFECTATION_CREER',
+    'FICHE_AFFECTATION_REPARTIR',
     'HABILITATION_ACCORDER',
     'HABILITATION_RETIRER',
     'HABILITATION_VOIR',

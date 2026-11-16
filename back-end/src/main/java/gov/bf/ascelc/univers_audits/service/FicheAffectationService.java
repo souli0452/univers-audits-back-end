@@ -1,5 +1,7 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.repository.DossierHabilitationRepository;
+import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.EtatAvancementAffectation;
 import gov.bf.ascelc.univers_audits.enums.NotificationChannel;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
@@ -49,6 +51,8 @@ public class FicheAffectationService {
     private final KeycloakAdminService keycloakAdminService;
     private final SecurityUtils securityUtils;
     private final DossierAccessGuard accessGuard;
+    private final DossierHabilitationService habilitationService;
+    private final DossierHabilitationRepository habilitationRepository;
 
     private static final Set<String> DEPARTEMENTS_ELIGIBLES = Set.of("DEI", "DAC");
 
@@ -103,6 +107,13 @@ public class FicheAffectationService {
         fiche.setDateImputation(Instant.now());
 
         FicheAffectation saved = ficheAffectationRepository.save(fiche);
+        if (request.getTypeDesignation() == TypeDesignation.DEPARTEMENT) {
+            // Le chef du département reçoit l'accès au dossier : c'est lui qui le répartira à ses agents.
+            for (Agent chef : destinataires) {
+                habilitationService.grant(saved.getDossier(), chef, HabilitationSource.MANUAL, saved.getAgentCgea(),
+                        "Imputation au département " + saved.getDepartementDesigne().getCode());
+            }
+        }
         notifierDestinataires(saved, destinataires);
         log.info("Fiche d'affectation renseignée (section CGEA) — dossier: {}, type: {}",
                 dossierId, request.getTypeDesignation());
@@ -154,9 +165,12 @@ public class FicheAffectationService {
                         "Agent introuvable. Contactez l'administrateur DDIC."));
 
         boolean autorise = switch (fiche.getTypeDesignation()) {
+            // Le chef du département désigné, ou un agent à qui il a réparti le dossier (habilitation).
             case DEPARTEMENT -> fiche.getDepartementDesigne() != null
-                    && agent.getDepartement() != null
-                    && agent.getDepartement().getId().equals(fiche.getDepartementDesigne().getId());
+                    && appartientAuDepartement(agent, fiche.getDepartementDesigne())
+                    && (securityUtils.hasPermission(AppPermission.FICHE_AFFECTATION_REPARTIR)
+                        || habilitationRepository.existsByDossierIdAndAgentIdAndRevokedAtIsNull(
+                                fiche.getDossier().getId(), agent.getId()));
             case AGENT_CJ -> fiche.getAgentDesigne() != null
                     && agent.getId().equals(fiche.getAgentDesigne().getId());
             case BRPD -> securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER);
@@ -169,8 +183,8 @@ public class FicheAffectationService {
 
     private List<Agent> resolveDestinataires(FicheAffectationAffectationRequest request) {
         return switch (request.getTypeDesignation()) {
-            case DEPARTEMENT -> getDepartementEligibleOrThrow(request.getDepartementDesigneId())
-                    .getAgents().stream().filter(Agent::getActif).toList();
+            case DEPARTEMENT -> resolveChefsDuDepartement(
+                    getDepartementEligibleOrThrow(request.getDepartementDesigneId()));
             case AGENT_CJ -> List.of(getConseillerJuridiqueOrThrow(request.getAgentDesigneId()));
             case BRPD -> resolveActiveAgentsByRole("AGENT_BRPD");
         };
@@ -212,6 +226,71 @@ public class FicheAffectationService {
             case AGENT_CJ -> fiche.getAgentDesigne().getNomComplet() + " (Conseiller Juridique)";
             case BRPD -> "BRPD";
         };
+    }
+
+    /** Rôle Keycloak du chef d'un département : CHEF_ + code (CHEF_DEI, CHEF_DAC). */
+    static String roleDuChef(Departement departement) {
+        return "CHEF_" + departement.getCode();
+    }
+
+    /** Agents actifs du département qui portent le rôle de chef ; refus s'il n'y en a aucun. */
+    private List<Agent> resolveChefsDuDepartement(Departement departement) {
+        List<Agent> chefs = resolveActiveAgentsByRole(roleDuChef(departement)).stream()
+                .filter(agent -> appartientAuDepartement(agent, departement))
+                .toList();
+        if (chefs.isEmpty()) {
+            throw new BusinessException("Aucun chef n'est désigné pour le département " + departement.getCode()
+                    + " : attribuez le rôle " + roleDuChef(departement)
+                    + " à un agent actif de ce département avant d'affecter le dossier.");
+        }
+        return chefs;
+    }
+
+    private static boolean appartientAuDepartement(Agent agent, Departement departement) {
+        return agent.getDepartement() != null && agent.getDepartement().getId().equals(departement.getId());
+    }
+
+    /**
+     * Le chef du département désigné répartit le dossier à des agents de son département : chacun reçoit
+     * l'habilitation sur le dossier et une notification. Seuls ces agents (et le chef) y ont accès.
+     */
+    @Transactional
+    public FicheAffectation repartir(UUID dossierId, List<UUID> agentIds) {
+        FicheAffectation fiche = getFicheOrThrow(dossierId);
+        if (fiche.getTypeDesignation() != TypeDesignation.DEPARTEMENT || fiche.getDepartementDesigne() == null) {
+            throw new BusinessException("La répartition ne concerne qu'un dossier affecté à un département.");
+        }
+        Departement departement = fiche.getDepartementDesigne();
+        Agent chef = getCurrentAgentOrThrow();
+        if (!appartientAuDepartement(chef, departement) && !accessGuard.canSeeConfidential()) {
+            throw new BusinessException("Seul le chef du département désigné (" + departement.getCode()
+                    + ") peut répartir ce dossier.");
+        }
+        if (agentIds == null || agentIds.isEmpty()) {
+            throw new BusinessException("Choisissez au moins un agent du département.");
+        }
+
+        List<Agent> agents = new ArrayList<>();
+        for (UUID agentId : new java.util.LinkedHashSet<>(agentIds)) {
+            Agent agent = agentRepository.findById(agentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Agent introuvable : " + agentId));
+            if (!Boolean.TRUE.equals(agent.getActif())) {
+                throw new BusinessException("L'agent " + agent.getNomComplet() + " n'est pas actif.");
+            }
+            if (!appartientAuDepartement(agent, departement)) {
+                throw new BusinessException("L'agent " + agent.getNomComplet()
+                        + " n'appartient pas au département " + departement.getCode() + ".");
+            }
+            agents.add(agent);
+        }
+
+        for (Agent agent : agents) {
+            habilitationService.grant(fiche.getDossier(), agent, HabilitationSource.MANUAL, chef,
+                    "Répartition par le chef du département " + departement.getCode());
+        }
+        notifierDestinataires(fiche, agents);
+        log.info("Dossier {} réparti à {} agent(s) du département {}", dossierId, agents.size(), departement.getCode());
+        return fiche;
     }
 
     private List<Agent> resolveActiveAgentsByRole(String roleName) {

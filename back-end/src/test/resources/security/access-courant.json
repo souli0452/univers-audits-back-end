@@ -443,6 +443,12 @@
   "roles" : [ ],
   "expression" : "isAuthenticated()"
 }, {
+  "handler" : "FicheAffectationController#repartir(UUID,FicheAffectationRepartitionRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_FICHE_AFFECTATION_REPARTIR')"
+}, {
   "handler" : "FicheAffectationController#suivre(UUID,FicheAffectationSuiviRequest)",
   "httpMethods" : "PATCH",
   "kind" : "AUTHENTICATED",

@@ -26,7 +26,9 @@ final class AccessFixtures {
      */
     static final Set<String> POINTS_DENTREE_AJOUTES = Set.of(
             // Permissions de l'utilisateur connecté, pour l'interface (tout utilisateur connecté).
-            "AuthPermissionsController#permissions(Authentication);GET");
+            "AuthPermissionsController#permissions(Authentication);GET",
+            // Répartition d'un dossier par le chef du département (décision du 2026-11-16).
+            "FicheAffectationController#repartir(UUID,FicheAffectationRepartitionRequest);POST");
 
     private AccessFixtures() {
     }
