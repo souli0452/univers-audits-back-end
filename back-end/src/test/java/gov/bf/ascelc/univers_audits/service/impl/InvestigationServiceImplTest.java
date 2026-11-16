@@ -342,8 +342,8 @@ class InvestigationServiceImplTest {
         Agent chef = Agent.builder().id(UUID.randomUUID()).build();
         when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
         when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
-        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
-                .thenReturn(List.of(InvestigationMember.builder().agent(chef).build()));
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(true).build()));
 
         assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
                 .isInstanceOf(BusinessException.class)
@@ -360,8 +360,8 @@ class InvestigationServiceImplTest {
         Agent chef = Agent.builder().id(UUID.randomUUID()).build();
         when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
         when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
-        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
-                .thenReturn(List.of(InvestigationMember.builder().agent(chef).build()));
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(true).build()));
 
         assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "Motif", "127.0.0.1"))
                 .isInstanceOf(BusinessException.class)
@@ -387,6 +387,38 @@ class InvestigationServiceImplTest {
         service.approveDei(investigation.getId(), "127.0.0.1");
 
         assertThat(investigation.getDeiApprovedBy()).isEqualTo(chef);
+    }
+
+    @Test
+    void approveDei_refuseAussiUnAncienMembreRetireDeLEquipe() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(false).build()));
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void removeMember_refuseUneFoisLeRapportSoumisOuLEnqueteArchivee() {
+        for (InvestigationStatus statut : List.of(InvestigationStatus.COMPLETED, InvestigationStatus.ARCHIVED)) {
+            Investigation investigation = buildCompletedInvestigation();
+            investigation.setStatus(statut);
+            when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+
+            assertThatThrownBy(() -> service.removeMember(investigation.getId(), UUID.randomUUID(), "127.0.0.1"))
+                    .as(statut.name())
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("terminée");
+        }
+        verify(memberRepository, never()).save(any());
     }
 
     @Test

@@ -502,14 +502,15 @@ public class InvestigationServiceImpl implements InvestigationService {
     }
 
     /**
-     * Séparation des tâches : le chef du DEI approuve (ou rejette) le rapport de l'équipe, il ne peut donc pas être
-     * lui-même membre de cette équipe. Dans ce cas, c'est une autre personne qui doit décider.
+     * Séparation des tâches : le chef du DEI approuve (ou rejette) le rapport de l'équipe, il ne peut donc pas avoir
+     * fait partie de cette équipe. On regarde tout l'historique, y compris un membre retiré depuis : sinon il suffirait
+     * de se faire retirer de l'équipe avant d'approuver.
      */
     private void refuserLAutoApprobationDei(UUID investigationId, Agent approbateur) {
-        boolean membre = memberRepository.findByInvestigationIdAndActiveTrue(investigationId).stream()
-                .anyMatch(m -> m.getAgent() != null && m.getAgent().getId() != null
-                        && m.getAgent().getId().equals(approbateur.getId()));
-        if (membre) {
+        boolean aFaitPartieDeLEquipe = memberRepository
+                .findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigationId, approbateur.getId())
+                .isPresent();
+        if (aFaitPartieDeLEquipe) {
             throw new BusinessException("Vous faites partie de l'équipe de cette investigation : l'approbation DEI "
                     + "doit être donnée par une autre personne (un autre chef ou l'administrateur).");
         }
@@ -782,6 +783,11 @@ public class InvestigationServiceImpl implements InvestigationService {
             String ipAddress) {
 
         Investigation inv = getInvestigationOrThrow(investigationId);
+        if (inv.getStatus() == InvestigationStatus.COMPLETED
+                || inv.getStatus() == InvestigationStatus.ARCHIVED) {
+            throw new BusinessException(
+                    "Impossible de retirer un membre d'une investigation terminée");
+        }
         Agent currentAgent = agentContextResolver.getCurrentAgent();
 
         InvestigationMember member = inv.getMembers().stream()
