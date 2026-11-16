@@ -32,6 +32,7 @@ class PermissionEndToEndIntegrationTest {
     private static final String DOSSIERS = "/api/v1/dossiers";
     private static final String AGENTS = "/api/v1/agents?page=0&size=1";
     private static final String ANNUAIRE = "/api/v1/agents/active";
+    private static final String CONSEILLERS = "/api/v1/agents/conseillers-juridiques";
 
     @Autowired
     private MockMvc mvc;
@@ -94,6 +95,16 @@ class PermissionEndToEndIntegrationTest {
         assertThat(statut(get(ANNUAIRE).with(jetonAvecRoles("CGE")))).isNotIn(401, 403);
         assertThat(statut(get(ANNUAIRE).with(jetonAvecRoles("AGENT_BRPD")))).isNotIn(401, 403);
         assertThat(statut(get(ANNUAIRE).with(jetonAvecRoles("DCP")))).isEqualTo(403);
+    }
+
+    @Test
+    void laListeDesConseillersJuridiquesDeLAffectationEstOuverteAuCgeaMaisPasALaDcp() throws Exception {
+        // Le CGEA désigne un conseiller juridique sur la fiche d'affectation : il lui faut cette liste, sans
+        // pour autant gérer les agents (la route d'administration /agents reste refusée).
+        assertThat(statut(get(CONSEILLERS).with(jetonAvecRoles("CGEA")))).isEqualTo(200);
+        assertThat(statut(get(CONSEILLERS).with(jetonAvecRoles("ADMIN_DDIC")))).isEqualTo(200);
+        assertThat(statut(get(CONSEILLERS).with(jetonAvecRoles("DCP")))).isEqualTo(403);
+        assertThat(statut(get(AGENTS).with(jetonAvecRoles("CGEA")))).isEqualTo(403);
     }
 
     private int statut(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder requete) throws Exception {

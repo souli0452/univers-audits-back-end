@@ -47,6 +47,12 @@
   "roles" : [ ],
   "expression" : "hasAuthority('PERM_AGENT_VOIR')"
 }, {
+  "handler" : "AgentController#findConseillersJuridiques()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_ANNUAIRE_VOIR')"
+}, {
   "handler" : "AgentController#getAgentRoles(UUID)",
   "httpMethods" : "GET",
   "kind" : "PERMISSION",

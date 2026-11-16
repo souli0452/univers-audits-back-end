@@ -87,6 +87,20 @@ public class AgentController {
         return ResponseEntity.ok(agentService.getAvailableKeycloakRoles());
     }
 
+    /**
+     * Conseillers juridiques actifs, pour désigner l'un d'eux sur la fiche d'affectation. Même données que l'annuaire
+     * des agents actifs, donc même permission : le CGEA n'a pas besoin de gérer les agents pour cela.
+     */
+    @GetMapping("/conseillers-juridiques")
+    @HasPermission(AppPermission.AGENT_ANNUAIRE_VOIR)
+    public ResponseEntity<List<AgentSummaryResponse>> findConseillersJuridiques() {
+        return ResponseEntity.ok(
+                agentService.findActiveByKeycloakRole("CONSEILLER_JURIDIQUE").stream()
+                        .map(agentMapper::toSummaryResponse)
+                        .toList()
+        );
+    }
+
     @GetMapping("/by-role/{roleName}")
     @HasPermission(AppPermission.AGENT_VOIR)
     public ResponseEntity<List<AgentSummaryResponse>> findByRole(@PathVariable String roleName) {
