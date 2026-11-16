@@ -43,20 +43,6 @@ public class SecurityUtils {
     }
 
 
-    public boolean hasRole(String role) {
-        Authentication auth = getAuthentication();
-        if (auth == null) return false;
-
-        return auth.getAuthorities().stream()
-                .anyMatch(a -> {
-                    String authority = a.getAuthority();
-                    return authority.equals("ROLE_" + role)
-                            || authority.equals(role);
-                });
-    }
-
-
-
     /** Vrai si l'utilisateur connecté détient cette permission (autorité {@code PERM_xxx} du jeton). */
     public boolean hasPermission(AppPermission permission) {
         Authentication auth = getAuthentication();
