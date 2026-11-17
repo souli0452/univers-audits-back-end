@@ -4,6 +4,8 @@ import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
+import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
+import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeDeclarant;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
@@ -114,6 +116,57 @@ class DossierServiceImplTest {
                 .anonymous(anonymous)
                 .declarantData(declarantData)
                 .build();
+    }
+
+    // ───────── nature choisie, région d'origine et typologie : ce que le citoyen peut ou non renseigner ─────────
+
+    private void stubSoumission(DossierCreateRequest request, Declarant declarant, TypeSaisine natureCalculee,
+                                TypeSaisine natureChoisie) {
+        when(declarantMapper.toEntity(request.getDeclarantData())).thenReturn(declarant);
+        when(declarantRepository.save(declarant)).thenReturn(declarant);
+        if (natureChoisie != null) {
+            when(natureSaisineResolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, false, natureChoisie))
+                    .thenReturn(natureChoisie);
+        } else {
+            when(natureSaisineResolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, false))
+                    .thenReturn(natureCalculee);
+        }
+        when(dossierMapper.toEntity(request)).thenReturn(Dossier.builder().build());
+        when(accessCodeGenerator.generate()).thenReturn("ABCD1234");
+        when(dossierRepository.existsByAccessCode("ABCD1234")).thenReturn(false);
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    @Test
+    void submitParAgent_appliqueLaNatureChoisieLaTypologieEtLaRegion() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setNatureSaisineChoisie(TypeSaisine.DEMANDE_INTERVENTION);
+        request.setTypologieInstitutionnelle(TypologieInstitutionnelle.SOCIETES_D_ETAT);
+        request.setRegionOrigine(RegionOrigine.GUIRIKO);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, null, TypeSaisine.DEMANDE_INTERVENTION);
+
+        service.submitParAgent(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getType() == TypeSaisine.DEMANDE_INTERVENTION
+                && d.getTypologieInstitutionnelle() == TypologieInstitutionnelle.SOCIETES_D_ETAT
+                && d.getRegionOrigine() == RegionOrigine.GUIRIKO));
+    }
+
+    @Test
+    void submitCitoyen_ignoreLaNatureEtLaTypologieMaisGardeLaRegion() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setNatureSaisineChoisie(TypeSaisine.DEMANDE_INTERVENTION);
+        request.setTypologieInstitutionnelle(TypologieInstitutionnelle.SOCIETES_D_ETAT);
+        request.setRegionOrigine(RegionOrigine.KADIOGO);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getType() == TypeSaisine.DENONCIATION
+                && d.getTypologieInstitutionnelle() == null
+                && d.getRegionOrigine() == RegionOrigine.KADIOGO));
     }
 
     @Test

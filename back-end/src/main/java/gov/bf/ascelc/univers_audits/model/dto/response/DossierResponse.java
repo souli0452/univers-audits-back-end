@@ -3,6 +3,8 @@ package gov.bf.ascelc.univers_audits.model.dto.response;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
+import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
+import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
@@ -30,6 +32,8 @@ public class DossierResponse {
     private Boolean                    anonymous;
     private SubmissionMode             submissionMode;
     private SocialPlatform             socialPlatform;
+    private RegionOrigine              regionOrigine;
+    private TypologieInstitutionnelle  typologieInstitutionnelle;
     private AutoReferralSource         autoReferralSource;
     private String                     sourceReference;
     private String                     object;

@@ -8,14 +8,37 @@ import org.springframework.stereotype.Component;
 
 /**
  * Dérive TypeSaisine (nature de la saisine) depuis le type et la qualité du
- * déclarant, conformément au §4.1 du manuel ASCE-LC. Le client ne choisit
- * jamais directement la nature — elle est toujours calculée ici.
+ * déclarant, conformément au §4.1 du manuel ASCE-LC. Le citoyen ne choisit
+ * jamais directement la nature — elle est calculée ici ; seul un agent qui enregistre peut la choisir.
  *
  * <p>Une victime ou son représentant identifiés déposent une plainte ; sans identité (ou en tant que
  * témoin), le signalement est une dénonciation.
  */
 @Component
 public class NatureSaisineResolver {
+
+    /** Catégories qu'un agent peut choisir lui-même en enregistrant un dossier. */
+    private static final java.util.Set<TypeSaisine> CHOIX_DE_L_AGENT = java.util.EnumSet.of(
+            TypeSaisine.PLAINTE, TypeSaisine.DENONCIATION,
+            TypeSaisine.PLAINTE_DENONCIATION, TypeSaisine.DEMANDE_INTERVENTION);
+
+    /**
+     * Nature d'un dossier enregistré par un agent : son choix s'il en fait un (plainte, dénonciation,
+     * plainte-dénonciation ou demande d'intervention, qui peut venir d'une autorité), sinon la nature calculée.
+     */
+    public TypeSaisine resolve(TypeDeclarant typeDeclarant,
+                               QualiteDeclarant quality,
+                               boolean anonymous,
+                               TypeSaisine choisieParLAgent) {
+        if (choisieParLAgent == null) {
+            return resolve(typeDeclarant, quality, anonymous);
+        }
+        if (!CHOIX_DE_L_AGENT.contains(choisieParLAgent)) {
+            throw new BusinessException("La nature choisie doit être : plainte, dénonciation, "
+                    + "plainte-dénonciation ou demande d'intervention.");
+        }
+        return choisieParLAgent;
+    }
 
     public TypeSaisine resolve(TypeDeclarant typeDeclarant,
                                 QualiteDeclarant quality,

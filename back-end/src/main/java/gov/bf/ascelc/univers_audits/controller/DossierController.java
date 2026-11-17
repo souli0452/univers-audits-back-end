@@ -125,7 +125,7 @@ public class DossierController {
             @AuthenticationPrincipal Jwt jwt) {
 
         log.info("Création dossier par agent — mode: {}", request.getSubmissionMode());
-        DossierResponse result = dossierService.submit(request, getClientIp(httpRequest));
+        DossierResponse result = dossierService.submitParAgent(request, getClientIp(httpRequest));
 
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),

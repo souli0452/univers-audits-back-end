@@ -119,4 +119,37 @@ class NatureSaisineResolverTest {
         assertThatThrownBy(() -> resolver.resolve(null, QualiteDeclarant.TEMOIN, false))
                 .isInstanceOf(BusinessException.class);
     }
+
+    // ───────── nature choisie par un agent qui enregistre le dossier ─────────
+
+    @Test
+    void agentPeutChoisirLaNatureParmiLesQuatreCategories() {
+        for (TypeSaisine choisie : java.util.List.of(TypeSaisine.PLAINTE, TypeSaisine.DENONCIATION,
+                TypeSaisine.PLAINTE_DENONCIATION, TypeSaisine.DEMANDE_INTERVENTION)) {
+            assertThat(resolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, false, choisie))
+                    .as(choisie.name()).isEqualTo(choisie);
+        }
+    }
+
+    @Test
+    void lAgentNePeutPasChoisirSignalementNiAutoSaisine() {
+        for (TypeSaisine interdite : java.util.List.of(TypeSaisine.SIGNALEMENT, TypeSaisine.AUTO_SAISINE)) {
+            assertThatThrownBy(() -> resolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, false, interdite))
+                    .as(interdite.name()).isInstanceOf(BusinessException.class);
+        }
+    }
+
+    @Test
+    void sansChoixLaNatureResteCalculeeCommeAvant() {
+        assertThat(resolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.VICTIME, false, null))
+                .isEqualTo(TypeSaisine.PLAINTE);
+        assertThat(resolver.resolve(TypeDeclarant.PUBLIC_AUTHORITY, null, false, null))
+                .isEqualTo(TypeSaisine.SIGNALEMENT);
+    }
+
+    @Test
+    void uneDemandeDInterventionPeutVenirDUneAutoriteSansQualiteDeVictimeOuTemoin() {
+        assertThat(resolver.resolve(TypeDeclarant.PUBLIC_AUTHORITY, null, false, TypeSaisine.DEMANDE_INTERVENTION))
+                .isEqualTo(TypeSaisine.DEMANDE_INTERVENTION);
+    }
 }

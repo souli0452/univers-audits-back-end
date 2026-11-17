@@ -6,7 +6,9 @@ import gov.bf.ascelc.univers_audits.enums.DossierPriority;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.OrganisationDetail;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
+import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
+import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
 import jakarta.persistence.*;
@@ -70,6 +72,16 @@ public class Dossier extends AuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "social_platform", length = 20)
     private SocialPlatform socialPlatform;
+
+    /** Origine géographique de la saisine (statistiques publiées), renseignée par le citoyen ou l'agent. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "region_origine", length = 25)
+    private RegionOrigine regionOrigine;
+
+    /** Typologie institutionnelle de l'entité visée, qualifiée par l'agent qui enregistre. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "typologie_institutionnelle", length = 40)
+    private TypologieInstitutionnelle typologieInstitutionnelle;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auto_referral_source", length = 30)

@@ -166,8 +166,17 @@ public class DossierServiceImpl implements DossierService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public DossierResponse submit(DossierCreateRequest request,
-                                  String ipAddress) {
+    public DossierResponse submit(DossierCreateRequest request, String ipAddress) {
+        return enregistrer(request, ipAddress, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DossierResponse submitParAgent(DossierCreateRequest request, String ipAddress) {
+        return enregistrer(request, ipAddress, true);
+    }
+
+    private DossierResponse enregistrer(DossierCreateRequest request, String ipAddress, boolean parAgent) {
         log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
 
         if (request.getDeclarantData() != null
@@ -188,13 +197,18 @@ public class DossierServiceImpl implements DossierService {
         }
 
         boolean anonymousRequested = Boolean.TRUE.equals(request.getAnonymous());
-        TypeSaisine natureSaisine = natureSaisineResolver.resolve(
-                declarant.getTypeDeclarant(), request.getQuality(),
-                anonymousRequested);
+        // Le citoyen ne choisit jamais la nature ni la typologie : seul l'agent qui enregistre le peut.
+        TypeSaisine natureSaisine = parAgent && request.getNatureSaisineChoisie() != null
+                ? natureSaisineResolver.resolve(declarant.getTypeDeclarant(), request.getQuality(),
+                        anonymousRequested, request.getNatureSaisineChoisie())
+                : natureSaisineResolver.resolve(declarant.getTypeDeclarant(), request.getQuality(),
+                        anonymousRequested);
 
         Dossier dossier = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
         dossier.setType(natureSaisine);
+        dossier.setRegionOrigine(request.getRegionOrigine());
+        dossier.setTypologieInstitutionnelle(parAgent ? request.getTypologieInstitutionnelle() : null);
         dossier.setAnonymous(anonymousRequested);
         if (natureSaisine == TypeSaisine.SIGNALEMENT
                 || natureSaisine == TypeSaisine.AUTO_SAISINE) {
