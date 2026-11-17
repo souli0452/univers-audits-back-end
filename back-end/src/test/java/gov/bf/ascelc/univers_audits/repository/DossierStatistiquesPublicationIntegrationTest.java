@@ -40,12 +40,20 @@ class DossierStatistiquesPublicationIntegrationTest {
 
     private int compteur;
 
+    /** Dossier enregistré dans l'application le 10 février 2099 ; la réception n'est datée que s'il a été « reçu ». */
     private Dossier dossier(TypeSaisine type, SubmissionMode mode, SocialPlatform plateforme, RegionOrigine region,
                             TypologieInstitutionnelle typologie, DossierStatus statut) {
-        return dossiers.saveAndFlush(Dossier.builder()
+        boolean recu = statut != DossierStatus.SOUMIS;
+        Dossier d = dossiers.saveAndFlush(Dossier.builder()
                 .accessCode("S" + (++compteur) + "-" + (System.nanoTime() % 100000)).object("Objet de test")
                 .type(type).submissionMode(mode).socialPlatform(plateforme).regionOrigine(region)
-                .typologieInstitutionnelle(typologie).status(statut).receptionDate(T1_2099).build());
+                .typologieInstitutionnelle(typologie).status(statut).receptionDate(recu ? T1_2099 : null).build());
+        enregistrerLe(d, T1_2099);
+        return d;
+    }
+
+    private void enregistrerLe(Dossier d, Instant date) {
+        jdbc.update("update dossier set created_at = ? where id = ?", java.sql.Timestamp.from(date), d.getId());
     }
 
     private void etude(Dossier d, TypeInfraction infraction, Boolean competence, Boolean preuves) {
@@ -68,9 +76,10 @@ class DossierStatistiquesPublicationIntegrationTest {
         etude(c, null, true, false);
         dossier(TypeSaisine.PLAINTE, SubmissionMode.WEB_FORM, null, RegionOrigine.KADIOGO, null, DossierStatus.SOUMIS);
         // hors trimestre : ne doit pas être compté
-        dossiers.saveAndFlush(Dossier.builder().accessCode("HORS-" + (System.nanoTime() % 100000))
+        Dossier hors = dossiers.saveAndFlush(Dossier.builder().accessCode("HORS-" + (System.nanoTime() % 100000))
                 .object("Hors période").type(TypeSaisine.PLAINTE).submissionMode(SubmissionMode.WEB_FORM)
-                .status(DossierStatus.SOUMIS).receptionDate(Instant.parse("2099-08-01T10:00:00Z")).build());
+                .status(DossierStatus.SOUMIS).build());
+        enregistrerLe(hors, Instant.parse("2099-08-01T10:00:00Z"));
 
         PublicationTrimestrielleResponse t1 = service.situation(2099, "T1");
 
@@ -90,7 +99,7 @@ class DossierStatistiquesPublicationIntegrationTest {
         assertThat(parCode(t1.allegations(), "NON_QUALIFIE")).isEqualTo(3);
         assertThat(parCode(t1.traitement(), "EN_COURS")).isEqualTo(1);
         assertThat(parCode(t1.traitement(), "BOUCLES")).isEqualTo(1);
-        assertThat(parCode(t1.traitement(), "STOCK")).isEqualTo(2);
+        assertThat(parCode(t1.traitement(), "STOCK")).isEqualTo(2);   // dont le dossier déposé, pas encore reçu
         assertThat(parCode(t1.recevabilite(), "CLASSES_INCOMPETENCE")).isEqualTo(1);
         assertThat(parCode(t1.recevabilite(), "CLASSES_PREUVES_INSUFFISANTES")).isEqualTo(1);
         assertThat(parCode(t1.recevabilite(), "RECEVABLES")).isEqualTo(2);

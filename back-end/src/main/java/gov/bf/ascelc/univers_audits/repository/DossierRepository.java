@@ -256,7 +256,7 @@ public interface DossierRepository
     @Query("""
             SELECT d.submissionMode, d.socialPlatform, COUNT(d)
             FROM Dossier d
-            WHERE d.receptionDate BETWEEN :start AND :end
+            WHERE d.createdAt >= :start AND d.createdAt < :end
             GROUP BY d.submissionMode, d.socialPlatform
             """)
     List<Object[]> countByModeEtPlateformeBetween(
@@ -266,7 +266,7 @@ public interface DossierRepository
     @Query("""
             SELECT d.regionOrigine, COUNT(d)
             FROM Dossier d
-            WHERE d.receptionDate BETWEEN :start AND :end
+            WHERE d.createdAt >= :start AND d.createdAt < :end
             GROUP BY d.regionOrigine
             """)
     List<Object[]> countByRegionOrigineBetween(
@@ -276,7 +276,7 @@ public interface DossierRepository
     @Query("""
             SELECT d.typologieInstitutionnelle, COUNT(d)
             FROM Dossier d
-            WHERE d.receptionDate BETWEEN :start AND :end
+            WHERE d.createdAt >= :start AND d.createdAt < :end
             GROUP BY d.typologieInstitutionnelle
             """)
     List<Object[]> countByTypologieBetween(
@@ -289,7 +289,7 @@ public interface DossierRepository
             FROM Dossier d
             LEFT JOIN EtudeOpportunite e ON e.dossier = d
             LEFT JOIN e.typeInfraction ti
-            WHERE d.receptionDate BETWEEN :start AND :end
+            WHERE d.createdAt >= :start AND d.createdAt < :end
             GROUP BY ti.libelle
             """)
     List<Object[]> countByAllegationBetween(
@@ -300,7 +300,7 @@ public interface DossierRepository
             SELECT COUNT(d)
             FROM Dossier d
             JOIN EtudeOpportunite e ON e.dossier = d
-            WHERE d.receptionDate BETWEEN :start AND :end
+            WHERE d.createdAt >= :start AND d.createdAt < :end
               AND d.status IN :statuts
               AND e.competenceAsceLc = false
             """)
@@ -313,7 +313,7 @@ public interface DossierRepository
             SELECT COUNT(d)
             FROM Dossier d
             JOIN EtudeOpportunite e ON e.dossier = d
-            WHERE d.receptionDate BETWEEN :start AND :end
+            WHERE d.createdAt >= :start AND d.createdAt < :end
               AND d.status IN :statuts
               AND e.preuvesSuffisantes = false
               AND (e.competenceAsceLc IS NULL OR e.competenceAsceLc = true)
@@ -322,6 +322,34 @@ public interface DossierRepository
             @Param("start")   Instant start,
             @Param("end")     Instant end,
             @Param("statuts") java.util.Collection<gov.bf.ascelc.univers_audits.enums.DossierStatus> statuts);
+
+    // Une saisine est « enregistrée » dès son dépôt : la date de réception n'est posée que quand le BRPD la reçoit.
+
+    @Query("""
+            SELECT COUNT(d) FROM Dossier d
+            WHERE d.createdAt >= :start AND d.createdAt < :end
+            """)
+    long countEnregistresBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT d.type, COUNT(d) FROM Dossier d
+            WHERE d.createdAt >= :start AND d.createdAt < :end
+            GROUP BY d.type
+            """)
+    List<Object[]> countByTypeEnregistresBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT d.status, COUNT(d) FROM Dossier d
+            WHERE d.createdAt >= :start AND d.createdAt < :end
+            GROUP BY d.status
+            """)
+    List<Object[]> countByStatusEnregistresBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT SUM(d.estimatedLoss) FROM Dossier d
+            WHERE d.createdAt >= :start AND d.createdAt < :end AND d.estimatedLoss IS NOT NULL
+            """)
+    BigDecimal sumEstimatedLossEnregistresBetween(@Param("start") Instant start, @Param("end") Instant end);
 
     @Query("""
             SELECT SUM(d.estimatedLoss)

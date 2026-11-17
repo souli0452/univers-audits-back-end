@@ -60,8 +60,8 @@ public class PublicationTrimestrielleService {
         Instant debut = periode.debut(annee, OUAGA_TZ);
         Instant fin = periode.fin(annee, OUAGA_TZ);
 
-        long total = dossiers.countByReceptionDateBetween(debut, fin);
-        Map<DossierStatus, Long> parStatut = parStatut(dossiers.countByStatusAndReceptionDateBetween(debut, fin));
+        long total = dossiers.countEnregistresBetween(debut, fin);
+        Map<DossierStatus, Long> parStatut = parStatut(dossiers.countByStatusEnregistresBetween(debut, fin));
 
         long enCours = somme(parStatut, EN_COURS);
         long boucles = somme(parStatut, BOUCLES);
@@ -73,7 +73,7 @@ public class PublicationTrimestrielleService {
         long preuves = dossiers.countClassesPourPreuvesInsuffisantesBetween(debut, fin, CLASSES_SANS_SUITE);
         long motifNonRenseigne = Math.max(0, classes - incompetence - preuves);
 
-        BigDecimal enjeux = dossiers.sumEstimatedLossBetween(debut, fin);
+        BigDecimal enjeux = dossiers.sumEstimatedLossEnregistresBetween(debut, fin);
 
         List<Ligne> traitement = List.of(
                 ligne("ENREGISTRES", "Dossiers enregistrés", total, total),
@@ -122,7 +122,7 @@ public class PublicationTrimestrielleService {
 
     private List<Ligne> categories(long total, Instant debut, Instant fin) {
         Map<TypeSaisine, Long> parType = new EnumMap<>(TypeSaisine.class);
-        for (Object[] r : dossiers.countByTypeBetween(debut, fin)) {
+        for (Object[] r : dossiers.countByTypeEnregistresBetween(debut, fin)) {
             parType.merge((TypeSaisine) r[0], (Long) r[1], Long::sum);
         }
         List<Ligne> lignes = new ArrayList<>();
@@ -228,7 +228,7 @@ public class PublicationTrimestrielleService {
 
     private static List<String> notes() {
         return List.of(
-                "Dossiers comptés : ceux enregistrés pendant la période (date de réception).",
+                "Dossiers comptés : ceux enregistrés dans l'application pendant la période (date de dépôt ou de saisie).",
                 "En cours de traitement : dossiers en investigation, ou dont le rapport est en circuit d'approbation.",
                 "Traités (bouclés) : dossiers clos ou classés. Stock en instance : tous les autres dossiers enregistrés.",
                 "Classés sans suite : dossiers irrecevables, transférés ou classés ; le motif vient de l'étude d'opportunité.",

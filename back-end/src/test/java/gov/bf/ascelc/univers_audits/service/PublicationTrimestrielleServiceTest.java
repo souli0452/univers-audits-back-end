@@ -45,8 +45,8 @@ class PublicationTrimestrielleServiceTest {
     @BeforeEach
     void setUp() {
         service = new PublicationTrimestrielleService(dossiers, investigations);
-        when(dossiers.countByReceptionDateBetween(any(), any())).thenReturn(74L);
-        when(dossiers.countByTypeBetween(any(), any())).thenReturn(lignes(
+        when(dossiers.countEnregistresBetween(any(), any())).thenReturn(74L);
+        when(dossiers.countByTypeEnregistresBetween(any(), any())).thenReturn(lignes(
                 new Object[]{TypeSaisine.DENONCIATION, 54L}, new Object[]{TypeSaisine.PLAINTE, 12L},
                 new Object[]{TypeSaisine.PLAINTE_DENONCIATION, 2L}, new Object[]{TypeSaisine.DEMANDE_INTERVENTION, 6L}));
         when(dossiers.countByModeEtPlateformeBetween(any(), any())).thenReturn(lignes(
@@ -64,10 +64,10 @@ class PublicationTrimestrielleServiceTest {
         when(dossiers.countByAllegationBetween(any(), any())).thenReturn(lignes(
                 new Object[]{"Corruption", 12L}, new Object[]{"Détournement et malversations financières", 17L},
                 new Object[]{null, 45L}));
-        when(dossiers.countByStatusAndReceptionDateBetween(any(), any())).thenReturn(lignes(
+        when(dossiers.countByStatusEnregistresBetween(any(), any())).thenReturn(lignes(
                 new Object[]{DossierStatus.EN_INVESTIGATION, 18L}, new Object[]{DossierStatus.CLOS, 5L},
                 new Object[]{DossierStatus.RECEVABLE, 40L}, new Object[]{DossierStatus.SOUMIS, 11L}));
-        when(dossiers.sumEstimatedLossBetween(any(), any())).thenReturn(new BigDecimal("7000000000"));
+        when(dossiers.sumEstimatedLossEnregistresBetween(any(), any())).thenReturn(new BigDecimal("7000000000"));
         when(dossiers.countClassesPourIncompetenceBetween(any(), any(), anyCollection())).thenReturn(0L);
         when(dossiers.countClassesPourPreuvesInsuffisantesBetween(any(), any(), anyCollection())).thenReturn(0L);
         when(investigations.avgDurationInDays(any(), any())).thenReturn(45.0);
@@ -175,7 +175,7 @@ class PublicationTrimestrielleServiceTest {
 
     @Test
     void laRecevabiliteCompteLesDossiersClassesSansSuiteSelonLeMotif() {
-        when(dossiers.countByStatusAndReceptionDateBetween(any(), any())).thenReturn(lignes(
+        when(dossiers.countByStatusEnregistresBetween(any(), any())).thenReturn(lignes(
                 new Object[]{DossierStatus.EN_INVESTIGATION, 60L}, new Object[]{DossierStatus.IRRECEVABLE, 6L},
                 new Object[]{DossierStatus.TRANSFERE, 2L}, new Object[]{DossierStatus.CLASSE, 6L}));
         when(dossiers.countClassesPourIncompetenceBetween(any(), any(), anyCollection())).thenReturn(5L);
@@ -240,14 +240,14 @@ class PublicationTrimestrielleServiceTest {
 
     @Test
     void unTrimestreSansDossierDonneDesTableauxVidesSansDivisionParZero() {
-        when(dossiers.countByReceptionDateBetween(any(), any())).thenReturn(0L);
-        when(dossiers.countByTypeBetween(any(), any())).thenReturn(List.of());
+        when(dossiers.countEnregistresBetween(any(), any())).thenReturn(0L);
+        when(dossiers.countByTypeEnregistresBetween(any(), any())).thenReturn(List.of());
         when(dossiers.countByModeEtPlateformeBetween(any(), any())).thenReturn(List.of());
         when(dossiers.countByTypologieBetween(any(), any())).thenReturn(List.of());
         when(dossiers.countByRegionOrigineBetween(any(), any())).thenReturn(List.of());
         when(dossiers.countByAllegationBetween(any(), any())).thenReturn(List.of());
-        when(dossiers.countByStatusAndReceptionDateBetween(any(), any())).thenReturn(List.of());
-        when(dossiers.sumEstimatedLossBetween(any(), any())).thenReturn(null);
+        when(dossiers.countByStatusEnregistresBetween(any(), any())).thenReturn(List.of());
+        when(dossiers.sumEstimatedLossEnregistresBetween(any(), any())).thenReturn(null);
         when(investigations.avgDurationInDays(any(), any())).thenReturn(null);
 
         PublicationTrimestrielleResponse r = t1();
@@ -271,14 +271,14 @@ class PublicationTrimestrielleServiceTest {
         org.mockito.ArgumentCaptor<Instant> fin = org.mockito.ArgumentCaptor.forClass(Instant.class);
 
         PublicationTrimestrielleResponse s2 = service.situation(2026, "s2");
-        org.mockito.Mockito.verify(dossiers).countByReceptionDateBetween(debut.capture(), fin.capture());
+        org.mockito.Mockito.verify(dossiers).countEnregistresBetween(debut.capture(), fin.capture());
         assertThat(s2.periode()).isEqualTo("S2 2026");
         assertThat(debut.getValue()).isEqualTo(Instant.parse("2026-07-01T00:00:00Z"));
         assertThat(fin.getValue()).isEqualTo(Instant.parse("2027-01-01T00:00:00Z"));
 
         org.mockito.Mockito.clearInvocations(dossiers);
         PublicationTrimestrielleResponse annee = service.situation(2026, "ANNEE");
-        org.mockito.Mockito.verify(dossiers).countByReceptionDateBetween(debut.capture(), fin.capture());
+        org.mockito.Mockito.verify(dossiers).countEnregistresBetween(debut.capture(), fin.capture());
         assertThat(annee.periode()).isEqualTo("Année 2026");
         assertThat(debut.getValue()).isEqualTo(Instant.parse("2026-01-01T00:00:00Z"));
         assertThat(fin.getValue()).isEqualTo(Instant.parse("2027-01-01T00:00:00Z"));
@@ -289,7 +289,7 @@ class PublicationTrimestrielleServiceTest {
         service.situation(2026, "T2");
 
         org.mockito.ArgumentCaptor<Instant> debut = org.mockito.ArgumentCaptor.forClass(Instant.class);
-        org.mockito.Mockito.verify(dossiers).countByReceptionDateBetween(debut.capture(), any());
+        org.mockito.Mockito.verify(dossiers).countEnregistresBetween(debut.capture(), any());
         // 1er avril 2026 00:00 à Ouagadougou (UTC+0)
         assertThat(debut.getValue()).isEqualTo(Instant.parse("2026-04-01T00:00:00Z"));
     }
