@@ -3,6 +3,8 @@ package gov.bf.ascelc.univers_audits.model.dto.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
+import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
+import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import jakarta.validation.Valid;
@@ -29,6 +31,28 @@ public class DossierCreateRequest {
     private SubmissionMode submissionMode;
 
     private SocialPlatform socialPlatform;
+
+    /**
+     * Origine géographique du déclarant, renseignée par le citoyen ou par l'agent : un pays étranger (diaspora), ou
+     * le Burkina Faso avec la région, la province et la commune. La zone publiée est déduite par le serveur.
+     */
+    @Size(max = 80, message = "Le pays ne peut pas dépasser 80 caractères")
+    private String paysOrigine;
+
+    private UUID origineRegionId;
+
+    private UUID origineProvinceId;
+
+    private UUID origineCommuneId;
+
+    /**
+     * Réservé à l'agent qui enregistre : plainte, dénonciation, plainte-dénonciation ou demande d'intervention.
+     * Ignoré (et jamais pris en compte) sur le dépôt public du citoyen, dont la nature reste calculée.
+     */
+    private TypeSaisine natureSaisineChoisie;
+
+    /** Réservé à l'agent : typologie institutionnelle de l'entité visée. Ignorée sur le dépôt public. */
+    private TypologieInstitutionnelle typologieInstitutionnelle;
 
     private AutoReferralSource autoReferralSource;
 

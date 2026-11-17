@@ -33,6 +33,8 @@ class PermissionEndToEndIntegrationTest {
     private static final String AGENTS = "/api/v1/agents?page=0&size=1";
     private static final String ANNUAIRE = "/api/v1/agents/active";
     private static final String CONSEILLERS = "/api/v1/agents/conseillers-juridiques";
+    private static final String GEOGRAPHIE = "/api/v1/public/geographie";
+    private static final String PUBLICATION = "/api/v1/stats/publication?year=2026&period=T1";
 
     @Autowired
     private MockMvc mvc;
@@ -105,6 +107,22 @@ class PermissionEndToEndIntegrationTest {
         assertThat(statut(get(CONSEILLERS).with(jetonAvecRoles("ADMIN_DDIC")))).isEqualTo(200);
         assertThat(statut(get(CONSEILLERS).with(jetonAvecRoles("DCP")))).isEqualTo(403);
         assertThat(statut(get(AGENTS).with(jetonAvecRoles("CGEA")))).isEqualTo(403);
+    }
+
+    @Test
+    void laSituationTrimestrielleEstOuverteALaDcpEtAuxDirectionsMaisPasAuxControleurs() throws Exception {
+        for (String role : List.of("DCP", "CGE", "CGEA", "ADMIN_DDIC")) {
+            assertThat(statut(get(PUBLICATION).with(jetonAvecRoles(role)))).as(role).isEqualTo(200);
+        }
+        assertThat(statut(get(PUBLICATION).with(jetonAvecRoles("CONTROLEUR_ETAT")))).isEqualTo(403);
+        assertThat(statut(get(PUBLICATION).with(jetonAvecRoles("AGENT_BRPD")))).isEqualTo(403);
+        assertThat(statut(get(PUBLICATION))).isEqualTo(401);
+    }
+
+    @Test
+    void laGeographieEstPubliqueCarElleAlimenteLeFormulaireDeDepotDuCitoyen() throws Exception {
+        assertThat(statut(get(GEOGRAPHIE))).isEqualTo(200);
+        assertThat(statut(get(GEOGRAPHIE).with(jetonAvecRoles("AGENT_BRPD")))).isEqualTo(200);
     }
 
     private int statut(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder requete) throws Exception {

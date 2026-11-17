@@ -479,6 +479,12 @@
   "roles" : [ ],
   "expression" : "hasAuthority('PERM_LECON_PUBLIER')"
 }, {
+  "handler" : "GeographieController#arbre()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
   "handler" : "ImageServeController#serveImage(String,String)",
   "httpMethods" : "GET",
   "kind" : "NONE",
@@ -1216,6 +1222,12 @@
   "kind" : "NONE",
   "roles" : [ ],
   "expression" : null
+}, {
+  "handler" : "StatistiqueController#getPublicationTrimestrielle(int,String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_GLOBALE_VOIR')"
 }, {
   "handler" : "StatistiqueController#getQuarterlyStats(int,int)",
   "httpMethods" : "GET",

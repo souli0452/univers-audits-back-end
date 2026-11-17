@@ -34,7 +34,11 @@ public interface DossierService {
     Page<DossierResponse> findByReceptionDateBetween(
             Instant start, Instant end, Pageable pageable);
 
+    /** Dépôt public du citoyen : la nature reste calculée, la typologie institutionnelle est ignorée. */
     DossierResponse submit(DossierCreateRequest request, String ipAddress);
+
+    /** Enregistrement par un agent : il peut choisir la nature et renseigner la typologie institutionnelle. */
+    DossierResponse submitParAgent(DossierCreateRequest request, String ipAddress);
 
     DossierResponse registerReception(UUID dossierId,
                                       StatusTransitionRequest request,

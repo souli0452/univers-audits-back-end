@@ -5,7 +5,9 @@ import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.model.dto.response.ActeurEtapeDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.PublicationTrimestrielleResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatistiqueResponse;
+import gov.bf.ascelc.univers_audits.service.PublicationTrimestrielleService;
 import gov.bf.ascelc.univers_audits.service.StatistiqueService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
 import gov.bf.ascelc.univers_audits.service.DepassementEtapeService;
@@ -28,6 +30,7 @@ import java.util.Map;
 public class StatistiqueController {
 
     private final StatistiqueService statistiqueService;
+    private final PublicationTrimestrielleService publicationTrimestrielleService;
     private final RapportAnnuelPdfService rapportAnnuelPdfService;
     private final DepassementEtapeService depassementEtapeService;
 
@@ -52,6 +55,21 @@ public class StatistiqueController {
                     "La date de fin doit être postérieure à la date de début");
         }
         return ResponseEntity.ok(statistiqueService.getDashboard(start, end));
+    }
+
+    /**
+     * « Situation des plaintes et dénonciations » d'un trimestre (T1 à T4), d'un semestre (S1, S2) ou de l'année
+     * (ANNEE), telle que publiée sur le site : huit tableaux
+     * d'agrégats sans donnée personnelle (mêmes droits que le tableau de bord global).
+     */
+    @GetMapping("/publication")
+    @HasPermission(AppPermission.STATISTIQUE_GLOBALE_VOIR)
+    public ResponseEntity<PublicationTrimestrielleResponse> getPublicationTrimestrielle(
+            @RequestParam int year,
+            @RequestParam String period) {
+
+        log.info("Situation publiée — {} {}", period, year);
+        return ResponseEntity.ok(publicationTrimestrielleService.situation(year, period));
     }
 
     @GetMapping("/depassements-etapes")

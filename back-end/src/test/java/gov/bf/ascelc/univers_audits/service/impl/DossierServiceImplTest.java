@@ -4,6 +4,11 @@ import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
+import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
+import gov.bf.ascelc.univers_audits.model.entity.GeoRegion;
+import gov.bf.ascelc.univers_audits.service.GeographieService;
+import gov.bf.ascelc.univers_audits.service.GeographieService.OrigineGeographique;
+import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeDeclarant;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
@@ -45,6 +50,7 @@ import gov.bf.ascelc.univers_audits.shared.utils.DossierAuditRecorder;
 import gov.bf.ascelc.univers_audits.shared.utils.NatureSaisineResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.SecurityUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
 import org.mockito.InjectMocks;
@@ -63,6 +69,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -86,6 +94,7 @@ class DossierServiceImplTest {
     @Mock private DossierAuditRecorder auditRecorder;
     @Mock private ParametreDelaiService parametreDelaiService;
     @Mock private NatureSaisineResolver natureSaisineResolver;
+    @Mock private GeographieService geographieService;
     @Mock private DossierAccessGuard accessGuard;
     @Mock private CurrentUserAuditor currentUserAuditor;
     @Mock private DossierHabilitationService habilitationService;
@@ -96,6 +105,12 @@ class DossierServiceImplTest {
 
     @InjectMocks
     private DossierServiceImpl service;
+
+    @BeforeEach
+    void origineParDefaut() {
+        lenient().when(geographieService.resoudreOrigine(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(OrigineGeographique.aucune());
+    }
 
     private DossierCreateRequest buildRequest(QualiteDeclarant quality) {
         return buildRequest(quality, false);
@@ -114,6 +129,104 @@ class DossierServiceImplTest {
                 .anonymous(anonymous)
                 .declarantData(declarantData)
                 .build();
+    }
+
+    // ───────── nature choisie, région d'origine et typologie : ce que le citoyen peut ou non renseigner ─────────
+
+    private void stubSoumission(DossierCreateRequest request, Declarant declarant, TypeSaisine natureCalculee,
+                                TypeSaisine natureChoisie) {
+        boolean anonyme = Boolean.TRUE.equals(request.getAnonymous());
+        when(declarantMapper.toEntity(request.getDeclarantData())).thenReturn(declarant);
+        when(declarantRepository.save(declarant)).thenReturn(declarant);
+        if (natureChoisie != null) {
+            when(natureSaisineResolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, anonyme, natureChoisie))
+                    .thenReturn(natureChoisie);
+        } else {
+            when(natureSaisineResolver.resolve(TypeDeclarant.CITIZEN, QualiteDeclarant.TEMOIN, anonyme))
+                    .thenReturn(natureCalculee);
+        }
+        when(dossierMapper.toEntity(request)).thenReturn(Dossier.builder().build());
+        when(accessCodeGenerator.generate()).thenReturn("ABCD1234");
+        when(dossierRepository.existsByAccessCode("ABCD1234")).thenReturn(false);
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    private GeoRegion unRegion(String libelle, RegionOrigine zone) {
+        return GeoRegion.builder().id(UUID.randomUUID()).code(libelle.toUpperCase()).libelle(libelle)
+                .zonePublication(zone).build();
+    }
+
+    @Test
+    void submitParAgent_appliqueLaNatureChoisieLaTypologieEtLOrigineGeographique() {
+        GeoRegion guiriko = unRegion("Guiriko", RegionOrigine.GUIRIKO);
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setNatureSaisineChoisie(TypeSaisine.DEMANDE_INTERVENTION);
+        request.setTypologieInstitutionnelle(TypologieInstitutionnelle.SOCIETES_D_ETAT);
+        request.setOrigineRegionId(guiriko.getId());
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, null, TypeSaisine.DEMANDE_INTERVENTION);
+        when(geographieService.resoudreOrigine(null, guiriko.getId(), null, null, false))
+                .thenReturn(new OrigineGeographique("Burkina Faso", guiriko, null, null, RegionOrigine.GUIRIKO));
+
+        service.submitParAgent(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getType() == TypeSaisine.DEMANDE_INTERVENTION
+                && d.getTypologieInstitutionnelle() == TypologieInstitutionnelle.SOCIETES_D_ETAT
+                && d.getRegionOrigine() == RegionOrigine.GUIRIKO
+                && "Burkina Faso".equals(d.getOriginePays())
+                && d.getOrigineRegion() == guiriko));
+    }
+
+    @Test
+    void submitCitoyen_ignoreLaNatureEtLaTypologieMaisGardeLOrigineGeographique() {
+        GeoRegion kadiogo = unRegion("Kadiogo", RegionOrigine.KADIOGO);
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setNatureSaisineChoisie(TypeSaisine.DEMANDE_INTERVENTION);
+        request.setTypologieInstitutionnelle(TypologieInstitutionnelle.SOCIETES_D_ETAT);
+        request.setOrigineRegionId(kadiogo.getId());
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+        when(geographieService.resoudreOrigine(null, kadiogo.getId(), null, null, false))
+                .thenReturn(new OrigineGeographique("Burkina Faso", kadiogo, null, null, RegionOrigine.KADIOGO));
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getType() == TypeSaisine.DENONCIATION
+                && d.getTypologieInstitutionnelle() == null
+                && d.getRegionOrigine() == RegionOrigine.KADIOGO
+                && d.getOrigineRegion() == kadiogo));
+    }
+
+    @Test
+    void submitAnonyme_demandeUneOrigineRestreinteALaRegionPourNePasIdentifierLeLanceurDAlerte() {
+        UUID region = UUID.randomUUID();
+        UUID province = UUID.randomUUID();
+        UUID commune = UUID.randomUUID();
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN, true);
+        request.setOrigineRegionId(region);
+        request.setOrigineProvinceId(province);
+        request.setOrigineCommuneId(commune);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(geographieService).resoudreOrigine(null, region, province, commune, true);
+    }
+
+    @Test
+    void submitAvecUnPaysEtranger_transmetLePaysAuServiceDeGeographie() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setPaysOrigine("Côte d'Ivoire");
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+        when(geographieService.resoudreOrigine("Côte d'Ivoire", null, null, null, false))
+                .thenReturn(new OrigineGeographique("Côte d'Ivoire", null, null, null, RegionOrigine.DIASPORA));
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getRegionOrigine() == RegionOrigine.DIASPORA
+                && "Côte d'Ivoire".equals(d.getOriginePays()) && d.getOrigineRegion() == null));
     }
 
     @Test
@@ -544,7 +657,7 @@ class DossierServiceImplTest {
                 dossierRepository, declarantRepository, notificationRepository, observationRepository,
                 dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
                 notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
-                natureSaisineResolver, realGuard, habilitationService, portalConfigService,
+                natureSaisineResolver, geographieService, realGuard, habilitationService, portalConfigService,
                 etudeOpportuniteRepository, decisionCGERepository, deadlineCalculator, currentUserAuditor);
 
         assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
