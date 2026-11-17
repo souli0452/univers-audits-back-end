@@ -30,7 +30,9 @@ final class AccessFixtures {
             // Répartition d'un dossier par le chef du département (décision du 2026-11-16).
             "FicheAffectationController#repartir(UUID,FicheAffectationRepartitionRequest);POST",
             // Conseillers juridiques proposés à l'affectation : le CGEA n'a plus la route d'administration des agents.
-            "AgentController#findConseillersJuridiques();GET");
+            "AgentController#findConseillersJuridiques();GET",
+            // Situation trimestrielle publiée sur le site (mêmes droits que le tableau de bord global).
+            "StatistiqueController#getPublicationTrimestrielle(int,int);GET");
 
     private AccessFixtures() {
     }

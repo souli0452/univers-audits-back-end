@@ -1217,6 +1217,12 @@
   "roles" : [ ],
   "expression" : null
 }, {
+  "handler" : "StatistiqueController#getPublicationTrimestrielle(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_GLOBALE_VOIR')"
+}, {
   "handler" : "StatistiqueController#getQuarterlyStats(int,int)",
   "httpMethods" : "GET",
   "kind" : "PERMISSION",

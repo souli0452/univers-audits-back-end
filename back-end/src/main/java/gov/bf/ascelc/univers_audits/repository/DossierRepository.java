@@ -251,6 +251,78 @@ public interface DossierRepository
             @Param("start") Instant start,
             @Param("end")   Instant end);
 
+    // ───────── situation trimestrielle publiée (huit tableaux) ─────────
+
+    @Query("""
+            SELECT d.submissionMode, d.socialPlatform, COUNT(d)
+            FROM Dossier d
+            WHERE d.receptionDate BETWEEN :start AND :end
+            GROUP BY d.submissionMode, d.socialPlatform
+            """)
+    List<Object[]> countByModeEtPlateformeBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query("""
+            SELECT d.regionOrigine, COUNT(d)
+            FROM Dossier d
+            WHERE d.receptionDate BETWEEN :start AND :end
+            GROUP BY d.regionOrigine
+            """)
+    List<Object[]> countByRegionOrigineBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query("""
+            SELECT d.typologieInstitutionnelle, COUNT(d)
+            FROM Dossier d
+            WHERE d.receptionDate BETWEEN :start AND :end
+            GROUP BY d.typologieInstitutionnelle
+            """)
+    List<Object[]> countByTypologieBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    /** Allégation (infraction) retenue à l'étude d'opportunité ; libellé nul = dossier pas encore qualifié. */
+    @Query("""
+            SELECT ti.libelle, COUNT(d)
+            FROM Dossier d
+            LEFT JOIN EtudeOpportunite e ON e.dossier = d
+            LEFT JOIN e.typeInfraction ti
+            WHERE d.receptionDate BETWEEN :start AND :end
+            GROUP BY ti.libelle
+            """)
+    List<Object[]> countByAllegationBetween(
+            @Param("start") Instant start,
+            @Param("end")   Instant end);
+
+    @Query("""
+            SELECT COUNT(d)
+            FROM Dossier d
+            JOIN EtudeOpportunite e ON e.dossier = d
+            WHERE d.receptionDate BETWEEN :start AND :end
+              AND d.status IN :statuts
+              AND e.competenceAsceLc = false
+            """)
+    long countClassesPourIncompetenceBetween(
+            @Param("start")   Instant start,
+            @Param("end")     Instant end,
+            @Param("statuts") java.util.Collection<gov.bf.ascelc.univers_audits.enums.DossierStatus> statuts);
+
+    @Query("""
+            SELECT COUNT(d)
+            FROM Dossier d
+            JOIN EtudeOpportunite e ON e.dossier = d
+            WHERE d.receptionDate BETWEEN :start AND :end
+              AND d.status IN :statuts
+              AND e.preuvesSuffisantes = false
+              AND (e.competenceAsceLc IS NULL OR e.competenceAsceLc = true)
+            """)
+    long countClassesPourPreuvesInsuffisantesBetween(
+            @Param("start")   Instant start,
+            @Param("end")     Instant end,
+            @Param("statuts") java.util.Collection<gov.bf.ascelc.univers_audits.enums.DossierStatus> statuts);
+
     @Query("""
             SELECT SUM(d.estimatedLoss)
             FROM Dossier d
