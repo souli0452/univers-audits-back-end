@@ -33,6 +33,7 @@ class PdfExportServiceTest {
 
     @Mock private DossierService dossierService;
     @Mock private StatusHistoryRepository statusHistoryRepository;
+    @Mock private ProtectedIdentityExportAuditor exportAuditor;
 
     @InjectMocks
     private PdfExportService service;
@@ -60,6 +61,23 @@ class PdfExportServiceTest {
         byte[] pdf = service.exportRecepisse(dossierId);
 
         assertThat(pdf).isNotEmpty();
+    }
+
+    @Test
+    void exportRecepisse_declareLExportAuJournalDAudit() {
+        UUID dossierId = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .number("ASCE-2026-000044").accessCode("IJKL9012").type(TypeSaisine.DENONCIATION)
+                .quality(QualiteDeclarant.TEMOIN).anonymous(false).submissionMode(SubmissionMode.IN_PERSON)
+                .object("Marché public suspect").receptionDate(Instant.now())
+                .declarant(DeclarantResponse.builder().firstName("Awa").lastName("Ouedraogo")
+                        .protectionRequested(true).build())
+                .build();
+        when(dossierService.findById(dossierId)).thenReturn(dossier);
+
+        service.exportRecepisse(dossierId);
+
+        org.mockito.Mockito.verify(exportAuditor).record(dossier, "Récépissé de dépôt");
     }
 
     @Test

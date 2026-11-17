@@ -1,0 +1,1369 @@
+[ {
+  "handler" : "AccessMatrixController#matrice()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ACCES_MATRICE_VOIR')"
+}, {
+  "handler" : "AgentController#activate(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_ACTIVER')"
+}, {
+  "handler" : "AgentController#create(CreateAgentRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_CREER')"
+}, {
+  "handler" : "AgentController#deactivate(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_ACTIVER')"
+}, {
+  "handler" : "AgentController#findActive()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_ANNUAIRE_VOIR')"
+}, {
+  "handler" : "AgentController#findAll(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_VOIR')"
+}, {
+  "handler" : "AgentController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_VOIR')"
+}, {
+  "handler" : "AgentController#findByRole(String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_VOIR')"
+}, {
+  "handler" : "AgentController#findConseillersJuridiques()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_ANNUAIRE_VOIR')"
+}, {
+  "handler" : "AgentController#getAgentRoles(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_VOIR')"
+}, {
+  "handler" : "AgentController#getAvailableRoles()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_ROLES_ATTRIBUER')"
+}, {
+  "handler" : "AgentController#update(UUID,UpdateAgentRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_MODIFIER')"
+}, {
+  "handler" : "AgentController#updateAgentRoles(UUID,List,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AGENT_ROLES_ATTRIBUER')"
+}, {
+  "handler" : "AttachmentController#delete(String)",
+  "httpMethods" : "DELETE",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PIECE_JOINTE_SUPPRIMER')"
+}, {
+  "handler" : "AttachmentController#download(String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PIECE_JOINTE_VOIR')"
+}, {
+  "handler" : "AttachmentController#listFiles(String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PIECE_JOINTE_VOIR')"
+}, {
+  "handler" : "AttachmentController#reclasser(String,Map)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PIECE_JOINTE_RECLASSER')"
+}, {
+  "handler" : "AttachmentController#uploadFiles(String,List,String,AttachmentSource,ModeObtention,String,String)",
+  "httpMethods" : "POST",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "AuditController#getLogins(String,int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDIT_JOURNAL_VOIR')"
+}, {
+  "handler" : "AuditController#getLogs(String,String,LocalDate,LocalDate,int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDIT_JOURNAL_VOIR')"
+}, {
+  "handler" : "AuditController#getStats()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDIT_JOURNAL_VOIR')"
+}, {
+  "handler" : "AuditionController#cancel(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_PLANIFIER')"
+}, {
+  "handler" : "AuditionController#conduct(UUID,UUID,AuditionConductRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_CONDUIRE')"
+}, {
+  "handler" : "AuditionController#correctPv(UUID,UUID,PvAuditionCorrectionRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_PV_REDIGER')"
+}, {
+  "handler" : "AuditionController#createPv(UUID,UUID,PvAuditionCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_PV_REDIGER')"
+}, {
+  "handler" : "AuditionController#finalizePv(UUID,UUID,PvAuditionFinalizeRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_PV_REDIGER')"
+}, {
+  "handler" : "AuditionController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_VOIR')"
+}, {
+  "handler" : "AuditionController#getPv(UUID,UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_VOIR')"
+}, {
+  "handler" : "AuditionController#markNoShow(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_CONDUIRE')"
+}, {
+  "handler" : "AuditionController#markPvReadBack(UUID,UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_PV_REDIGER')"
+}, {
+  "handler" : "AuditionController#schedule(UUID,AuditionScheduleRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_AUDITION_PLANIFIER')"
+}, {
+  "handler" : "AuthPermissionsController#permissions(Authentication)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "ChecklistDossierTravailController#getChecklist(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_CHECKLIST_VOIR')"
+}, {
+  "handler" : "ChecklistDossierTravailController#setCoche(UUID,String,ChecklistCocheRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_CHECKLIST_COCHER')"
+}, {
+  "handler" : "ComplementPublicController#getComplementRequest(String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ComplementPublicController#submitComplement(String,String,List,HttpServletRequest)",
+  "httpMethods" : "POST",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ConfigController#getDepartements()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "ConfigController#getEnums()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ConfigController#getTypesDeclarant()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ConstitutionPartieCivileController#creerConstitution(UUID,ConstitutionPartieCivileRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARTIE_CIVILE_CONSTITUER')"
+}, {
+  "handler" : "ConstitutionPartieCivileController#getConstitution(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARTIE_CIVILE_VOIR')"
+}, {
+  "handler" : "DemandeDocumentsController#create(UUID,DemandeDocumentsCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DEMANDE_DOCUMENTS_GERER')"
+}, {
+  "handler" : "DemandeDocumentsController#escalate(UUID,UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DEMANDE_DOCUMENTS_GERER')"
+}, {
+  "handler" : "DemandeDocumentsController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DEMANDE_DOCUMENTS_VOIR')"
+}, {
+  "handler" : "DemandeDocumentsController#markReceived(UUID,UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DEMANDE_DOCUMENTS_GERER')"
+}, {
+  "handler" : "DemandeDocumentsController#reportAddressError(UUID,UUID,DemandeDocumentsAddressErrorRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DEMANDE_DOCUMENTS_GERER')"
+}, {
+  "handler" : "DossierController#close(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_CLORE')"
+}, {
+  "handler" : "DossierController#complementReceived(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_MODIFIER')"
+}, {
+  "handler" : "DossierController#create(DossierCreateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_ENREGISTRER')"
+}, {
+  "handler" : "DossierController#declareAdmissible(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_STATUER_RECEVABILITE')"
+}, {
+  "handler" : "DossierController#declareInadmissible(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_STATUER_RECEVABILITE')"
+}, {
+  "handler" : "DossierController#delaisEtapes(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_VOIR')"
+}, {
+  "handler" : "DossierController#findAll(Pageable,String,String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_VOIR')"
+}, {
+  "handler" : "DossierController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_VOIR')"
+}, {
+  "handler" : "DossierController#findByStatus(DossierStatus,Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_VOIR')"
+}, {
+  "handler" : "DossierController#findMyDossiers(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_MES_DOSSIERS_VOIR')"
+}, {
+  "handler" : "DossierController#orientAdministratif(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_STATUER_RECEVABILITE')"
+}, {
+  "handler" : "DossierController#registerReception(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_ENREGISTRER')"
+}, {
+  "handler" : "DossierController#requestComplement(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_DEMANDER_COMPLEMENT')"
+}, {
+  "handler" : "DossierController#setPriority(UUID,SetPriorityRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_PRIORISER')"
+}, {
+  "handler" : "DossierController#startOpportunityStudy(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ETUDE_OPPORTUNITE_REDIGER')"
+}, {
+  "handler" : "DossierController#submitPublic(DossierCreateRequest,HttpServletRequest)",
+  "httpMethods" : "POST",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "DossierController#submitToCtadp(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_SOUMETTRE_CTADP')"
+}, {
+  "handler" : "DossierController#toggleConfidential(UUID,boolean,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_CONFIDENTIALITE_MODIFIER')"
+}, {
+  "handler" : "DossierController#trackByAccessCode(String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "DossierController#transfer(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_TRANSFERER')"
+}, {
+  "handler" : "DossierController#update(UUID,DossierUpdateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_DOSSIER_MODIFIER')"
+}, {
+  "handler" : "DossierHabilitationController#findActive(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_HABILITATION_VOIR')"
+}, {
+  "handler" : "DossierHabilitationController#grant(UUID,HabilitationGrantRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_HABILITATION_ACCORDER')"
+}, {
+  "handler" : "DossierHabilitationController#revoke(UUID,UUID,String)",
+  "httpMethods" : "DELETE",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_HABILITATION_RETIRER')"
+}, {
+  "handler" : "EtudeOpportuniteController#find(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ETUDE_OPPORTUNITE_VOIR')"
+}, {
+  "handler" : "EtudeOpportuniteController#upsert(UUID,EtudeOpportuniteRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ETUDE_OPPORTUNITE_REDIGER')"
+}, {
+  "handler" : "FicheAffectationController#affecter(UUID,FicheAffectationAffectationRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_FICHE_AFFECTATION_AFFECTER')"
+}, {
+  "handler" : "FicheAffectationController#creer(UUID,FicheAffectationCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_FICHE_AFFECTATION_CREER')"
+}, {
+  "handler" : "FicheAffectationController#get(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "FicheAffectationController#repartir(UUID,FicheAffectationRepartitionRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_FICHE_AFFECTATION_REPARTIR')"
+}, {
+  "handler" : "FicheAffectationController#suivre(UUID,FicheAffectationSuiviRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "FicheRetexController#creer(UUID,FicheRetexRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_FICHE_RETEX_REDIGER')"
+}, {
+  "handler" : "FicheRetexController#obtenir(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_FICHE_RETEX_VOIR')"
+}, {
+  "handler" : "FicheRetexController#publierLecon(UUID,PublierLeconRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_LECON_PUBLIER')"
+}, {
+  "handler" : "ImageServeController#serveImage(String,String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ImageUploadController#listImages(String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PORTAIL_IMAGES_GERER')"
+}, {
+  "handler" : "ImageUploadController#upload(MultipartFile,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PORTAIL_IMAGES_GERER')"
+}, {
+  "handler" : "IndiceFraudeController#create(IndiceFraudeRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INDICE_FRAUDE_GERER')"
+}, {
+  "handler" : "IndiceFraudeController#getActifs(String)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "IndiceFraudeController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INDICE_FRAUDE_GERER')"
+}, {
+  "handler" : "IndiceFraudeController#update(String,IndiceFraudeRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INDICE_FRAUDE_GERER')"
+}, {
+  "handler" : "InformationPreoccupanteController#classerSansSuite(UUID)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INFO_PREOCCUPANTE_TRAITER')"
+}, {
+  "handler" : "InformationPreoccupanteController#create(InformationPreoccupanteCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INFO_PREOCCUPANTE_CREER')"
+}, {
+  "handler" : "InformationPreoccupanteController#declencherAutoSaisine(UUID,HttpServletRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INFO_PREOCCUPANTE_AUTOSAISIR')"
+}, {
+  "handler" : "InformationPreoccupanteController#findAll(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INFO_PREOCCUPANTE_VOIR')"
+}, {
+  "handler" : "InformationPreoccupanteController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INFO_PREOCCUPANTE_VOIR')"
+}, {
+  "handler" : "InformationPreoccupanteController#rattacherDossier(UUID,UUID,RattacherDossierRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INFO_PREOCCUPANTE_TRAITER')"
+}, {
+  "handler" : "InventairePiecesController#getInventaire(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVENTAIRE_PIECES_VOIR')"
+}, {
+  "handler" : "InvestigationController#addMember(UUID,AddMemberRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_EQUIPE_GERER')"
+}, {
+  "handler" : "InvestigationController#approuverProcedureUrgence(UUID,UUID,ProcedureUrgenceDecisionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_URGENCE_STATUER')"
+}, {
+  "handler" : "InvestigationController#approveCge(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_CGE_STATUER')"
+}, {
+  "handler" : "InvestigationController#approveCgea(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_CGEA_STATUER')"
+}, {
+  "handler" : "InvestigationController#approveDei(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_DEI_STATUER')"
+}, {
+  "handler" : "InvestigationController#approveLegalAdvisor(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_AVIS_JURIDIQUE_DONNER')"
+}, {
+  "handler" : "InvestigationController#declareEngagementPrealable(UUID,EngagementConfidentialiteRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "InvestigationController#declareIncident(UUID,IncidentObjectiviteRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INCIDENT_DECLARER')"
+}, {
+  "handler" : "InvestigationController#declarerMesureConservatoire(UUID,MesureConservatoireRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_MESURE_CONSERVATOIRE_DECLARER')"
+}, {
+  "handler" : "InvestigationController#deliverMandat(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_MANDAT_DELIVRER')"
+}, {
+  "handler" : "InvestigationController#demanderProcedureUrgence(UUID,ProcedureUrgenceRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_URGENCE_DEMANDER')"
+}, {
+  "handler" : "InvestigationController#extendDeadline(UUID,ExtendDeadlineRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_DELAI_PROROGER')"
+}, {
+  "handler" : "InvestigationController#findAll(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_TOUTES_VOIR')"
+}, {
+  "handler" : "InvestigationController#findByDossierId(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#findByPeriod(String,String,Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_RAPPORT_VOIR')"
+}, {
+  "handler" : "InvestigationController#findOverdue(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_RETARDS_VOIR')"
+}, {
+  "handler" : "InvestigationController#getEngagementPrealable(UUID,UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#getIncidents(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INCIDENT_VOIR')"
+}, {
+  "handler" : "InvestigationController#getMandat(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#getMesures(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#getPlan(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#getPlanRevisions(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#getProcedures(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_VOIR')"
+}, {
+  "handler" : "InvestigationController#open(UUID,InvestigationCreateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_OUVRIR')"
+}, {
+  "handler" : "InvestigationController#rejectCge(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_CGE_STATUER')"
+}, {
+  "handler" : "InvestigationController#rejectCgea(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_CGEA_STATUER')"
+}, {
+  "handler" : "InvestigationController#rejectDei(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_DEI_STATUER')"
+}, {
+  "handler" : "InvestigationController#rejeterProcedureUrgence(UUID,UUID,ProcedureUrgenceDecisionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_URGENCE_STATUER')"
+}, {
+  "handler" : "InvestigationController#removeMember(UUID,UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "DELETE",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_EQUIPE_GERER')"
+}, {
+  "handler" : "InvestigationController#resume(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_SUSPENDRE')"
+}, {
+  "handler" : "InvestigationController#revisePlan(UUID,PlanInvestigationRevisionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_PLAN_SOUMETTRE')"
+}, {
+  "handler" : "InvestigationController#start(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_DEMARRER')"
+}, {
+  "handler" : "InvestigationController#submitPlan(UUID,PlanInvestigationSubmitRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_PLAN_SOUMETTRE')"
+}, {
+  "handler" : "InvestigationController#submitReport(UUID,InvestigationUpdateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_RAPPORT_SOUMETTRE')"
+}, {
+  "handler" : "InvestigationController#suspend(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_SUSPENDRE')"
+}, {
+  "handler" : "InvestigationController#validatePlan(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_INVESTIGATION_PLAN_VALIDER')"
+}, {
+  "handler" : "JourFerieController#create(JourFerieRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_JOUR_FERIE_GERER')"
+}, {
+  "handler" : "JourFerieController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "JourFerieController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_JOUR_FERIE_GERER')"
+}, {
+  "handler" : "JourFerieController#update(UUID,JourFerieRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_JOUR_FERIE_GERER')"
+}, {
+  "handler" : "LeconAPartagerController#lister(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "MissionSuiviController#ajouter(UUID,MissionSuiviRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_MISSION_SUIVI_AJOUTER')"
+}, {
+  "handler" : "MissionSuiviController#lister(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_MISSION_SUIVI_VOIR')"
+}, {
+  "handler" : "NotificationController#cancel(UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_NOTIFICATION_FILE_GERER')"
+}, {
+  "handler" : "NotificationController#getByDossier(UUID,int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_NOTIFICATION_DOSSIER_VOIR')"
+}, {
+  "handler" : "NotificationController#getMyNotifications(int,int,boolean,Jwt)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#getPending(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_NOTIFICATION_FILE_VOIR')"
+}, {
+  "handler" : "NotificationController#getUnreadCount(Jwt)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#markAllAsRead(Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#markAsRead(UUID,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#retry(UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_NOTIFICATION_FILE_GERER')"
+}, {
+  "handler" : "NotificationController#sendNow(UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_NOTIFICATION_FILE_GERER')"
+}, {
+  "handler" : "ObservationController#create(UUID,ObservationRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_OBSERVATION_AJOUTER')"
+}, {
+  "handler" : "ObservationController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_OBSERVATION_VOIR')"
+}, {
+  "handler" : "ParametreDelaiController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "ParametreDelaiController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARAMETRE_DELAI_GERER')"
+}, {
+  "handler" : "ParametreDelaiController#update(String,ParametreDelaiRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARAMETRE_DELAI_GERER')"
+}, {
+  "handler" : "PdfController#exportAccuseReception(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportConvocationCtadp(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PDF_CONVOCATION_CTADP_EXPORTER')"
+}, {
+  "handler" : "PdfController#exportDossier(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportLettreInformation(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PDF_LETTRE_INFORMATION_EXPORTER')"
+}, {
+  "handler" : "PdfController#exportQuitus(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PDF_QUITUS_EXPORTER')"
+}, {
+  "handler" : "PdfController#exportRecepisse(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportRecepissePublic(String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "PdfController#exportReponseMotivee(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportResumeCloture(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PlanActionsController#ajouterAvancement(UUID,NoteAvancementRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PLAN_ACTIONS_GERER')"
+}, {
+  "handler" : "PlanActionsController#creerPlanActions(UUID,PlanActionsRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PLAN_ACTIONS_GERER')"
+}, {
+  "handler" : "PlanActionsController#getStatus(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PLAN_ACTIONS_VOIR')"
+}, {
+  "handler" : "PointChecklistDossierTravailController#create(PointChecklistDossierTravailRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_CHECKLIST_POINT_GERER')"
+}, {
+  "handler" : "PointChecklistDossierTravailController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PointChecklistDossierTravailController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_CHECKLIST_POINT_GERER')"
+}, {
+  "handler" : "PointChecklistDossierTravailController#update(String,PointChecklistDossierTravailRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_CHECKLIST_POINT_GERER')"
+}, {
+  "handler" : "PortalConfigController#getAdminConfig()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PORTAIL_CONFIG_VOIR')"
+}, {
+  "handler" : "PortalConfigController#getPublicConfig()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "PortalConfigController#updateBatch(Map,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PORTAIL_CONFIG_MODIFIER')"
+}, {
+  "handler" : "PortalConfigController#updateOne(String,Map,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PORTAIL_CONFIG_MODIFIER')"
+}, {
+  "handler" : "ProfileController#changePassword(Jwt,ChangePasswordRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "ProfileController#updateProfile(Jwt,UpdateProfileRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "RapportEnqueteController#getNote(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_RAPPORT_ENQUETE_VOIR')"
+}, {
+  "handler" : "RapportEnqueteController#getRapport(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_RAPPORT_ENQUETE_VOIR')"
+}, {
+  "handler" : "RapportEnqueteController#putNote(UUID,NoteRecommandationsRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_RAPPORT_ENQUETE_REDIGER')"
+}, {
+  "handler" : "RapportEnqueteController#putRapport(UUID,RapportEnqueteRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_RAPPORT_ENQUETE_REDIGER')"
+}, {
+  "handler" : "RegistreAuditionsController#findAll(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_REGISTRE_AUDITIONS_VOIR')"
+}, {
+  "handler" : "RequeteParquetController#getRequeteParquet(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_REQUETE_PARQUET_VOIR')"
+}, {
+  "handler" : "RequeteParquetController#putRequeteParquet(UUID,RequeteParquetRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_REQUETE_PARQUET_REDIGER')"
+}, {
+  "handler" : "RoleManagementController#create(CreateRoleRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ROLE_CREER')"
+}, {
+  "handler" : "RoleManagementController#delete(String,HttpServletRequest,Jwt)",
+  "httpMethods" : "DELETE",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ROLE_SUPPRIMER')"
+}, {
+  "handler" : "RoleManagementController#getOne(String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ROLE_VOIR')"
+}, {
+  "handler" : "RoleManagementController#listAll()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ROLE_VOIR')"
+}, {
+  "handler" : "RoleManagementController#listCombinations()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ROLE_VOIR')"
+}, {
+  "handler" : "RoleManagementController#listPermissions()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ROLE_VOIR')"
+}, {
+  "handler" : "RoleManagementController#update(String,UpdateRoleRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_ROLE_MODIFIER')"
+}, {
+  "handler" : "SeanceCtadpController#addDossier(UUID,AddDossierToSeanceRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SEANCE_CTADP_PREPARER')"
+}, {
+  "handler" : "SeanceCtadpController#create(SeanceCtadpCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SEANCE_CTADP_PREPARER')"
+}, {
+  "handler" : "SeanceCtadpController#findAll(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SEANCE_CTADP_VOIR')"
+}, {
+  "handler" : "SeanceCtadpController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SEANCE_CTADP_VOIR')"
+}, {
+  "handler" : "SeanceCtadpController#recordRecommandation(UUID,UUID,RecommandationCtadpRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SEANCE_CTADP_RECOMMANDER')"
+}, {
+  "handler" : "SeanceCtadpController#tenir(UUID,TenirSeanceRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SEANCE_CTADP_TENIR')"
+}, {
+  "handler" : "SectionDossierTravailController#creerSectionDetail(String,SectionDetailCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SECTION_DOSSIER_TRAVAIL_GERER')"
+}, {
+  "handler" : "SectionDossierTravailController#definirOrganisationDetail(String,OrganisationDetailRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SECTION_DOSSIER_TRAVAIL_GERER')"
+}, {
+  "handler" : "SectionDossierTravailController#listerSections(String)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_SECTION_DOSSIER_TRAVAIL_VOIR')"
+}, {
+  "handler" : "StatistiqueController#exportAnnualStats(int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_EXPORTER')"
+}, {
+  "handler" : "StatistiqueController#getAnnualStats(int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_GLOBALE_VOIR')"
+}, {
+  "handler" : "StatistiqueController#getDashboard(Instant,Instant)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_GLOBALE_VOIR')"
+}, {
+  "handler" : "StatistiqueController#getDepassementsEtapes()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_DEPASSEMENTS_VOIR')"
+}, {
+  "handler" : "StatistiqueController#getDepassementsParActeur()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_DEPASSEMENTS_VOIR')"
+}, {
+  "handler" : "StatistiqueController#getPublicStats()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "StatistiqueController#getQuarterlyStats(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_STATISTIQUE_GLOBALE_VOIR')"
+}, {
+  "handler" : "SuiviProcedurePenaleController#ajouter(UUID,SuiviProcedurePenaleRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PROCEDURE_PENALE_AJOUTER')"
+}, {
+  "handler" : "SuiviProcedurePenaleController#lister(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PROCEDURE_PENALE_VOIR')"
+}, {
+  "handler" : "TargetedPartyController#create(UUID,TargetedPartyRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARTIE_VISEE_GERER')"
+}, {
+  "handler" : "TargetedPartyController#delete(UUID,UUID)",
+  "httpMethods" : "DELETE",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARTIE_VISEE_SUPPRIMER')"
+}, {
+  "handler" : "TargetedPartyController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARTIE_VISEE_VOIR')"
+}, {
+  "handler" : "TargetedPartyController#update(UUID,UUID,TargetedPartyRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PARTIE_VISEE_GERER')"
+}, {
+  "handler" : "TransmissionAutoriteController#ajouterRelance(UUID,RelanceSuitesRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TRANSMISSION_AUTORITE_RELANCER')"
+}, {
+  "handler" : "TransmissionAutoriteController#creerTransmission(UUID,TransmissionAutoriteRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TRANSMISSION_AUTORITE_CREER')"
+}, {
+  "handler" : "TransmissionAutoriteController#getTransmission(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TRANSMISSION_AUTORITE_VOIR')"
+}, {
+  "handler" : "TypeInfractionController#create(TypeInfractionRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TYPE_INFRACTION_GERER')"
+}, {
+  "handler" : "TypeInfractionController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "TypeInfractionController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TYPE_INFRACTION_GERER')"
+}, {
+  "handler" : "TypeInfractionController#update(String,TypeInfractionRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TYPE_INFRACTION_GERER')"
+}, {
+  "handler" : "VisiteTerrainController#cancel(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_VISITE_TERRAIN_PLANIFIER')"
+}, {
+  "handler" : "VisiteTerrainController#conduct(UUID,UUID,VisiteTerrainConductRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_VISITE_TERRAIN_CONDUIRE')"
+}, {
+  "handler" : "VisiteTerrainController#createPv(UUID,UUID,PvConstatCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_VISITE_TERRAIN_CONDUIRE')"
+}, {
+  "handler" : "VisiteTerrainController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_VISITE_TERRAIN_VOIR')"
+}, {
+  "handler" : "VisiteTerrainController#getPv(UUID,UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_VISITE_TERRAIN_VOIR')"
+}, {
+  "handler" : "VisiteTerrainController#markCarence(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_VISITE_TERRAIN_PLANIFIER')"
+}, {
+  "handler" : "VisiteTerrainController#schedule(UUID,VisiteTerrainScheduleRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_VISITE_TERRAIN_PLANIFIER')"
+}, {
+  "handler" : "WitnessController#create(UUID,WitnessRequest)",
+  "httpMethods" : "POST",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TEMOIN_GERER')"
+}, {
+  "handler" : "WitnessController#delete(UUID,UUID)",
+  "httpMethods" : "DELETE",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TEMOIN_SUPPRIMER')"
+}, {
+  "handler" : "WitnessController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TEMOIN_VOIR')"
+}, {
+  "handler" : "WitnessController#update(UUID,UUID,WitnessRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_TEMOIN_GERER')"
+} ]

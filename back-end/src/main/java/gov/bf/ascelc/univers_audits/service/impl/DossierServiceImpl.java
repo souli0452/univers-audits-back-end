@@ -9,9 +9,13 @@ import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.SetPriorityRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResume;
 import gov.bf.ascelc.univers_audits.model.dto.response.WitnessResponse;
 import gov.bf.ascelc.univers_audits.model.entity.*;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.service.CurrentUserAuditor;
+import gov.bf.ascelc.univers_audits.service.ProtectedIdentityExportAuditor;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
@@ -66,11 +70,19 @@ public class DossierServiceImpl implements DossierService {
     private final EtudeOpportuniteRepository    etudeOpportuniteRepository;
     private final DecisionCGERepository         decisionCGERepository;
     private final DeadlineCalculator            deadlineCalculator;
+    private final CurrentUserAuditor            currentUserAuditor;
 
 
     // ════════════════════════════════════════════════════════════
     //  LECTURE
     // ════════════════════════════════════════════════════════════
+
+    @Override
+    public DossierResume findResume(UUID id) {
+        Dossier dossier = getDossierOrThrow(id);
+        accessGuard.checkReadAccess(dossier);
+        return new DossierResume(dossier.getReceptionDate(), dossier.getStatus());
+    }
 
     @Override
     public DossierResponse findById(UUID id) {
@@ -95,56 +107,56 @@ public class DossierServiceImpl implements DossierService {
     @Override
     public Page<DossierResponse> findByStatus(
             DossierStatus status, Pageable pageable) {
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findByStatus(status, pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
     @Override
     public Page<DossierResponse> findMyDossiers(Pageable pageable) {
         Agent agent = agentContextResolver.getCurrentAgent();
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findByAgentInChargeId(agent.getId(), pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
     @Override
     public Page<DossierResponse> findAll(Pageable pageable) {
         if (accessGuard.canSeeConfidential()) {
-            return dossierRepository.findAll(pageable)
-                    .map(this::enrichAndMask);
+            return tracerListe(dossierRepository.findAll(pageable)
+                    .map(this::enrichAndMask));
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
         log.debug("[Dossiers] Accès restreint — agent: {} voit uniquement ses dossiers habilités",
                 agent.getMatricule());
-        if (securityUtils.hasRole("AGENT_BRPD")) {
+        if (securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)) {
             // le BRPD reçoit aussi les dépôts du portail qui attendent leur enregistrement
-            return dossierRepository
+            return tracerListe(dossierRepository
                     .findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable)
-                    .map(this::enrichAndMask);
+                    .map(this::enrichAndMask));
         }
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findAccessibleByAgentId(agent.getId(), pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
     @Override
     public Page<DossierResponse> findByReceptionDateBetween(
             Instant start, Instant end, Pageable pageable) {
         if (accessGuard.canSeeConfidential()) {
-            return dossierRepository
+            return tracerListe(dossierRepository
                     .findByReceptionDateBetween(start, end, pageable)
-                    .map(this::enrichAndMask);
+                    .map(this::enrichAndMask));
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
         log.debug("[Dossiers] Accès restreint (période) — agent: {} voit uniquement "
                         + "ses dossiers habilités",
                 agent.getMatricule());
-        return dossierRepository
+        return tracerListe(dossierRepository
                 .findAccessibleByAgentIdAndReceptionDateBetween(agent.getId(), start, end, pageable)
-                .map(this::enrichAndMask);
+                .map(this::enrichAndMask));
     }
 
 
@@ -686,14 +698,14 @@ public class DossierServiceImpl implements DossierService {
 
         boolean isProtected = dossier.getDeclarant() != null
                 && Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
-        boolean isCge  = securityUtils.hasRole("CGE");
-        boolean isCgea = securityUtils.hasRole("CGEA");
+        boolean peutTraiterLanceurAlerte =
+                securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER);
 
-        if (isProtected && !isCge && !isCgea) {
+        if (isProtected && !peutTraiterLanceurAlerte) {
             throw new BusinessException(
                     "Modification restreinte — ce dossier concerne un lanceur "
                             + "d'alerte sous protection. "
-                            + "Seuls le CGE et le CGEA sont habilités à le modifier.");
+                            + "Seuls les agents habilités à traiter ces dossiers peuvent le modifier.");
         }
 
         dossierMapper.updateEntity(request, dossier);
@@ -715,14 +727,14 @@ public class DossierServiceImpl implements DossierService {
 
         boolean isProtected = dossier.getDeclarant() != null
                 && Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested());
-        boolean isCge  = securityUtils.hasRole("CGE");
-        boolean isCgea = securityUtils.hasRole("CGEA");
+        boolean peutTraiterLanceurAlerte =
+                securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER);
 
-        if (isProtected && !value && !isCge && !isCgea) {
+        if (isProtected && !value && !peutTraiterLanceurAlerte) {
             throw new BusinessException(
                     "Impossible de retirer la confidentialité d'un dossier "
                             + "lanceur d'alerte protégé. "
-                            + "Cette action est réservée au CGE et au CGEA.");
+                            + "Cette action est réservée aux agents habilités à traiter ces dossiers.");
         }
 
         dossier.setIsConfidential(value);
@@ -749,10 +761,10 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(dossierId);
         Agent agent = agentContextResolver.getCurrentAgent();
 
-        if (!securityUtils.hasRole("CGE") && !securityUtils.hasRole("CGEA")) {
+        if (!securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)) {
             throw new BusinessException(
-                    "Seuls le CGE et le CGEA peuvent révoquer "
-                            + "une protection lanceur d'alerte.");
+                    "Seuls les agents habilités à traiter les dossiers de lanceurs d'alerte "
+                            + "peuvent révoquer une protection.");
         }
 
         if (request.getReason() == null || request.getReason().isBlank()) {
@@ -880,6 +892,9 @@ public class DossierServiceImpl implements DossierService {
      * provoquerait un N+1 sur chaque ligne.
      */
     private DossierResponse enrichAndMaskDetail(Dossier dossier) {
+        // Toute réponse de détail (ouverture, modification, confidentialité, transitions) passe ici : la trace
+        // de l'identité d'un lanceur d'alerte protégé ne dépend donc pas de l'écran qui la demande.
+        recordProtectedIdentityConsultation(dossier);
         DossierResponse response = enrichAndMask(dossier);
 
         response.setWitnesses(dossier.getWitnesses().stream()
@@ -1046,12 +1061,46 @@ public class DossierServiceImpl implements DossierService {
                 method, callerInfo, Instant.now());
     }
 
+    /**
+     * Trace dans le journal d'audit qui a consulté l'identité d'un lanceur d'alerte protégé. N'écrit que si
+     * l'identité est réellement renvoyée en clair (l'agent détient la permission) et que l'accès au dossier est
+     * accordé : les agents qui ne voient qu'un nom masqué ne laissent pas de trace.
+     */
+    private void recordProtectedIdentityConsultation(Dossier dossier) {
+        if (dossier.getDeclarant() == null
+                || !Boolean.TRUE.equals(dossier.getDeclarant().getProtectionRequested())
+                || !securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)) {
+            return;
+        }
+        currentUserAuditor.record("CONSULTER_IDENTITE_LANCEUR_ALERTE", "DOSSIER", dossier.getId().toString(),
+                "Consultation de l'identité du lanceur d'alerte protégé — dossier "
+                        + (dossier.getNumber() != null ? dossier.getNumber() : dossier.getId()));
+    }
+
+    /**
+     * Les listes renvoient aussi l'identité en clair d'un lanceur d'alerte protégé à un agent habilité : comme pour le
+     * détail, la consultation est écrite au journal d'audit, une seule entrée par liste (nombre et numéros de dossier).
+     */
+    private Page<DossierResponse> tracerListe(Page<DossierResponse> page) {
+        List<DossierResponse> exposes = page.getContent().stream()
+                .filter(r -> r.getDeclarant() != null
+                        && Boolean.TRUE.equals(r.getDeclarant().getProtectionRequested())
+                        && ProtectedIdentityExportAuditor.identiteEnClair(r.getDeclarant()))
+                .toList();
+        if (!exposes.isEmpty()) {
+            String numeros = exposes.stream().map(DossierResponse::getNumber).filter(java.util.Objects::nonNull)
+                    .distinct().limit(5).collect(java.util.stream.Collectors.joining(", "));
+            currentUserAuditor.record("CONSULTER_IDENTITE_LANCEUR_ALERTE", "DOSSIER", null,
+                    "Consultation de l'identité de " + exposes.size()
+                            + " lanceur(s) d'alerte protégé(s) dans une liste de dossiers"
+                            + (numeros.isEmpty() ? "" : " — dossier(s) : " + numeros));
+        }
+        return page;
+    }
+
     private DossierResponse maskSensitiveData(DossierResponse response) {
 
-        boolean isCge   = securityUtils.hasRole("CGE");
-        boolean isCgea  = securityUtils.hasRole("CGEA");
-        boolean isAdmin = securityUtils.hasRole("ADMIN_DDIC");
-        boolean canSeeConfidential = isCge || isCgea || isAdmin;
+        boolean canSeeConfidential = accessGuard.canSeeConfidential();
 
         if (Boolean.TRUE.equals(response.getIsConfidential())
                 && !canSeeConfidential) {
@@ -1075,7 +1124,7 @@ public class DossierServiceImpl implements DossierService {
         if (response.getDeclarant() != null
                 && Boolean.TRUE.equals(
                 response.getDeclarant().getProtectionRequested())
-                && !isCge && !isCgea) {
+                && !securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)) {
             response.getDeclarant().setFirstName(null);
             response.getDeclarant().setLastName(null);
             response.getDeclarant().setEmail(null);
@@ -1086,6 +1135,7 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setCellulaire(null);
             response.getDeclarant().setLocalite(null);
             response.getDeclarant().setProfession(null);
+            response.getDeclarant().setOrganizationName(null);
             response.getDeclarant().setDisplayName(
                     "Lanceur d'alerte protégé");
             log.debug("Dossier {} — identité lanceur d'alerte masquée",
@@ -1103,6 +1153,7 @@ public class DossierServiceImpl implements DossierService {
             response.getDeclarant().setProvince(null);
             response.getDeclarant().setCellulaire(null);
             response.getDeclarant().setLocalite(null);
+            response.getDeclarant().setOrganizationName(null);
             response.getDeclarant().setDisplayName("Déclarant anonyme");
         }
 

@@ -2,12 +2,13 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.ObservationRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.ObservationResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.ObservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,20 +21,16 @@ public class ObservationController {
 
     private final ObservationService observationService;
 
-
+    @HasPermission(AppPermission.OBSERVATION_VOIR)
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
-            "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
     public ResponseEntity<List<ObservationResponse>> findAll(
             @PathVariable UUID dossierId) {
         return ResponseEntity.ok(
                 observationService.findByDossierId(dossierId));
     }
 
-
+    @HasPermission(AppPermission.OBSERVATION_AJOUTER)
     @PostMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE'," +
-            "'CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')")
     public ResponseEntity<ObservationResponse> create(
             @PathVariable UUID dossierId,
             @Valid @RequestBody ObservationRequest request) {

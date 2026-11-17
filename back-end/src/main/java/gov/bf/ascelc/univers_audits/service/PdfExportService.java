@@ -45,6 +45,7 @@ public class PdfExportService {
     private final DossierService dossierService;
     private final StatusHistoryRepository statusHistoryRepository;
     private final FicheAffectationRepository ficheAffectationRepository;
+    private final ProtectedIdentityExportAuditor exportAuditor;
 
     @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
@@ -64,11 +65,18 @@ public class PdfExportService {
 
 
 
+    /** Charge le dossier tel que l'utilisateur a le droit de le voir et déclare l'export au journal d'audit. */
+    private DossierResponse chargerPourExport(UUID dossierId, String document) {
+        DossierResponse dossier = dossierService.findById(dossierId);
+        exportAuditor.record(dossier, document);
+        return dossier;
+    }
+
     public byte[] exportDossier(UUID dossierId) {
 
         // findById applique le contrôle d'affectation/rôle et le masquage de
         // confidentialité — le PDF ne doit jamais exposer plus que l'API JSON.
-        DossierResponse dossier = dossierService.findById(dossierId);
+        DossierResponse dossier = chargerPourExport(dossierId, "Fiche du dossier");
 
         List<StatusHistory> history =
                 statusHistoryRepository.findByDossierIdOrderByChangedAtAsc(dossierId);
@@ -115,7 +123,7 @@ public class PdfExportService {
         // findById applique le contrôle d'affectation/rôle et le masquage de
         // confidentialité — le récépissé ne doit jamais exposer plus que
         // l'API JSON, exactement comme exportDossier.
-        DossierResponse dossier = dossierService.findById(dossierId);
+        DossierResponse dossier = chargerPourExport(dossierId, "Récépissé de dépôt");
         return buildRecepissePdf(dossier);
     }
 
@@ -160,7 +168,7 @@ public class PdfExportService {
 
         // findById applique le contrôle d'affectation/rôle et le masquage de
         // confidentialité — même garde que exportRecepisse/exportDossier.
-        DossierResponse dossier = dossierService.findById(dossierId);
+        DossierResponse dossier = chargerPourExport(dossierId, "Accusé de réception");
 
         if (dossier.getDecisionCGE() == null) {
             throw new BusinessException(
@@ -201,7 +209,7 @@ public class PdfExportService {
 
     public byte[] exportReponseMotivee(UUID dossierId) {
 
-        DossierResponse dossier = dossierService.findById(dossierId);
+        DossierResponse dossier = chargerPourExport(dossierId, "Réponse motivée");
 
         if (dossier.getDecisionCGE() == null) {
             throw new BusinessException(
@@ -248,7 +256,7 @@ public class PdfExportService {
      */
     public byte[] exportResumeCloture(UUID dossierId) {
 
-        DossierResponse dossier = dossierService.findById(dossierId);
+        DossierResponse dossier = chargerPourExport(dossierId, "Résumé de clôture");
 
         if (dossier.getStatus() != gov.bf.ascelc.univers_audits.enums.DossierStatus.CLOS
                 && dossier.getStatus() != gov.bf.ascelc.univers_audits.enums.DossierStatus.CLASSE) {

@@ -2,13 +2,14 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.response.AuditLogResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.LoginLogResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -17,11 +18,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/admin/audit")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN_DDIC')")
 public class AuditController {
 
     private final AuditService auditService;
 
+    @HasPermission(AppPermission.AUDIT_JOURNAL_VOIR)
     @GetMapping
     public ResponseEntity<Page<AuditLogResponse>> getLogs(
             @RequestParam(required = false) String agentName,
@@ -37,6 +38,7 @@ public class AuditController {
                 agentName, action, dateFrom, dateTo, PageRequest.of(page, size)));
     }
 
+    @HasPermission(AppPermission.AUDIT_JOURNAL_VOIR)
     @GetMapping("/logins")
     public ResponseEntity<Page<LoginLogResponse>> getLogins(
             @RequestParam(required = false) String agentName,
@@ -47,6 +49,7 @@ public class AuditController {
                 auditService.getLogins(agentName, PageRequest.of(page, size)));
     }
 
+    @HasPermission(AppPermission.AUDIT_JOURNAL_VOIR)
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getStats() {
         return ResponseEntity.ok(auditService.getStats());

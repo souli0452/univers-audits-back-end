@@ -3,12 +3,13 @@ package gov.bf.ascelc.univers_audits.controller;
 import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsAddressErrorRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.DemandeDocumentsCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DemandeDocumentsResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.DemandeDocumentsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,22 +20,17 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DemandeDocumentsController {
 
-    private static final String READ_ROLES =
-            "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')";
-    private static final String WRITE_ROLES =
-            "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')";
-
     private final DemandeDocumentsService demandeDocumentsService;
 
     @GetMapping
-    @PreAuthorize(READ_ROLES)
+    @HasPermission(AppPermission.DEMANDE_DOCUMENTS_VOIR)
     public ResponseEntity<List<DemandeDocumentsResponse>> findAll(
             @PathVariable UUID investigationId) {
         return ResponseEntity.ok(demandeDocumentsService.findByInvestigationId(investigationId));
     }
 
     @PostMapping
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.DEMANDE_DOCUMENTS_GERER)
     public ResponseEntity<DemandeDocumentsResponse> create(
             @PathVariable UUID investigationId,
             @Valid @RequestBody DemandeDocumentsCreateRequest request) {
@@ -44,7 +40,7 @@ public class DemandeDocumentsController {
     }
 
     @PatchMapping("/{id}/mark-received")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.DEMANDE_DOCUMENTS_GERER)
     public ResponseEntity<DemandeDocumentsResponse> markReceived(
             @PathVariable UUID investigationId,
             @PathVariable UUID id) {
@@ -52,7 +48,7 @@ public class DemandeDocumentsController {
     }
 
     @PatchMapping("/{id}/escalate")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.DEMANDE_DOCUMENTS_GERER)
     public ResponseEntity<DemandeDocumentsResponse> escalate(
             @PathVariable UUID investigationId,
             @PathVariable UUID id) {
@@ -60,7 +56,7 @@ public class DemandeDocumentsController {
     }
 
     @PatchMapping("/{id}/adresse-erronee")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.DEMANDE_DOCUMENTS_GERER)
     public ResponseEntity<DemandeDocumentsResponse> reportAddressError(
             @PathVariable UUID investigationId,
             @PathVariable UUID id,

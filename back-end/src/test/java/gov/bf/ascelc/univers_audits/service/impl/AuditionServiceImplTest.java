@@ -643,7 +643,7 @@ class AuditionServiceImplTest {
                 .thenReturn(List.of(audition));
         when(mapper.toResponse(any(Audition.class)))
                 .thenReturn(AuditionResponse.builder().build());
-        when(displayNameMasker.mask(any(Audition.class))).thenReturn("Nom masqué");
+        when(displayNameMasker.maskAll(any())).thenReturn(List.of("Nom masqué"));
 
         List<AuditionResponse> result = service.findByInvestigationId(investigation.getId());
 

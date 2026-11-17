@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.JourFerieRequest;
 import gov.bf.ascelc.univers_audits.model.entity.JourFerie;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.JourFerieService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,20 +28,20 @@ public class JourFerieController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.JOUR_FERIE_GERER)
     public ResponseEntity<List<JourFerie>> getAll() {
         return ResponseEntity.ok(jourFerieService.findAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.JOUR_FERIE_GERER)
     public ResponseEntity<JourFerie> create(
             @Valid @RequestBody JourFerieRequest request) {
         return ResponseEntity.ok(jourFerieService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.JOUR_FERIE_GERER)
     public ResponseEntity<JourFerie> update(
             @PathVariable UUID id,
             @Valid @RequestBody JourFerieRequest request) {

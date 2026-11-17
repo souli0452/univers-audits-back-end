@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.IndiceFraudeRequest;
 import gov.bf.ascelc.univers_audits.model.entity.IndiceFraude;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.IndiceFraudeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,20 +28,20 @@ public class IndiceFraudeController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.INDICE_FRAUDE_GERER)
     public ResponseEntity<List<IndiceFraude>> getAll() {
         return ResponseEntity.ok(indiceFraudeService.findAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.INDICE_FRAUDE_GERER)
     public ResponseEntity<IndiceFraude> create(
             @Valid @RequestBody IndiceFraudeRequest request) {
         return ResponseEntity.ok(indiceFraudeService.create(request));
     }
 
     @PutMapping("/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.INDICE_FRAUDE_GERER)
     public ResponseEntity<IndiceFraude> update(
             @PathVariable String code,
             @Valid @RequestBody IndiceFraudeRequest request) {

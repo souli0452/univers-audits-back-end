@@ -4,7 +4,7 @@ import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.StatutSeanceCtadp;
 import gov.bf.ascelc.univers_audits.model.dto.response.DelaiEtapeResponse;
-import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResume;
 import gov.bf.ascelc.univers_audits.model.dto.response.StatutDelaiEtape;
 import gov.bf.ascelc.univers_audits.model.entity.DecisionCGE;
 import gov.bf.ascelc.univers_audits.model.entity.FicheAffectation;
@@ -60,8 +60,7 @@ class DelaiEtapeServiceTest {
     }
 
     private void dossierRecuLe(String instant) {
-        when(dossierService.findById(id)).thenReturn(DossierResponse.builder()
-                .id(id).receptionDate(Instant.parse(instant)).build());
+        when(dossierService.findResume(id)).thenReturn(new DossierResume(Instant.parse(instant), null));
     }
 
     private StatusHistory transition(DossierStatus statut, String instant) {
@@ -150,7 +149,7 @@ class DelaiEtapeServiceTest {
 
     @Test
     void dossier_sans_date_de_reception_n_a_aucune_etape() {
-        when(dossierService.findById(id)).thenReturn(DossierResponse.builder().id(id).build());
+        when(dossierService.findResume(id)).thenReturn(new DossierResume(null, null));
 
         assertThat(service.findByDossierId(id)).isEmpty();
     }
@@ -185,9 +184,8 @@ class DelaiEtapeServiceTest {
 
     @Test
     void dossier_clos_ne_signale_pas_d_etape_restee_ouverte() {
-        when(dossierService.findById(id)).thenReturn(DossierResponse.builder()
-                .id(id).status(DossierStatus.CLOS)
-                .receptionDate(Instant.parse("2026-03-02T10:00:00Z")).build());
+        when(dossierService.findResume(id)).thenReturn(
+                new DossierResume(Instant.parse("2026-03-02T10:00:00Z"), DossierStatus.CLOS));
         when(decisionRepo.findByDossierId(id)).thenReturn(Optional.of(DecisionCGE.builder()
                 .decision(RecommandationCtadp.VALIDATION_INVESTIGATION)
                 .dateDecision(Instant.parse("2026-03-20T09:00:00Z")).build()));

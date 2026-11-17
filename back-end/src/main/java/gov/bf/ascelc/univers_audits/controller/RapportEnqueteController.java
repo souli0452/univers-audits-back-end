@@ -6,6 +6,8 @@ import gov.bf.ascelc.univers_audits.model.dto.response.NoteRecommandationsRespon
 import gov.bf.ascelc.univers_audits.model.dto.response.RapportEnqueteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.NoteRecommandations;
 import gov.bf.ascelc.univers_audits.model.entity.RapportEnquete;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.RapportEnqueteService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
@@ -13,7 +15,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -24,15 +25,10 @@ import java.util.UUID;
 @RequestMapping(ApiUrls.INVESTIGATIONS + "/{id}")
 public class RapportEnqueteController {
 
-    private static final String READ_ROLES =
-            "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')";
-    private static final String WRITE_ROLES =
-            "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')";
-
     private final RapportEnqueteService rapportEnqueteService;
 
     @GetMapping("/rapport")
-    @PreAuthorize(READ_ROLES)
+    @HasPermission(AppPermission.RAPPORT_ENQUETE_VOIR)
     public ResponseEntity<RapportEnqueteResponse> getRapport(@PathVariable UUID id) {
         try {
             return ResponseEntity.ok(toResponse(rapportEnqueteService.getRapportOrThrow(id)));
@@ -42,7 +38,7 @@ public class RapportEnqueteController {
     }
 
     @PutMapping("/rapport")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.RAPPORT_ENQUETE_REDIGER)
     public ResponseEntity<RapportEnqueteResponse> putRapport(
             @PathVariable UUID id,
             @Valid @RequestBody RapportEnqueteRequest request) {
@@ -53,7 +49,7 @@ public class RapportEnqueteController {
     }
 
     @GetMapping("/note-recommandations")
-    @PreAuthorize(READ_ROLES)
+    @HasPermission(AppPermission.RAPPORT_ENQUETE_VOIR)
     public ResponseEntity<NoteRecommandationsResponse> getNote(@PathVariable UUID id) {
         try {
             return ResponseEntity.ok(toResponse(rapportEnqueteService.getNoteOrThrow(id)));
@@ -63,7 +59,7 @@ public class RapportEnqueteController {
     }
 
     @PutMapping("/note-recommandations")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.RAPPORT_ENQUETE_REDIGER)
     public ResponseEntity<NoteRecommandationsResponse> putNote(
             @PathVariable UUID id,
             @Valid @RequestBody NoteRecommandationsRequest request) {

@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.ConstitutionPartieCivileRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.ConstitutionPartieCivileResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.ConstitutionPartieCivileService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
@@ -10,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -21,15 +22,10 @@ import java.util.UUID;
 @RequestMapping(ApiUrls.INVESTIGATIONS + "/{id}/constitution-partie-civile")
 public class ConstitutionPartieCivileController {
 
-    private static final String READ_ROLES =
-            "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')";
-    private static final String WRITE_ROLES =
-            "hasAnyRole('CGE','ADMIN_DDIC')";
-
     private final ConstitutionPartieCivileService constitutionPartieCivileService;
 
     @GetMapping
-    @PreAuthorize(READ_ROLES)
+    @HasPermission(AppPermission.PARTIE_CIVILE_VOIR)
     public ResponseEntity<ConstitutionPartieCivileResponse> getConstitution(@PathVariable UUID id) {
         try {
             return ResponseEntity.ok(constitutionPartieCivileService.getOrThrow(id));
@@ -39,7 +35,7 @@ public class ConstitutionPartieCivileController {
     }
 
     @PostMapping
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.PARTIE_CIVILE_CONSTITUER)
     public ResponseEntity<ConstitutionPartieCivileResponse> creerConstitution(
             @PathVariable UUID id,
             @Valid @RequestBody ConstitutionPartieCivileRequest request) {

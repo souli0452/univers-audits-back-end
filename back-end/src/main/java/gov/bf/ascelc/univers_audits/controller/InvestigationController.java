@@ -19,6 +19,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.ProcedureUrgenceDecisionRe
 import gov.bf.ascelc.univers_audits.model.dto.request.MesureConservatoireRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.ProcedureUrgenceResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.MesureConservatoireResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.InvestigationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
@@ -68,20 +70,20 @@ public class InvestigationController {
     // ── Lecture ───────────────────────────────────────────────
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_TOUTES_VOIR)
     public ResponseEntity<Page<InvestigationResponse>> findAll(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(investigationService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<InvestigationResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.findById(id));
     }
 
     @GetMapping("/dossier/{dossierId}")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<InvestigationResponse> findByDossierId(
             @PathVariable UUID dossierId) {
         try {
@@ -92,7 +94,7 @@ public class InvestigationController {
     }
 
     @GetMapping("/overdue")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_RETARDS_VOIR)
     public ResponseEntity<Page<InvestigationResponse>> findOverdue(
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(investigationService.findOverdue(pageable));
@@ -103,9 +105,8 @@ public class InvestigationController {
      * Utilisé par le rapport d'état des investigations.
      * AGENT_BRPD exclu — conforme Manuel §A.2.1
      */
+    @HasPermission(AppPermission.INVESTIGATION_RAPPORT_VOIR)
     @GetMapping("/by-period")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','CONTROLEUR_ETAT',"
-            + "'CONSEILLER_JURIDIQUE','MEMBRE_CTADP','ADMIN_DDIC')")
     public ResponseEntity<Page<InvestigationResponse>> findByPeriod(
             @RequestParam String start,
             @RequestParam String end,
@@ -121,7 +122,7 @@ public class InvestigationController {
     // ── Workflow ──────────────────────────────────────────────
 
     @PostMapping("/dossier/{dossierId}/open")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_OUVRIR)
     public ResponseEntity<InvestigationResponse> open(
             @PathVariable UUID dossierId,
             @Valid @RequestBody InvestigationCreateRequest request,
@@ -142,7 +143,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/start")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_DEMARRER)
     public ResponseEntity<InvestigationResponse> start(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,
@@ -161,7 +162,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/suspend")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_SUSPENDRE)
     public ResponseEntity<InvestigationResponse> suspend(
             @PathVariable UUID id,
             @RequestParam String reason,
@@ -181,7 +182,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/resume")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_SUSPENDRE)
     public ResponseEntity<InvestigationResponse> resume(
             @PathVariable UUID id,
             @RequestParam(required = false) String reason,
@@ -202,7 +203,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/extend-deadline")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_DELAI_PROROGER)
     public ResponseEntity<InvestigationResponse> extendDeadline(
             @PathVariable UUID id,
             @Valid @RequestBody ExtendDeadlineRequest request,
@@ -222,7 +223,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/submit-report")
-    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_RAPPORT_SOUMETTRE)
     public ResponseEntity<InvestigationResponse> submitReport(
             @PathVariable UUID id,
             @Valid @RequestBody InvestigationUpdateRequest request,
@@ -242,7 +243,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/approve-dei")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_DEI_STATUER)
     public ResponseEntity<InvestigationResponse> approveDei(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,
@@ -261,7 +262,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/approve-legal")
-    @PreAuthorize("hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_AVIS_JURIDIQUE_DONNER)
     public ResponseEntity<InvestigationResponse> approveLegalAdvisor(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,
@@ -280,7 +281,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/approve-cge")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_CGE_STATUER)
     public ResponseEntity<InvestigationResponse> approveCge(
             @PathVariable UUID id,
             @RequestParam String reason,
@@ -300,7 +301,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/approve-cgea")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_CGEA_STATUER)
     public ResponseEntity<InvestigationResponse> approveCgea(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,
@@ -319,7 +320,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/reject-dei")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_DEI_STATUER)
     public ResponseEntity<InvestigationResponse> rejectDei(
             @PathVariable UUID id,
             @RequestParam String motif,
@@ -339,7 +340,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/reject-cgea")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_CGEA_STATUER)
     public ResponseEntity<InvestigationResponse> rejectCgea(
             @PathVariable UUID id,
             @RequestParam String motif,
@@ -359,7 +360,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/reject-cge")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_CGE_STATUER)
     public ResponseEntity<InvestigationResponse> rejectCge(
             @PathVariable UUID id,
             @RequestParam String motif,
@@ -381,7 +382,7 @@ public class InvestigationController {
     // ── Équipe ────────────────────────────────────────────────
 
     @PostMapping("/{id}/members")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_EQUIPE_GERER)
     public ResponseEntity<InvestigationResponse> addMember(
             @PathVariable UUID id,
             @Valid @RequestBody AddMemberRequest request,
@@ -401,7 +402,7 @@ public class InvestigationController {
     }
 
     @DeleteMapping("/{id}/members/{agentId}")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_EQUIPE_GERER)
     public ResponseEntity<InvestigationResponse> removeMember(
             @PathVariable UUID id,
             @PathVariable UUID agentId,
@@ -423,7 +424,7 @@ public class InvestigationController {
     // ── Mandat ────────────────────────────────────────────────
 
     @PostMapping("/{id}/mandat")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_MANDAT_DELIVRER)
     public ResponseEntity<MandatResponse> deliverMandat(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,
@@ -442,7 +443,7 @@ public class InvestigationController {
     }
 
     @GetMapping("/{id}/mandat")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<MandatResponse> getMandat(@PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getMandat(id));
     }
@@ -471,7 +472,7 @@ public class InvestigationController {
     }
 
     @GetMapping("/{id}/engagement-prealable/{agentId}")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<EngagementConfidentialiteResponse> getEngagementPrealable(
             @PathVariable UUID id,
             @PathVariable UUID agentId) {
@@ -481,7 +482,7 @@ public class InvestigationController {
     // ── Plan d'investigation ─────────────────────────────────
 
     @PostMapping("/{id}/plan-investigation")
-    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_PLAN_SOUMETTRE)
     public ResponseEntity<PlanInvestigationResponse> submitPlan(
             @PathVariable UUID id,
             @Valid @RequestBody PlanInvestigationSubmitRequest request,
@@ -502,7 +503,7 @@ public class InvestigationController {
     }
 
     @PutMapping("/{id}/plan-investigation")
-    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_PLAN_SOUMETTRE)
     public ResponseEntity<PlanInvestigationResponse> revisePlan(
             @PathVariable UUID id,
             @Valid @RequestBody PlanInvestigationRevisionRequest request,
@@ -523,7 +524,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/plan-investigation/valider")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_PLAN_VALIDER)
     public ResponseEntity<PlanInvestigationResponse> validatePlan(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,
@@ -543,13 +544,13 @@ public class InvestigationController {
     }
 
     @GetMapping("/{id}/plan-investigation")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<PlanInvestigationResponse> getPlan(@PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getPlan(id));
     }
 
     @GetMapping("/{id}/plan-investigation/revisions")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<List<RevisionPlanResponse>> getPlanRevisions(
             @PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getPlanRevisions(id));
@@ -558,7 +559,7 @@ public class InvestigationController {
     // ── Incident d'objectivité ───────────────────────────────
 
     @PostMapping("/{id}/incidents-objectivite")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INCIDENT_DECLARER)
     public ResponseEntity<IncidentObjectiviteResponse> declareIncident(
             @PathVariable UUID id,
             @Valid @RequestBody IncidentObjectiviteRequest request,
@@ -579,7 +580,7 @@ public class InvestigationController {
     }
 
     @GetMapping("/{id}/incidents-objectivite")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INCIDENT_VOIR)
     public ResponseEntity<List<IncidentObjectiviteResponse>> getIncidents(
             @PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getIncidents(id));
@@ -588,7 +589,7 @@ public class InvestigationController {
     // ── Procédure d'urgence ───────────────────────────────────
 
     @PostMapping("/{id}/procedures-urgence")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_URGENCE_DEMANDER)
     public ResponseEntity<ProcedureUrgenceResponse> demanderProcedureUrgence(
             @PathVariable UUID id,
             @Valid @RequestBody ProcedureUrgenceRequest request,
@@ -609,7 +610,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/procedures-urgence/{procedureId}/approuver")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_URGENCE_STATUER)
     public ResponseEntity<ProcedureUrgenceResponse> approuverProcedureUrgence(
             @PathVariable UUID id,
             @PathVariable UUID procedureId,
@@ -632,7 +633,7 @@ public class InvestigationController {
     }
 
     @PatchMapping("/{id}/procedures-urgence/{procedureId}/rejeter")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_URGENCE_STATUER)
     public ResponseEntity<ProcedureUrgenceResponse> rejeterProcedureUrgence(
             @PathVariable UUID id,
             @PathVariable UUID procedureId,
@@ -655,7 +656,7 @@ public class InvestigationController {
     }
 
     @GetMapping("/{id}/procedures-urgence")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<List<ProcedureUrgenceResponse>> getProcedures(
             @PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getProcedures(id));
@@ -664,7 +665,7 @@ public class InvestigationController {
     // ── Mesures conservatoires ────────────────────────────────
 
     @PostMapping("/{id}/mesures-conservatoires")
-    @PreAuthorize("hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.MESURE_CONSERVATOIRE_DECLARER)
     public ResponseEntity<MesureConservatoireResponse> declarerMesureConservatoire(
             @PathVariable UUID id,
             @Valid @RequestBody MesureConservatoireRequest request,
@@ -685,7 +686,7 @@ public class InvestigationController {
     }
 
     @GetMapping("/{id}/mesures-conservatoires")
-    @PreAuthorize("hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INVESTIGATION_VOIR)
     public ResponseEntity<List<MesureConservatoireResponse>> getMesures(
             @PathVariable UUID id) {
         return ResponseEntity.ok(investigationService.getMesures(id));

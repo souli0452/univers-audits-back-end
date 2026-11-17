@@ -51,6 +51,7 @@ public class DocumentOfficielPdfService {
 
     private final SeanceCtadpService seanceCtadpService;
     private final DossierService dossierService;
+    private final ProtectedIdentityExportAuditor exportAuditor;
 
     private static final DeviceRgb VERT_ASCE  = new DeviceRgb(26, 107, 60);
     private static final DeviceRgb OR_ASCE    = new DeviceRgb(201, 162, 39);
@@ -135,6 +136,7 @@ public class DocumentOfficielPdfService {
     public byte[] quitusCge(UUID dossierId) {
         // findById applique le contrôle d'affectation/rôle et le masquage de confidentialité.
         DossierResponse dossier = dossierService.findById(dossierId);
+        exportAuditor.record(dossier, "Quitus du CGE");
         DecisionCGEResponse decision = dossier.getDecisionCGE();
 
         if (decision == null) {
@@ -204,6 +206,7 @@ public class DocumentOfficielPdfService {
     public byte[] lettreInformationPlaignant(UUID dossierId) {
         // findById applique le contrôle d'affectation/rôle et le masquage de confidentialité.
         DossierResponse dossier = dossierService.findById(dossierId);
+        exportAuditor.record(dossier, "Lettre d'information du plaignant");
 
         if (dossier.getStatus() != DossierStatus.CLOS && dossier.getStatus() != DossierStatus.DECISION_RENDUE) {
             throw new BusinessException(

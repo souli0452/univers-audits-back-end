@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.service;
 
 import jakarta.mail.internet.MimeMessage;
+import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -161,7 +162,23 @@ public class EmailService {
                                   String agentName,
                                   String alertTitle,
                                   String alertBody) {
-        if (toEmail == null || toEmail.isBlank()) return;
+        deliverInternalAlert(toEmail, agentName, alertTitle, alertBody);
+    }
+
+    /**
+     * Comme {@link #sendInternalAlert}, mais le résultat est connu : {@code true} si le serveur de messagerie a
+     * accepté le message, {@code false} sinon. Pour les alertes qu'on ne peut pas se permettre de perdre sans le savoir.
+     */
+    @Async
+    public CompletableFuture<Boolean> sendInternalAlertTracked(String toEmail,
+                                                               String agentName,
+                                                               String alertTitle,
+                                                               String alertBody) {
+        return CompletableFuture.completedFuture(deliverInternalAlert(toEmail, agentName, alertTitle, alertBody));
+    }
+
+    private boolean deliverInternalAlert(String toEmail, String agentName, String alertTitle, String alertBody) {
+        if (toEmail == null || toEmail.isBlank()) return false;
         try {
             MimeMessage mail = mailSender.createMimeMessage();
             MimeMessageHelper helper =
@@ -175,9 +192,11 @@ public class EmailService {
 
             mailSender.send(mail);
             log.info("[Email] Alerte interne → {} — {}", toEmail, alertTitle);
+            return true;
 
         } catch (Exception e) {
             log.error("[Email] Échec alerte → {} : {}", toEmail, e.getMessage());
+            return false;
         }
     }
 

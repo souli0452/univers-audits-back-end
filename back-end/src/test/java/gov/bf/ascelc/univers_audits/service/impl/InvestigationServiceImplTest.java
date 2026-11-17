@@ -25,6 +25,7 @@ import gov.bf.ascelc.univers_audits.model.entity.PlanInvestigation;
 import gov.bf.ascelc.univers_audits.model.entity.RevisionPlan;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
 import gov.bf.ascelc.univers_audits.enums.StatutProcedureUrgence;
+import gov.bf.ascelc.univers_audits.enums.EtapeCircuitRapport;
 import gov.bf.ascelc.univers_audits.enums.InvestigationStatus;
 import gov.bf.ascelc.univers_audits.enums.InvestigationOutcome;
 import gov.bf.ascelc.univers_audits.model.dto.request.InvestigationUpdateRequest;
@@ -42,6 +43,7 @@ import gov.bf.ascelc.univers_audits.model.entity.MesureConservatoire;
 import gov.bf.ascelc.univers_audits.repository.ProcedureUrgenceRepository;
 import gov.bf.ascelc.univers_audits.repository.MesureConservatoireRepository;
 import gov.bf.ascelc.univers_audits.repository.*;
+import gov.bf.ascelc.univers_audits.service.CircuitRapportNotifier;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.EmailService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -86,6 +88,7 @@ class InvestigationServiceImplTest {
     @Mock private InvestigationMapper           investigationMapper;
     @Mock private SecurityUtils                 securityUtils;
     @Mock private AgentContextResolver          agentContextResolver;
+    @Mock private CircuitRapportNotifier        circuitNotifier;
     @Mock private DossierAuditRecorder          auditRecorder;
     @Mock private ParametreDelaiService         parametreDelaiService;
     @Mock private DossierHabilitationService    habilitationService;
@@ -270,6 +273,7 @@ class InvestigationServiceImplTest {
         assertThat(investigation.getStatus()).isEqualTo(InvestigationStatus.COMPLETED);
         assertThat(investigation.getOutcome()).isEqualTo(InvestigationOutcome.ARCHIVED);
         verify(dossierRepository).save(investigation.getDossier());
+        verify(circuitNotifier).prevenirEtape(any(Investigation.class), eq(EtapeCircuitRapport.JURIDIQUE));
     }
 
     @Test
@@ -301,6 +305,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
         assertThat(investigation.getLegalAdvisorApprovedBy()).isEqualTo(agent);
+        verify(circuitNotifier).prevenirEtape(investigation, EtapeCircuitRapport.DEI);
     }
 
     @Test
@@ -333,6 +338,136 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getDeiApprovedAt()).isNotNull();
         assertThat(investigation.getDeiApprovedBy()).isEqualTo(agent);
+        verify(circuitNotifier).prevenirEtape(investigation, EtapeCircuitRapport.CGEA);
+    }
+
+    @Test
+    void approveDei_refuseSiLApprobateurFaitPartieDeLEquipeDEnquete() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(true).build()));
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(investigation.getDeiApprovedAt()).isNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectDei_refuseSiLApprobateurFaitPartieDeLEquipeDEnquete() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(true).build()));
+
+        assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveDei_accepteUnChefQuiNEstPasDansLEquipeEvenSiLEquipeExiste() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        Agent enqueteur = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(investigationRepository.save(any(Investigation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
+                .thenReturn(List.of(InvestigationMember.builder().agent(enqueteur).build()));
+        when(investigationMapper.toResponse(investigation)).thenReturn(InvestigationResponse.builder().build());
+
+        service.approveDei(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getDeiApprovedBy()).isEqualTo(chef);
+    }
+
+    @Test
+    void approveDei_refuseAussiUnAncienMembreRetireDeLEquipe() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(false).build()));
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void removeMember_refuseUneFoisLeRapportSoumisOuLEnqueteArchivee() {
+        for (InvestigationStatus statut : List.of(InvestigationStatus.COMPLETED, InvestigationStatus.ARCHIVED)) {
+            Investigation investigation = buildCompletedInvestigation();
+            investigation.setStatus(statut);
+            when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+
+            assertThatThrownBy(() -> service.removeMember(investigation.getId(), UUID.randomUUID(), "127.0.0.1"))
+                    .as(statut.name())
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("terminée");
+        }
+        verify(memberRepository, never()).save(any());
+    }
+
+    @Test
+    void approveDei_controleLAccesAuDossierEtRefuseSansHabilitation() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(investigation.getDossier());
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectDei_controleLAccesAuDossierEtRefuseSansHabilitation() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(investigation.getDossier());
+
+        assertThatThrownBy(() -> service.rejectDei(investigation.getId(), "Motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNotNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveDei_refuseUneSecondeApprobation() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà");
+
+        verify(investigationRepository, never()).save(any());
     }
 
     @Test
@@ -367,6 +502,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getCgeaApprovedAt()).isNotNull();
         assertThat(investigation.getCgeaApprovedBy()).isEqualTo(agent);
+        verify(circuitNotifier).prevenirEtape(investigation, EtapeCircuitRapport.CGE);
     }
 
     @Test
@@ -451,6 +587,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getLegalAdvisorApprovedAt()).isNull();
         assertThat(investigation.getLegalAdvisorApprovedBy()).isNull();
+        verify(circuitNotifier).prevenirRejet(investigation, EtapeCircuitRapport.JURIDIQUE, "Preuves insuffisantes");
     }
 
     @Test
@@ -499,6 +636,7 @@ class InvestigationServiceImplTest {
 
         assertThat(investigation.getDeiApprovedAt()).isNull();
         assertThat(investigation.getDeiApprovedBy()).isNull();
+        verify(circuitNotifier).prevenirRejet(investigation, EtapeCircuitRapport.DEI, "Analyse incomplète");
     }
 
     @Test
@@ -1448,6 +1586,81 @@ class InvestigationServiceImplTest {
     }
 
     @Test
+    void validatePlan_controleLAccesAuDossierEtRefuseSansHabilitation() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Accès refusé");
+
+        verify(planInvestigationRepository, never()).save(any());
+    }
+
+    @Test
+    void validatePlan_refuseUnMembreActifOuAncienDeLEquipe() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent chef = Agent.builder().id(UUID.randomUUID()).build();
+        PlanInvestigation plan = PlanInvestigation.builder().id(UUID.randomUUID()).investigation(investigation)
+                .submittedBy(Agent.builder().id(UUID.randomUUID()).build()).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId())).thenReturn(Optional.of(plan));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(chef);
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), chef.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(chef).active(false).build()));
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(plan.getValidatedAt()).isNull();
+        verify(planInvestigationRepository, never()).save(any());
+    }
+
+    @Test
+    void validatePlan_refuseCeluiQuiAEnvoyeLePlan() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        Agent auteur = Agent.builder().id(UUID.randomUUID()).build();
+        PlanInvestigation plan = PlanInvestigation.builder().id(UUID.randomUUID()).investigation(investigation)
+                .submittedBy(auteur).build();
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId())).thenReturn(Optional.of(plan));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(auteur);
+
+        assertThatThrownBy(() -> service.validatePlan(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("votre propre plan");
+
+        verify(planInvestigationRepository, never()).save(any());
+    }
+
+    @Test
+    void submitPlan_previentLeChefDuDeiQuIlAUnPlanAValider() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
+        Investigation investigation = buildInvestigation(dossier);
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(mandatRepository.findByInvestigationId(investigation.getId()))
+                .thenReturn(Optional.of(Mandat.builder().id(UUID.randomUUID()).build()));
+        when(planInvestigationRepository.findByInvestigationId(investigation.getId())).thenReturn(Optional.empty());
+        when(agentContextResolver.getCurrentAgent()).thenReturn(Agent.builder().id(UUID.randomUUID()).build());
+        when(planInvestigationRepository.save(any(PlanInvestigation.class))).thenAnswer(inv -> {
+            PlanInvestigation p = inv.getArgument(0);
+            p.setId(UUID.randomUUID());
+            return p;
+        });
+
+        service.submitPlan(investigation.getId(),
+                PlanInvestigationSubmitRequest.builder().objectifs("Établir les faits").methodologie("Auditions").build(),
+                "127.0.0.1");
+
+        verify(circuitNotifier).prevenirValidationDuPlan(investigation);
+    }
+
+    @Test
     void validatePlan_rejectsWhenNoPlanExists() {
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
         Investigation investigation = buildInvestigation(dossier);
@@ -1490,7 +1703,7 @@ class InvestigationServiceImplTest {
         PlanInvestigation existingPlan = PlanInvestigation.builder()
                 .id(UUID.randomUUID())
                 .investigation(investigation)
-                .submittedBy(currentAgent)
+                .submittedBy(Agent.builder().id(UUID.randomUUID()).build())
                 .validatedAt(null)
                 .build();
 

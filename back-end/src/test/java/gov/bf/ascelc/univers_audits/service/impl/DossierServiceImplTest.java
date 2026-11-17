@@ -16,6 +16,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DeclarantResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResume;
 import gov.bf.ascelc.univers_audits.model.dto.response.EtudeOpportuniteResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
@@ -29,6 +30,8 @@ import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.EtudeOpportuniteRepository;
 import gov.bf.ascelc.univers_audits.repository.NotificationRepository;
 import gov.bf.ascelc.univers_audits.repository.ObservationRepository;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.service.CurrentUserAuditor;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
@@ -63,6 +66,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,6 +87,7 @@ class DossierServiceImplTest {
     @Mock private ParametreDelaiService parametreDelaiService;
     @Mock private NatureSaisineResolver natureSaisineResolver;
     @Mock private DossierAccessGuard accessGuard;
+    @Mock private CurrentUserAuditor currentUserAuditor;
     @Mock private DossierHabilitationService habilitationService;
     @Mock private PortalConfigService portalConfigService;
     @Mock private EtudeOpportuniteRepository etudeOpportuniteRepository;
@@ -214,6 +219,91 @@ class DossierServiceImplTest {
         verify(accessGuard).checkReadAccess(dossier);
     }
 
+    private Dossier dossierDeLanceurDAlerteProtege(UUID dossierId) {
+        Declarant declarant = Declarant.builder().protectionRequested(true).build();
+        return Dossier.builder().id(dossierId).number("DOS-2026-001").declarant(declarant).build();
+    }
+
+    @Test
+    void findById_tracePersistantLaConsultationDeLIdentiteDUnLanceurDAlerteProtegeParUnAgentHabilite() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findById(dossierId);
+
+        verify(currentUserAuditor).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                eq(dossierId.toString()), contains("DOS-2026-001"));
+    }
+
+    @Test
+    void findById_neTracePasLaConsultationQuandLIdentiteEstMasquee() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(false);
+
+        service.findById(dossierId);
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findById_neTracePasLaConsultationSiLAccesAuDossierEstRefuse() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        // L'agent détiendrait la permission : seul le refus du garde doit empêcher la trace.
+        lenient().when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.findById(dossierId)).isInstanceOf(BusinessException.class);
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findById_neTracePasUnDossierSansLanceurDAlerteProtege() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+
+        service.findById(dossierId);
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findResume_controleLAccesEtNeTracePasLIdentite() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        dossier.setStatus(DossierStatus.EN_ETUDE_OPPORTUNITE);
+        dossier.setReceptionDate(java.time.Instant.parse("2026-03-02T10:00:00Z"));
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        lenient().when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        DossierResume resume = service.findResume(dossierId);
+
+        assertThat(resume.receptionDate()).isEqualTo(java.time.Instant.parse("2026-03-02T10:00:00Z"));
+        assertThat(resume.status()).isEqualTo(DossierStatus.EN_ETUDE_OPPORTUNITE);
+        verify(accessGuard).checkReadAccess(dossier);
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findResume_propageLeRefusDuGarde() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).build();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        doThrow(new BusinessException("Accès refusé")).when(accessGuard).checkReadAccess(dossier);
+
+        assertThatThrownBy(() -> service.findResume(dossierId)).isInstanceOf(BusinessException.class);
+    }
+
     @Test
     void findById_propagatesGuardRejection() {
         UUID dossierId = UUID.randomUUID();
@@ -225,6 +315,111 @@ class DossierServiceImplTest {
 
         assertThatThrownBy(() -> service.findById(dossierId))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    // ───────── listes de dossiers : l'identité en clair d'un lanceur d'alerte protégé est tracée ─────────
+
+    private DossierResponse reponseAvecLanceurDAlerte(String numero, String prenom, String nom, String organisation) {
+        return DossierResponse.builder()
+                .number(numero)
+                .declarant(DeclarantResponse.builder()
+                        .protectionRequested(true).firstName(prenom).lastName(nom)
+                        .organizationName(organisation).build())
+                .build();
+    }
+
+    private void listeDeDeuxDossiersProteges() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        Dossier d2 = Dossier.builder().id(UUID.randomUUID()).number("DOS-2").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1, d2)));
+        when(dossierMapper.toResponse(d1)).thenReturn(reponseAvecLanceurDAlerte("DOS-1", "Awa", "Kaboré", null));
+        when(dossierMapper.toResponse(d2)).thenReturn(reponseAvecLanceurDAlerte("DOS-2", "Issa", "Zongo", null));
+    }
+
+    @Test
+    void findAll_traceUneSeuleFoisLIdentiteDesLanceursDAlerteProtegesDeLaListe() {
+        listeDeDeuxDossiersProteges();
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findAll(PageRequest.of(0, 20));
+
+        verify(currentUserAuditor, times(1)).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                isNull(), contains("2 lanceur"));
+    }
+
+    @Test
+    void findAll_neTracePasQuandLIdentiteEstMasquee() {
+        listeDeDeuxDossiersProteges();
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(false);
+
+        service.findAll(PageRequest.of(0, 20));
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void findAll_neTracePasUneListeSansLanceurDAlerteProtege() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierMapper.toResponse(d1)).thenReturn(DossierResponse.builder().number("DOS-1")
+                .declarant(DeclarantResponse.builder().firstName("Awa").lastName("Kaboré").build()).build());
+
+        service.findAll(PageRequest.of(0, 20));
+
+        verifyNoInteractions(currentUserAuditor);
+    }
+
+    @Test
+    void lesAutresListesTracentAussiLIdentiteDesLanceursDAlerteProteges() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        when(dossierRepository.findByStatus(any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierRepository.findByAgentInChargeId(any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierRepository.findByReceptionDateBetween(any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(d1)));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierMapper.toResponse(d1)).thenAnswer(inv -> reponseAvecLanceurDAlerte("DOS-1", "Awa", "Kaboré", null));
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findByStatus(DossierStatus.SOUMIS, PageRequest.of(0, 20));
+        service.findMyDossiers(PageRequest.of(0, 20));
+        service.findByReceptionDateBetween(java.time.Instant.now().minusSeconds(60), java.time.Instant.now(),
+                PageRequest.of(0, 20));
+
+        verify(currentUserAuditor, times(3)).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                isNull(), contains("1 lanceur"));
+    }
+
+    @Test
+    void leNomDUneOrganisationLanceuseDAlerteEstMasqueEgalementPourUnAgentNonHabilite() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        when(dossierMapper.toResponse(d1)).thenReturn(reponseAvecLanceurDAlerte("DOS-1", null, null, "Association Burkin Intègre"));
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(false);
+
+        DossierResponse reponse = service.findAll(PageRequest.of(0, 20)).getContent().get(0);
+
+        assertThat(reponse.getDeclarant().getOrganizationName()).isNull();
+        assertThat(reponse.getDeclarant().getDisplayName()).isEqualTo("Lanceur d'alerte protégé");
+    }
+
+    @Test
+    void leNomDUneOrganisationDansUnDossierAnonymeEstMasqueAussi() {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        when(accessGuard.canSeeConfidential()).thenReturn(true);
+        when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        DossierResponse anonyme = reponseAvecLanceurDAlerte("DOS-1", null, null, "Association Burkin Intègre");
+        anonyme.setAnonymous(true);
+        when(dossierMapper.toResponse(d1)).thenReturn(anonyme);
+        lenient().when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        DossierResponse reponse = service.findAll(PageRequest.of(0, 20)).getContent().get(0);
+
+        assertThat(reponse.getDeclarant().getOrganizationName()).isNull();
     }
 
     @Test
@@ -249,7 +444,7 @@ class DossierServiceImplTest {
         Pageable pageable = PageRequest.of(0, 20);
 
         when(accessGuard.canSeeConfidential()).thenReturn(false);
-        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(true);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)).thenReturn(true);
         when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
         when(dossierRepository.findAccessibleByAgentIdOrWithStatus(agent.getId(), DossierStatus.SOUMIS, pageable))
                 .thenReturn(new PageImpl<>(List.of()));
@@ -333,9 +528,7 @@ class DossierServiceImplTest {
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
         when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.of("kc-investigator"));
         when(realAgentRepository.findByKeycloakId("kc-investigator")).thenReturn(Optional.of(agent));
         // Ne dépend pas de la source (AGENT_IN_CHARGE vs INVESTIGATION_TEAM) —
@@ -352,7 +545,7 @@ class DossierServiceImplTest {
                 dossierMapper, dossierDetailsMapper, declarantMapper, accessCodeGenerator, securityUtils,
                 notificationDispatcher, agentContextResolver, auditRecorder, parametreDelaiService,
                 natureSaisineResolver, realGuard, habilitationService, portalConfigService,
-                etudeOpportuniteRepository, decisionCGERepository, deadlineCalculator);
+                etudeOpportuniteRepository, decisionCGERepository, deadlineCalculator, currentUserAuditor);
 
         assertThatCode(() -> serviceWithRealGuard.findById(dossierId))
                 .doesNotThrowAnyException();
@@ -374,7 +567,6 @@ class DossierServiceImplTest {
         when(dossierRepository.existsByNumber(anyString())).thenReturn(false);
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.registerReception(dossierId, request, "127.0.0.1");
 
@@ -404,7 +596,6 @@ class DossierServiceImplTest {
         when(dossierRepository.existsByNumber(anyString())).thenReturn(false);
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.registerReception(dossierId, request, "127.0.0.1");
 
@@ -480,7 +671,6 @@ class DossierServiceImplTest {
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(dossierMapper.toResponse(dossier)).thenReturn(response);
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         DossierResponse result = service.findById(dossierId);
 
@@ -502,12 +692,40 @@ class DossierServiceImplTest {
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
+        when(securityUtils.hasPermission(any(AppPermission.class))).thenReturn(false);
 
         assertThatCode(() -> service.update(dossierId, request)).doesNotThrowAnyException();
 
         verify(accessGuard).checkReadAccess(dossier);
         verify(dossierRepository).save(dossier);
+    }
+
+    @Test
+    void update_tracePersistantLIdentiteRenvoyeeEnClairAuLanceurDAlerteProtege() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.update(dossierId, DossierUpdateRequest.builder().object("Objet corrigé").build());
+
+        verify(currentUserAuditor, times(1)).record(eq("CONSULTER_IDENTITE_LANCEUR_ALERTE"), eq("DOSSIER"),
+                eq(dossierId.toString()), contains("DOS-2026-001"));
+    }
+
+    @Test
+    void findById_neTraceQuUneFoisParOuverture() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = dossierDeLanceurDAlerteProtege(dossierId);
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(dossierMapper.toResponse(dossier)).thenReturn(DossierResponse.builder().build());
+        when(securityUtils.hasPermission(AppPermission.LANCEUR_ALERTE_PROTEGE_TRAITER)).thenReturn(true);
+
+        service.findById(dossierId);
+
+        verify(currentUserAuditor, times(1)).record(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -555,7 +773,6 @@ class DossierServiceImplTest {
         when(etudeOpportuniteRepository.existsByDossierId(dossierId)).thenReturn(true);
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.submitToCtadp(dossierId, request, "127.0.0.1");
 
@@ -574,7 +791,6 @@ class DossierServiceImplTest {
 
         when(dossierRepository.findByAccessCode(accessCode)).thenReturn(Optional.of(dossier));
         when(dossierMapper.toResponse(dossier)).thenReturn(response);
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         DossierResponse result = service.findByAccessCode(accessCode);
 
@@ -595,7 +811,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.orientAdministratif(dossierId, request, "127.0.0.1");
 
@@ -651,7 +866,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.declareAdmissible(dossierId, request, "127.0.0.1");
 
@@ -674,7 +888,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.declareInadmissible(dossierId, request, "127.0.0.1");
 
@@ -699,7 +912,6 @@ class DossierServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
-        when(securityUtils.hasRole(anyString())).thenReturn(false);
 
         service.transfer(dossierId, request, "127.0.0.1");
 

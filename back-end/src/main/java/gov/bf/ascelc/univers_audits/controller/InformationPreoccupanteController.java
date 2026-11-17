@@ -4,6 +4,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.InformationPreoccupanteCre
 import gov.bf.ascelc.univers_audits.model.dto.request.RattacherDossierRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.InformationPreoccupanteResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.InformationPreoccupanteService;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -36,7 +37,7 @@ public class InformationPreoccupanteController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INFO_PREOCCUPANTE_CREER)
     public ResponseEntity<InformationPreoccupanteResponse> create(
             @Valid @RequestBody InformationPreoccupanteCreateRequest request) {
         log.info("Création d'une information préoccupante — objet : {}", request.getObjet());
@@ -45,20 +46,20 @@ public class InformationPreoccupanteController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INFO_PREOCCUPANTE_VOIR)
     public ResponseEntity<Page<InformationPreoccupanteResponse>> findAll(
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(informationPreoccupanteService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INFO_PREOCCUPANTE_VOIR)
     public ResponseEntity<InformationPreoccupanteResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(informationPreoccupanteService.findById(id));
     }
 
     @PostMapping("/{id}/rattacher-dossier/{dossierId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INFO_PREOCCUPANTE_TRAITER)
     public ResponseEntity<InformationPreoccupanteResponse> rattacherDossier(
             @PathVariable UUID id,
             @PathVariable UUID dossierId,
@@ -69,7 +70,7 @@ public class InformationPreoccupanteController {
     }
 
     @PostMapping("/{id}/declencher-auto-saisine")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INFO_PREOCCUPANTE_AUTOSAISIR)
     public ResponseEntity<DossierResponse> declencherAutoSaisine(
             @PathVariable UUID id, HttpServletRequest httpRequest) {
         log.info("Déclenchement auto-saisine depuis l'information préoccupante {}", id);
@@ -79,7 +80,7 @@ public class InformationPreoccupanteController {
     }
 
     @PostMapping("/{id}/classer-sans-suite")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.INFO_PREOCCUPANTE_TRAITER)
     public ResponseEntity<InformationPreoccupanteResponse> classerSansSuite(@PathVariable UUID id) {
         log.info("Classement sans suite de l'information préoccupante {}", id);
         return ResponseEntity.ok(informationPreoccupanteService.classerSansSuite(id));

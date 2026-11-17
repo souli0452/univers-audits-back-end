@@ -5,6 +5,7 @@ import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierHabilitationRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,7 @@ class DossierAccessGuardTest {
 
     @Test
     void checkReadAccess_allowsPrivilegedRoleRegardlessOfHabilitation() {
-        when(securityUtils.hasRole("CGE")).thenReturn(true);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(true);
 
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
 
@@ -41,9 +42,7 @@ class DossierAccessGuardTest {
 
     @Test
     void checkReadAccess_allowsAgentWithActiveHabilitation() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
 
         UUID agentId   = UUID.randomUUID();
         UUID dossierId = UUID.randomUUID();
@@ -60,9 +59,7 @@ class DossierAccessGuardTest {
 
     @Test
     void checkReadAccess_rejectsAgentWithoutHabilitation() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
 
         UUID agentId   = UUID.randomUUID();
         UUID dossierId = UUID.randomUUID();
@@ -80,9 +77,7 @@ class DossierAccessGuardTest {
 
     @Test
     void checkReadAccess_rejectsUnauthenticatedAgent() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
         when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
 
         Dossier dossier = Dossier.builder().id(UUID.randomUUID()).build();
@@ -141,9 +136,7 @@ class DossierAccessGuardTest {
 
     @Test
     void checkAttachmentUploadAccess_delegatesToReadAccessForOtherStatuses() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
         when(securityUtils.getCurrentKeycloakId()).thenReturn(Optional.empty());
 
         Dossier dossier = Dossier.builder()
@@ -157,9 +150,7 @@ class DossierAccessGuardTest {
 
     @Test
     void checkAttachmentUploadAccess_allowsHabilitatedAgentForOtherStatuses() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
 
         UUID agentId   = UUID.randomUUID();
         UUID dossierId = UUID.randomUUID();
@@ -180,10 +171,8 @@ class DossierAccessGuardTest {
 
     @Test
     void checkReadAccess_allowsBrpdAgentOnSubmittedDeposit() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
-        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(true);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)).thenReturn(true);
 
         Dossier depot = Dossier.builder().id(UUID.randomUUID())
                 .status(gov.bf.ascelc.univers_audits.enums.DossierStatus.SOUMIS).build();
@@ -193,9 +182,7 @@ class DossierAccessGuardTest {
 
     @Test
     void checkReadAccess_rejectsBrpdAgentOnceTheDossierIsRegisteredByAnotherAgent() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
 
         UUID agentId   = UUID.randomUUID();
         UUID dossierId = UUID.randomUUID();
@@ -212,10 +199,8 @@ class DossierAccessGuardTest {
 
     @Test
     void checkReadAccess_doesNotOpenSubmittedDepositToOtherRoles() {
-        when(securityUtils.hasRole("CGE")).thenReturn(false);
-        when(securityUtils.hasRole("CGEA")).thenReturn(false);
-        when(securityUtils.hasRole("ADMIN_DDIC")).thenReturn(false);
-        when(securityUtils.hasRole("AGENT_BRPD")).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS)).thenReturn(false);
+        when(securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER)).thenReturn(false);
 
         UUID agentId   = UUID.randomUUID();
         UUID dossierId = UUID.randomUUID();

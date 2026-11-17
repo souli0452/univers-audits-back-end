@@ -6,6 +6,7 @@ import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierHabilitationRepository;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -35,9 +36,7 @@ public class DossierAccessGuard {
     }
 
     public boolean canSeeConfidential() {
-        return securityUtils.hasRole("CGE")
-                || securityUtils.hasRole("CGEA")
-                || securityUtils.hasRole("ADMIN_DDIC");
+        return securityUtils.hasPermission(AppPermission.DOSSIER_VOIR_TOUS);
     }
 
     /** Lève BusinessException si l'agent courant n'est ni privilégié ni habilité sur ce dossier. */
@@ -67,7 +66,8 @@ public class DossierAccessGuard {
      * l'agent qui l'enregistre en devient l'agent en charge (habilitation) et l'accès redevient nominatif.
      */
     public boolean estDepotEnAttenteDEnregistrement(Dossier dossier) {
-        return dossier.getStatus() == DossierStatus.SOUMIS && securityUtils.hasRole("AGENT_BRPD");
+        return dossier.getStatus() == DossierStatus.SOUMIS
+                && securityUtils.hasPermission(AppPermission.DOSSIER_ENREGISTRER);
     }
 
     /**

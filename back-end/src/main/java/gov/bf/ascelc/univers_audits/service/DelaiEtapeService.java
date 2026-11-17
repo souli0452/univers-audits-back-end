@@ -4,7 +4,7 @@ import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.StatutSeanceCtadp;
 import gov.bf.ascelc.univers_audits.model.dto.response.DelaiEtapeResponse;
-import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResume;
 import gov.bf.ascelc.univers_audits.model.entity.DecisionCGE;
 import gov.bf.ascelc.univers_audits.model.entity.FicheAffectation;
 import gov.bf.ascelc.univers_audits.model.entity.SeanceCtadpDossier;
@@ -52,12 +52,12 @@ public class DelaiEtapeService {
 
     @Transactional(readOnly = true)
     public List<DelaiEtapeResponse> findByDossierId(UUID dossierId) {
-        // findById applique le contrôle d'affectation/rôle et le masquage de confidentialité.
-        DossierResponse dossier = dossierService.findById(dossierId);
-        List<DelaiEtapeResponse> etapes = evaluer(dossierId, dossier.getReceptionDate(), Instant.now());
+        // findResume applique le même contrôle d'affectation/rôle que findById, sans renvoyer d'identité.
+        DossierResume dossier = dossierService.findResume(dossierId);
+        List<DelaiEtapeResponse> etapes = evaluer(dossierId, dossier.receptionDate(), Instant.now());
 
         // Dossier terminé : une étape restée ouverte n'a plus lieu d'être, on ne la signale pas en retard.
-        if (dossier.getStatus() == DossierStatus.CLOS || dossier.getStatus() == DossierStatus.CLASSE) {
+        if (dossier.status() == DossierStatus.CLOS || dossier.status() == DossierStatus.CLASSE) {
             return etapes.stream().filter(e -> e.getFin() != null).toList();
         }
         return etapes;

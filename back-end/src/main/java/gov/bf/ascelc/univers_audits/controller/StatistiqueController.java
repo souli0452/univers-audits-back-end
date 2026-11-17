@@ -1,5 +1,7 @@
 package gov.bf.ascelc.univers_audits.controller;
 
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.model.dto.response.ActeurEtapeDepassementResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.ActeurDepassementResponse;
@@ -13,7 +15,6 @@ import org.springframework.http.MediaType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -30,20 +31,17 @@ public class StatistiqueController {
     private final RapportAnnuelPdfService rapportAnnuelPdfService;
     private final DepassementEtapeService depassementEtapeService;
 
-
     @GetMapping("/public")
     public ResponseEntity<Map<String, Object>> getPublicStats() {
         return ResponseEntity.ok(statistiqueService.getPublicStats());
     }
-
-
 
     /**
      * Statistiques globales (tous les dossiers) : réservées à la direction (CGE, CGEA), à l'administration et à la
      * communication (DCP). Les autres agents ne voient que leurs propres dossiers, jamais des totaux globaux.
      */
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAnyRole('CGE', 'CGEA', 'ADMIN_DDIC', 'DCP')")
+    @HasPermission(AppPermission.STATISTIQUE_GLOBALE_VOIR)
     public ResponseEntity<StatistiqueResponse> getDashboard(
             @RequestParam Instant start,
             @RequestParam Instant end) {
@@ -56,23 +54,22 @@ public class StatistiqueController {
         return ResponseEntity.ok(statistiqueService.getDashboard(start, end));
     }
 
-
     @GetMapping("/depassements-etapes")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @HasPermission(AppPermission.STATISTIQUE_DEPASSEMENTS_VOIR)
     public ResponseEntity<List<ActeurEtapeDepassementResponse>> getDepassementsEtapes() {
         log.info("Tableau des étapes du circuit en retard par acteur");
         return ResponseEntity.ok(depassementEtapeService.parActeur());
     }
 
     @GetMapping("/depassements-par-acteur")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')")
+    @HasPermission(AppPermission.STATISTIQUE_DEPASSEMENTS_VOIR)
     public ResponseEntity<List<ActeurDepassementResponse>> getDepassementsParActeur() {
         log.info("Tableau des dossiers en dépassement par acteur");
         return ResponseEntity.ok(statistiqueService.getDepassementsParActeur());
     }
 
     @GetMapping("/quarterly")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
+    @HasPermission(AppPermission.STATISTIQUE_GLOBALE_VOIR)
     public ResponseEntity<StatistiqueResponse> getQuarterlyStats(
             @RequestParam int year,
             @RequestParam int quarter) {
@@ -89,7 +86,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/annual")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
+    @HasPermission(AppPermission.STATISTIQUE_GLOBALE_VOIR)
     public ResponseEntity<StatistiqueResponse> getAnnualStats(
             @RequestParam int year) {
 
@@ -101,7 +98,7 @@ public class StatistiqueController {
     }
 
     @GetMapping("/annual/export")
-    @PreAuthorize("hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')")
+    @HasPermission(AppPermission.STATISTIQUE_EXPORTER)
     public ResponseEntity<byte[]> exportAnnualStats(
             @RequestParam int year) {
 

@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.PointChecklistDossierTravailRequest;
 import gov.bf.ascelc.univers_audits.model.entity.PointChecklistDossierTravail;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.PointChecklistDossierTravailService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,20 +28,20 @@ public class PointChecklistDossierTravailController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.CHECKLIST_POINT_GERER)
     public ResponseEntity<List<PointChecklistDossierTravail>> getAll() {
         return ResponseEntity.ok(service.findAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.CHECKLIST_POINT_GERER)
     public ResponseEntity<PointChecklistDossierTravail> create(
             @Valid @RequestBody PointChecklistDossierTravailRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
     @PutMapping("/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.CHECKLIST_POINT_GERER)
     public ResponseEntity<PointChecklistDossierTravail> update(
             @PathVariable String code,
             @Valid @RequestBody PointChecklistDossierTravailRequest request) {

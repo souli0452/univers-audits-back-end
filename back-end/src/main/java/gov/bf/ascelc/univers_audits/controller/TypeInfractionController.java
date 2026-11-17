@@ -2,6 +2,8 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.TypeInfractionRequest;
 import gov.bf.ascelc.univers_audits.model.entity.TypeInfraction;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.TypeInfractionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,20 +27,20 @@ public class TypeInfractionController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.TYPE_INFRACTION_GERER)
     public ResponseEntity<List<TypeInfraction>> getAll() {
         return ResponseEntity.ok(typeInfractionService.findAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.TYPE_INFRACTION_GERER)
     public ResponseEntity<TypeInfraction> create(
             @Valid @RequestBody TypeInfractionRequest request) {
         return ResponseEntity.ok(typeInfractionService.create(request));
     }
 
     @PutMapping("/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.TYPE_INFRACTION_GERER)
     public ResponseEntity<TypeInfraction> update(
             @PathVariable String code,
             @Valid @RequestBody TypeInfractionRequest request) {

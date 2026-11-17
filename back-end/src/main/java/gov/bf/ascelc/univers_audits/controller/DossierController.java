@@ -7,6 +7,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.SetPriorityRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DelaiEtapeResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.DelaiEtapeService;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
@@ -21,7 +23,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -55,7 +56,6 @@ public class DossierController {
         return roles != null && !roles.isEmpty() ? roles.get(0) : null;
     }
 
-
     @GetMapping("/public/track/{accessCode}")
     public ResponseEntity<DossierResponse> trackByAccessCode(
             @PathVariable String accessCode) {
@@ -72,10 +72,8 @@ public class DossierController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
-
+    @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<DossierResponse>> findAll(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable,
             @RequestParam(required = false) String start,
@@ -92,40 +90,35 @@ public class DossierController {
         return ResponseEntity.ok(dossierService.findAll(pageable));
     }
 
+    @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<DossierResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(dossierService.findById(id));
     }
 
+    @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping("/{id}/delais-etapes")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<java.util.List<DelaiEtapeResponse>> delaisEtapes(@PathVariable UUID id) {
         return ResponseEntity.ok(delaiEtapeService.findByDossierId(id));
     }
 
+    @HasPermission(AppPermission.DOSSIER_VOIR)
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<DossierResponse>> findByStatus(
             @PathVariable DossierStatus status,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(dossierService.findByStatus(status, pageable));
     }
 
+    @HasPermission(AppPermission.DOSSIER_MES_DOSSIERS_VOIR)
     @GetMapping("/my")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE',"
-            + "'CONTROLEUR_ETAT','CGEA')")
     public ResponseEntity<Page<DossierResponse>> findMyDossiers(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         return ResponseEntity.ok(dossierService.findMyDossiers(pageable));
     }
 
-
     @PostMapping
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_ENREGISTRER)
     public ResponseEntity<DossierResponse> create(
             @Valid @RequestBody DossierCreateRequest request,
             HttpServletRequest httpRequest,
@@ -143,9 +136,8 @@ public class DossierController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
-
     @PatchMapping("/{id}/register")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_ENREGISTRER)
     public ResponseEntity<DossierResponse> registerReception(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -165,7 +157,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/start-study")
-    @PreAuthorize("hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.ETUDE_OPPORTUNITE_REDIGER)
     public ResponseEntity<DossierResponse> startOpportunityStudy(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -185,7 +177,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/request-complement")
-    @PreAuthorize("hasAnyRole('CONSEILLER_JURIDIQUE','MEMBRE_CTADP','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_DEMANDER_COMPLEMENT)
     public ResponseEntity<DossierResponse> requestComplement(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -205,7 +197,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/complement-received")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_MODIFIER)
     public ResponseEntity<DossierResponse> complementReceived(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -225,7 +217,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/submit-ctadp")
-    @PreAuthorize("hasAnyRole('CONSEILLER_JURIDIQUE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_SOUMETTRE_CTADP)
     public ResponseEntity<DossierResponse> submitToCtadp(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -245,7 +237,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/declare-admissible")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_STATUER_RECEVABILITE)
     public ResponseEntity<DossierResponse> declareAdmissible(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -265,7 +257,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/declare-inadmissible")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_STATUER_RECEVABILITE)
     public ResponseEntity<DossierResponse> declareInadmissible(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -285,7 +277,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/orient-administratif")
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_STATUER_RECEVABILITE)
     public ResponseEntity<DossierResponse> orientAdministratif(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -305,7 +297,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/transfer")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_TRANSFERER)
     public ResponseEntity<DossierResponse> transfer(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -325,7 +317,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/close")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_CLORE)
     public ResponseEntity<DossierResponse> close(
             @PathVariable UUID id,
             @Valid @RequestBody StatusTransitionRequest request,
@@ -345,7 +337,7 @@ public class DossierController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_MODIFIER)
     public ResponseEntity<DossierResponse> update(
             @PathVariable UUID id,
             @Valid @RequestBody DossierUpdateRequest request,
@@ -364,7 +356,7 @@ public class DossierController {
     }
 
     @PatchMapping("/{id}/confidential")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_CONFIDENTIALITE_MODIFIER)
     public ResponseEntity<DossierResponse> toggleConfidential(
             @PathVariable UUID id,
             @RequestParam boolean value,
@@ -383,9 +375,8 @@ public class DossierController {
         return ResponseEntity.ok(result);
     }
 
-
     @PatchMapping("/{id}/priority")
-    @PreAuthorize("hasAnyRole('CGE','CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.DOSSIER_PRIORISER)
     public ResponseEntity<DossierResponse> setPriority(
             @PathVariable UUID id,
             @RequestBody @Valid SetPriorityRequest request,

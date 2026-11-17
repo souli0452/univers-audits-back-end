@@ -1,0 +1,1351 @@
+[ {
+  "handler" : "AccessMatrixController#matrice()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE','CGEA')"
+}, {
+  "handler" : "AgentController#activate(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE')"
+}, {
+  "handler" : "AgentController#create(CreateAgentRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE')"
+}, {
+  "handler" : "AgentController#deactivate(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE')"
+}, {
+  "handler" : "AgentController#findActive()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "AgentController#findAll(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE','CGEA')"
+}, {
+  "handler" : "AgentController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE','CGEA')"
+}, {
+  "handler" : "AgentController#findByRole(String)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE','CGEA')"
+}, {
+  "handler" : "AgentController#getAgentRoles(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE','CGEA')"
+}, {
+  "handler" : "AgentController#getAvailableRoles()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE')"
+}, {
+  "handler" : "AgentController#update(UUID,UpdateAgentRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE')"
+}, {
+  "handler" : "AgentController#updateAgentRoles(UUID,List,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGE')"
+}, {
+  "handler" : "AttachmentController#delete(String)",
+  "httpMethods" : "DELETE",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGEA" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AttachmentController#download(String)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "AttachmentController#listFiles(String)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "AttachmentController#reclasser(String,Map)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "AttachmentController#uploadFiles(String,List,String,AttachmentSource,ModeObtention,String,String)",
+  "httpMethods" : "POST",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "AuditController#getLogins(String,int,int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "AuditController#getLogs(String,String,LocalDate,LocalDate,int,int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "AuditController#getStats()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#cancel(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#conduct(UUID,UUID,AuditionConductRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#correctPv(UUID,UUID,PvAuditionCorrectionRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#createPv(UUID,UUID,PvAuditionCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#finalizePv(UUID,UUID,PvAuditionFinalizeRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#getPv(UUID,UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#markNoShow(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#markPvReadBack(UUID,UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "AuditionController#schedule(UUID,AuditionScheduleRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "ChecklistDossierTravailController#getChecklist(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "ChecklistDossierTravailController#setCoche(UUID,String,ChecklistCocheRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "ComplementPublicController#getComplementRequest(String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ComplementPublicController#submitComplement(String,String,List,HttpServletRequest)",
+  "httpMethods" : "POST",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ConfigController#getDepartements()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "ConfigController#getEnums()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ConfigController#getTypesDeclarant()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ConstitutionPartieCivileController#creerConstitution(UUID,ConstitutionPartieCivileRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "ConstitutionPartieCivileController#getConstitution(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "DemandeDocumentsController#create(UUID,DemandeDocumentsCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DemandeDocumentsController#escalate(UUID,UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DemandeDocumentsController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "DemandeDocumentsController#markReceived(UUID,UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DemandeDocumentsController#reportAddressError(UUID,UUID,DemandeDocumentsAddressErrorRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#close(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#complementReceived(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#create(DossierCreateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#declareAdmissible(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#declareInadmissible(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#delaisEtapes(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#findAll(Pageable,String,String)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#findByStatus(DossierStatus,Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#findMyDossiers(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "AGENT_BRPD", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','CGEA')"
+}, {
+  "handler" : "DossierController#orientAdministratif(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#registerReception(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#requestComplement(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONSEILLER_JURIDIQUE", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CONSEILLER_JURIDIQUE','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#setPriority(UUID,SetPriorityRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#startOpportunityStudy(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#submitPublic(DossierCreateRequest,HttpServletRequest)",
+  "httpMethods" : "POST",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "DossierController#submitToCtadp(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('CONSEILLER_JURIDIQUE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#toggleConfidential(UUID,boolean,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#trackByAccessCode(String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "DossierController#transfer(UUID,StatusTransitionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierController#update(UUID,DossierUpdateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierHabilitationController#findActive(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierHabilitationController#grant(UUID,HabilitationGrantRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "DossierHabilitationController#revoke(UUID,UUID,String)",
+  "httpMethods" : "DELETE",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "EtudeOpportuniteController#find(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "EtudeOpportuniteController#upsert(UUID,EtudeOpportuniteRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "FicheAffectationController#affecter(UUID,FicheAffectationAffectationRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "FicheAffectationController#creer(UUID,FicheAffectationCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "FicheAffectationController#get(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "FicheAffectationController#suivre(UUID,FicheAffectationSuiviRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "FicheRetexController#creer(UUID,FicheRetexRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "FicheRetexController#obtenir(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "FicheRetexController#publierLecon(UUID,PublierLeconRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "ImageServeController#serveImage(String,String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "ImageUploadController#listImages(String)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "ImageUploadController#upload(MultipartFile,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "IndiceFraudeController#create(IndiceFraudeRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "IndiceFraudeController#getActifs(String)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "IndiceFraudeController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "IndiceFraudeController#update(String,IndiceFraudeRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "InformationPreoccupanteController#classerSansSuite(UUID)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "InformationPreoccupanteController#create(InformationPreoccupanteCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "InformationPreoccupanteController#declencherAutoSaisine(UUID,HttpServletRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "InformationPreoccupanteController#findAll(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "InformationPreoccupanteController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "InformationPreoccupanteController#rattacherDossier(UUID,UUID,RattacherDossierRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "InventairePiecesController#getInventaire(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#addMember(UUID,AddMemberRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#approuverProcedureUrgence(UUID,UUID,ProcedureUrgenceDecisionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#approveCge(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#approveCgea(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#approveDei(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#approveLegalAdvisor(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#declareEngagementPrealable(UUID,EngagementConfidentialiteRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "InvestigationController#declareIncident(UUID,IncidentObjectiviteRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#declarerMesureConservatoire(UUID,MesureConservatoireRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#deliverMandat(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#demanderProcedureUrgence(UUID,ProcedureUrgenceRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#extendDeadline(UUID,ExtendDeadlineRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#findAll(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#findByDossierId(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#findByPeriod(String,String,Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGE','CGEA','CONTROLEUR_ETAT','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#findOverdue(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#getEngagementPrealable(UUID,UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#getIncidents(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#getMandat(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#getMesures(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#getPlan(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#getPlanRevisions(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#getProcedures(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#open(UUID,InvestigationCreateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#rejectCge(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#rejectCgea(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#rejectDei(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#rejeterProcedureUrgence(UUID,UUID,ProcedureUrgenceDecisionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#removeMember(UUID,UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "DELETE",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#resume(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#revisePlan(UUID,PlanInvestigationRevisionRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#start(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#submitPlan(UUID,PlanInvestigationSubmitRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#submitReport(UUID,InvestigationUpdateRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#suspend(UUID,String,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "InvestigationController#validatePlan(UUID,HttpServletRequest,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "JourFerieController#create(JourFerieRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "JourFerieController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "JourFerieController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "JourFerieController#update(UUID,JourFerieRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "LeconAPartagerController#lister(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "MissionSuiviController#ajouter(UUID,MissionSuiviRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "MissionSuiviController#lister(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "NotificationController#cancel(UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "NotificationController#getByDossier(UUID,int,int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "NotificationController#getMyNotifications(int,int,boolean,Jwt)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#getPending(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "NotificationController#getUnreadCount(Jwt)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#markAllAsRead(Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#markAsRead(UUID,Jwt)",
+  "httpMethods" : "PATCH",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "NotificationController#retry(UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "NotificationController#sendNow(UUID)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "ObservationController#create(UUID,ObservationRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "ObservationController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "ParametreDelaiController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "ParametreDelaiController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "ParametreDelaiController#update(String,ParametreDelaiRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "PdfController#exportAccuseReception(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportConvocationCtadp(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "PdfController#exportDossier(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportLettreInformation(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','CGE','AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "PdfController#exportQuitus(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGE','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "PdfController#exportRecepisse(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportRecepissePublic(String)",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "PdfController#exportReponseMotivee(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PdfController#exportResumeCloture(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PlanActionsController#ajouterAvancement(UUID,NoteAvancementRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "PlanActionsController#creerPlanActions(UUID,PlanActionsRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "PlanActionsController#getStatus(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "PointChecklistDossierTravailController#create(PointChecklistDossierTravailRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "PointChecklistDossierTravailController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "PointChecklistDossierTravailController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "PointChecklistDossierTravailController#update(String,PointChecklistDossierTravailRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "PortalConfigController#getAdminConfig()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "PortalConfigController#getPublicConfig()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "PortalConfigController#updateBatch(Map,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "PortalConfigController#updateOne(String,Map,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "ProfileController#changePassword(Jwt,ChangePasswordRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "ProfileController#updateProfile(Jwt,UpdateProfileRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "RapportEnqueteController#getNote(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "RapportEnqueteController#getRapport(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "RapportEnqueteController#putNote(UUID,NoteRecommandationsRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "RapportEnqueteController#putRapport(UUID,RapportEnqueteRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "RegistreAuditionsController#findAll(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "RequeteParquetController#getRequeteParquet(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "RequeteParquetController#putRequeteParquet(UUID,RequeteParquetRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "RoleManagementController#create(CreateRoleRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "RoleManagementController#delete(String,HttpServletRequest,Jwt)",
+  "httpMethods" : "DELETE",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "RoleManagementController#getOne(String)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "RoleManagementController#listAll()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "RoleManagementController#listCombinations()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "RoleManagementController#listPermissions()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "RoleManagementController#update(String,UpdateRoleRequest,HttpServletRequest,Jwt)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC" ],
+  "expression" : "hasRole('ADMIN_DDIC')"
+}, {
+  "handler" : "SeanceCtadpController#addDossier(UUID,AddDossierToSeanceRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "SeanceCtadpController#create(SeanceCtadpCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "SeanceCtadpController#findAll(Pageable)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "SeanceCtadpController#findById(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "SeanceCtadpController#recordRecommandation(UUID,UUID,RecommandationCtadpRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('CGEA','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "SeanceCtadpController#tenir(UUID,TenirSeanceRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "SectionDossierTravailController#creerSectionDetail(String,SectionDetailCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "SectionDossierTravailController#definirOrganisationDetail(String,OrganisationDetailRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','AGENT_BRPD','ADMIN_DDIC')"
+}, {
+  "handler" : "SectionDossierTravailController#listerSections(String)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP','CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "StatistiqueController#exportAnnualStats(int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "DCP" ],
+  "expression" : "hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')"
+}, {
+  "handler" : "StatistiqueController#getAnnualStats(int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "DCP" ],
+  "expression" : "hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')"
+}, {
+  "handler" : "StatistiqueController#getDashboard(Instant,Instant)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "DCP" ],
+  "expression" : "hasAnyRole('CGE', 'CGEA', 'ADMIN_DDIC', 'DCP')"
+}, {
+  "handler" : "StatistiqueController#getDepassementsEtapes()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')"
+}, {
+  "handler" : "StatistiqueController#getDepassementsParActeur()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA" ],
+  "expression" : "hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC')"
+}, {
+  "handler" : "StatistiqueController#getPublicStats()",
+  "httpMethods" : "GET",
+  "kind" : "NONE",
+  "roles" : [ ],
+  "expression" : null
+}, {
+  "handler" : "StatistiqueController#getQuarterlyStats(int,int)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "DCP" ],
+  "expression" : "hasAnyRole('CGEA', 'CGE', 'ADMIN_DDIC', 'DCP')"
+}, {
+  "handler" : "SuiviProcedurePenaleController#ajouter(UUID,SuiviProcedurePenaleRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CONSEILLER_JURIDIQUE" ],
+  "expression" : "hasAnyRole('CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "SuiviProcedurePenaleController#lister(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "TargetedPartyController#create(UUID,TargetedPartyRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "TargetedPartyController#delete(UUID,UUID)",
+  "httpMethods" : "DELETE",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGEA" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "TargetedPartyController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "TargetedPartyController#update(UUID,UUID,TargetedPartyRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "TransmissionAutoriteController#ajouterRelance(UUID,RelanceSuitesRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "TransmissionAutoriteController#creerTransmission(UUID,TransmissionAutoriteRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE" ],
+  "expression" : "hasAnyRole('CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "TransmissionAutoriteController#getTransmission(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','ADMIN_DDIC')"
+}, {
+  "handler" : "TypeInfractionController#create(TypeInfractionRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "TypeInfractionController#getActifs()",
+  "httpMethods" : "GET",
+  "kind" : "AUTHENTICATED",
+  "roles" : [ ],
+  "expression" : "isAuthenticated()"
+}, {
+  "handler" : "TypeInfractionController#getAll()",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "TypeInfractionController#update(String,TypeInfractionRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA" ],
+  "expression" : "hasAnyRole('ADMIN_DDIC','CGEA')"
+}, {
+  "handler" : "VisiteTerrainController#cancel(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "VisiteTerrainController#conduct(UUID,UUID,VisiteTerrainConductRequest)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "VisiteTerrainController#createPv(UUID,UUID,PvConstatCreateRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "VisiteTerrainController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "VisiteTerrainController#getPv(UUID,UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')"
+}, {
+  "handler" : "VisiteTerrainController#markCarence(UUID,UUID,String)",
+  "httpMethods" : "PATCH",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "VisiteTerrainController#schedule(UUID,VisiteTerrainScheduleRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "CGEA", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "WitnessController#create(UUID,WitnessRequest)",
+  "httpMethods" : "POST",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')"
+}, {
+  "handler" : "WitnessController#delete(UUID,UUID)",
+  "httpMethods" : "DELETE",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGEA" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CGEA','ADMIN_DDIC')"
+}, {
+  "handler" : "WitnessController#findAll(UUID)",
+  "httpMethods" : "GET",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','CONTROLEUR_ETAT','MEMBRE_CTADP','CGEA','CGE','ADMIN_DDIC')"
+}, {
+  "handler" : "WitnessController#update(UUID,UUID,WitnessRequest)",
+  "httpMethods" : "PUT",
+  "kind" : "ROLES",
+  "roles" : [ "ADMIN_DDIC", "AGENT_BRPD", "CONTROLEUR_ETAT" ],
+  "expression" : "hasAnyRole('AGENT_BRPD','CONTROLEUR_ETAT','ADMIN_DDIC')"
+} ]

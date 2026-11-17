@@ -18,14 +18,16 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DocumentOfficielPdfServiceTest {
 
     private final SeanceCtadpService seanceService = mock(SeanceCtadpService.class);
     private final DossierService dossierService = mock(DossierService.class);
+    private final ProtectedIdentityExportAuditor exportAuditor = mock(ProtectedIdentityExportAuditor.class);
     private final DocumentOfficielPdfService service =
-            new DocumentOfficielPdfService(seanceService, dossierService);
+            new DocumentOfficielPdfService(seanceService, dossierService, exportAuditor);
 
     private SeanceCtadpResponse seance(StatutSeanceCtadp statut, List<SeanceCtadpDossierResponse> dossiers) {
         return SeanceCtadpResponse.builder()
@@ -102,6 +104,37 @@ class DocumentOfficielPdfServiceTest {
 
         assertThat(new String(pdf, 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
         assertThat(pdf.length).isGreaterThan(1500);
+    }
+
+    @Test
+    void quitus_declareLExportAuJournalDAudit() {
+        UUID id = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .id(id).number("ASCE-LC-2026-0001").object("Détournement présumé de fonds")
+                .decisionCGE(DecisionCGEResponse.builder()
+                        .decision(RecommandationCtadp.VALIDATION_INVESTIGATION).motif("Indices suffisants")
+                        .dateDecision(Instant.parse("2026-10-12T09:00:00Z")).agentCGENom("Le CGE").build())
+                .build();
+        when(dossierService.findById(id)).thenReturn(dossier);
+
+        service.quitusCge(id);
+
+        verify(exportAuditor).record(dossier, "Quitus du CGE");
+    }
+
+    @Test
+    void lettre_declareLExportAuJournalDAudit() {
+        UUID id = UUID.randomUUID();
+        DossierResponse dossier = DossierResponse.builder()
+                .id(id).number("ASCE-LC-2026-0001").accessCode("ABC12345")
+                .status(DossierStatus.CLOS).anonymous(true)
+                .receptionDate(Instant.parse("2026-03-01T09:00:00Z"))
+                .closingDate(Instant.parse("2026-09-15T09:00:00Z")).build();
+        when(dossierService.findById(id)).thenReturn(dossier);
+
+        service.lettreInformationPlaignant(id);
+
+        verify(exportAuditor).record(dossier, "Lettre d'information du plaignant");
     }
 
     @Test

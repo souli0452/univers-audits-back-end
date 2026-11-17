@@ -1,6 +1,8 @@
 package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.response.NotificationResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -60,9 +62,8 @@ public class NotificationController {
         return ResponseEntity.noContent().build();
     }
 
+    @HasPermission(AppPermission.NOTIFICATION_DOSSIER_VOIR)
     @GetMapping("/dossier/{dossierId}")
-    @PreAuthorize("hasAnyRole('AGENT_BRPD','CONSEILLER_JURIDIQUE','MEMBRE_CTADP',"
-            + "'CGEA','CGE','CONTROLEUR_ETAT','ADMIN_DDIC')")
     public ResponseEntity<Page<NotificationResponse>> getByDossier(
             @PathVariable UUID dossierId,
             @RequestParam(defaultValue = "0")  int page,
@@ -75,7 +76,7 @@ public class NotificationController {
     }
 
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.NOTIFICATION_FILE_VOIR)
     public ResponseEntity<Page<NotificationResponse>> getPending(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -86,13 +87,13 @@ public class NotificationController {
     }
 
     @PatchMapping("/{id}/send")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.NOTIFICATION_FILE_GERER)
     public ResponseEntity<NotificationResponse> sendNow(@PathVariable UUID id) {
         return ResponseEntity.ok(notificationService.sendNow(id));
     }
 
     @PatchMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.NOTIFICATION_FILE_GERER)
     public ResponseEntity<NotificationResponse> cancel(
             @PathVariable UUID id,
             @RequestParam String reason) {
@@ -100,7 +101,7 @@ public class NotificationController {
     }
 
     @PatchMapping("/{id}/retry")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGEA')")
+    @HasPermission(AppPermission.NOTIFICATION_FILE_GERER)
     public ResponseEntity<NotificationResponse> retry(@PathVariable UUID id) {
         return ResponseEntity.ok(notificationService.retry(id));
     }

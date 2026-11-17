@@ -6,6 +6,8 @@ import gov.bf.ascelc.univers_audits.model.dto.request.UpdateAgentRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.AgentResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.AgentSummaryResponse;
 import gov.bf.ascelc.univers_audits.model.entity.Agent;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.AgentService;
 import gov.bf.ascelc.univers_audits.service.AuditService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,7 +15,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +32,6 @@ public class AgentController {
     private final AuditService  auditService;
     private final AgentMapper   agentMapper;
 
-
     private String getClientIp(HttpServletRequest req) {
         String xff = req.getHeader("X-Forwarded-For");
         return (xff != null && !xff.isBlank()) ? xff.split(",")[0].trim() : req.getRemoteAddr();
@@ -45,9 +45,8 @@ public class AgentController {
         return (r != null && !r.isEmpty()) ? r.get(0) : null;
     }
 
-
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
+    @HasPermission(AppPermission.AGENT_VOIR)
     public ResponseEntity<?> findAll(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -71,7 +70,7 @@ public class AgentController {
     }
 
     @GetMapping("/active")
-    @PreAuthorize("isAuthenticated()")
+    @HasPermission(AppPermission.AGENT_ANNUAIRE_VOIR)
     public ResponseEntity<List<AgentSummaryResponse>> findActive() {
         Page<Agent> page = agentService.findAll(0, 500);
         return ResponseEntity.ok(
@@ -83,13 +82,27 @@ public class AgentController {
     }
 
     @GetMapping("/keycloak-roles")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    @HasPermission(AppPermission.AGENT_ROLES_ATTRIBUER)
     public ResponseEntity<List<String>> getAvailableRoles() {
         return ResponseEntity.ok(agentService.getAvailableKeycloakRoles());
     }
 
+    /**
+     * Conseillers juridiques actifs, pour désigner l'un d'eux sur la fiche d'affectation. Même données que l'annuaire
+     * des agents actifs, donc même permission : le CGEA n'a pas besoin de gérer les agents pour cela.
+     */
+    @GetMapping("/conseillers-juridiques")
+    @HasPermission(AppPermission.AGENT_ANNUAIRE_VOIR)
+    public ResponseEntity<List<AgentSummaryResponse>> findConseillersJuridiques() {
+        return ResponseEntity.ok(
+                agentService.findActiveByKeycloakRole("CONSEILLER_JURIDIQUE").stream()
+                        .map(agentMapper::toSummaryResponse)
+                        .toList()
+        );
+    }
+
     @GetMapping("/by-role/{roleName}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
+    @HasPermission(AppPermission.AGENT_VOIR)
     public ResponseEntity<List<AgentSummaryResponse>> findByRole(@PathVariable String roleName) {
         return ResponseEntity.ok(
                 agentService.findActiveByKeycloakRole(roleName).stream()
@@ -99,20 +112,19 @@ public class AgentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
+    @HasPermission(AppPermission.AGENT_VOIR)
     public ResponseEntity<AgentResponse> findById(@PathVariable UUID id) {
         return ResponseEntity.ok(agentMapper.toResponse(agentService.findById(id)));
     }
 
     @GetMapping("/{id}/keycloak-roles")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE','CGEA')")
+    @HasPermission(AppPermission.AGENT_VOIR)
     public ResponseEntity<List<String>> getAgentRoles(@PathVariable UUID id) {
         return ResponseEntity.ok(agentService.getAgentKeycloakRoles(id));
     }
 
-
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    @HasPermission(AppPermission.AGENT_CREER)
     public ResponseEntity<AgentResponse> create(
             @Valid @RequestBody CreateAgentRequest req,
             HttpServletRequest httpRequest,
@@ -132,7 +144,7 @@ public class AgentController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    @HasPermission(AppPermission.AGENT_MODIFIER)
     public ResponseEntity<AgentResponse> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateAgentRequest req,
@@ -152,7 +164,7 @@ public class AgentController {
     }
 
     @PutMapping("/{id}/keycloak-roles")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    @HasPermission(AppPermission.AGENT_ROLES_ATTRIBUER)
     public ResponseEntity<Void> updateAgentRoles(
             @PathVariable UUID id,
             @RequestBody List<String> roles,
@@ -172,7 +184,7 @@ public class AgentController {
     }
 
     @PatchMapping("/{id}/activate")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    @HasPermission(AppPermission.AGENT_ACTIVER)
     public ResponseEntity<?> activate(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,
@@ -191,7 +203,7 @@ public class AgentController {
     }
 
     @PatchMapping("/{id}/deactivate")
-    @PreAuthorize("hasAnyRole('ADMIN_DDIC','CGE')")
+    @HasPermission(AppPermission.AGENT_ACTIVER)
     public ResponseEntity<?> deactivate(
             @PathVariable UUID id,
             HttpServletRequest httpRequest,

@@ -6,6 +6,7 @@ import gov.bf.ascelc.univers_audits.model.dto.request.DossierUpdateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.SetPriorityRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.StatusTransitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
+import gov.bf.ascelc.univers_audits.model.dto.response.DossierResume;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -15,6 +16,12 @@ import java.util.UUID;
 public interface DossierService {
 
     DossierResponse findById(UUID id);
+
+    /**
+     * Date de réception et statut du dossier, après le même contrôle d'accès que {@link #findById}. Pour les calculs
+     * qui n'ont pas besoin du détail : l'identité du déclarant n'est pas renvoyée, donc pas non plus tracée.
+     */
+    DossierResume findResume(UUID id);
 
     DossierResponse findByAccessCode(String accessCode);
 

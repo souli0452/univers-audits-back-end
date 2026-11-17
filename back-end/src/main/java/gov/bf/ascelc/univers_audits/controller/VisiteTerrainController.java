@@ -5,13 +5,14 @@ import gov.bf.ascelc.univers_audits.model.dto.request.VisiteTerrainConductReques
 import gov.bf.ascelc.univers_audits.model.dto.request.VisiteTerrainScheduleRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.PvConstatResponse;
 import gov.bf.ascelc.univers_audits.model.dto.response.VisiteTerrainResponse;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.PvConstatService;
 import gov.bf.ascelc.univers_audits.service.VisiteTerrainService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,23 +23,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class VisiteTerrainController {
 
-    private static final String READ_ROLES =
-            "hasAnyRole('CGEA','CGE','CONTROLEUR_ETAT','MEMBRE_CTADP','CONSEILLER_JURIDIQUE','ADMIN_DDIC')";
-    private static final String WRITE_ROLES =
-            "hasAnyRole('CONTROLEUR_ETAT','CGEA','ADMIN_DDIC')";
-
     private final VisiteTerrainService visiteTerrainService;
     private final PvConstatService     pvConstatService;
 
     @GetMapping
-    @PreAuthorize(READ_ROLES)
+    @HasPermission(AppPermission.VISITE_TERRAIN_VOIR)
     public ResponseEntity<List<VisiteTerrainResponse>> findAll(
             @PathVariable UUID investigationId) {
         return ResponseEntity.ok(visiteTerrainService.findByInvestigationId(investigationId));
     }
 
     @PostMapping
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.VISITE_TERRAIN_PLANIFIER)
     public ResponseEntity<VisiteTerrainResponse> schedule(
             @PathVariable UUID investigationId,
             @Valid @RequestBody VisiteTerrainScheduleRequest request) {
@@ -48,7 +44,7 @@ public class VisiteTerrainController {
     }
 
     @PatchMapping("/{visiteId}/conduct")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.VISITE_TERRAIN_CONDUIRE)
     public ResponseEntity<VisiteTerrainResponse> conduct(
             @PathVariable UUID investigationId,
             @PathVariable UUID visiteId,
@@ -57,7 +53,7 @@ public class VisiteTerrainController {
     }
 
     @PatchMapping("/{visiteId}/cancel")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.VISITE_TERRAIN_PLANIFIER)
     public ResponseEntity<VisiteTerrainResponse> cancel(
             @PathVariable UUID investigationId,
             @PathVariable UUID visiteId,
@@ -66,7 +62,7 @@ public class VisiteTerrainController {
     }
 
     @PatchMapping("/{visiteId}/carence")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.VISITE_TERRAIN_PLANIFIER)
     public ResponseEntity<VisiteTerrainResponse> markCarence(
             @PathVariable UUID investigationId,
             @PathVariable UUID visiteId,
@@ -75,7 +71,7 @@ public class VisiteTerrainController {
     }
 
     @GetMapping("/{visiteId}/pv")
-    @PreAuthorize(READ_ROLES)
+    @HasPermission(AppPermission.VISITE_TERRAIN_VOIR)
     public ResponseEntity<PvConstatResponse> getPv(
             @PathVariable UUID investigationId,
             @PathVariable UUID visiteId) {
@@ -83,7 +79,7 @@ public class VisiteTerrainController {
     }
 
     @PostMapping("/{visiteId}/pv")
-    @PreAuthorize(WRITE_ROLES)
+    @HasPermission(AppPermission.VISITE_TERRAIN_CONDUIRE)
     public ResponseEntity<PvConstatResponse> createPv(
             @PathVariable UUID investigationId,
             @PathVariable UUID visiteId,

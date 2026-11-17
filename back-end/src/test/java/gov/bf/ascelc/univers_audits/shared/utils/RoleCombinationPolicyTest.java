@@ -83,4 +83,44 @@ class RoleCombinationPolicyTest {
             assertThat(r.raison()).isNotBlank();
         });
     }
+
+    // ───────── chefs de département (workflow PGPD_GU V3 étape 22 ; manuel, processus C) ─────────
+
+    @Test
+    void unChefDeDepartement_doitAussiEtreControleurDEtat() {
+        for (String chef : List.of("CHEF_DEI", "CHEF_DAC")) {
+            assertThatThrownBy(() -> RoleCombinationPolicy.verifier(List.of(chef)))
+                    .as(chef + " seul")
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining(chef)
+                    .hasMessageContaining("CONTROLEUR_ETAT");
+            assertThatCode(() -> RoleCombinationPolicy.verifier(List.of(chef, "CONTROLEUR_ETAT")))
+                    .as(chef + " + CONTROLEUR_ETAT").doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void unChefDeDepartement_nePeutPasEtreAussiCgeOuCgeaOuConseillerJuridique() {
+        for (String autre : List.of("CGE", "CGEA", "CONSEILLER_JURIDIQUE", "DCP")) {
+            assertThatThrownBy(() -> RoleCombinationPolicy.verifier(List.of("CHEF_DEI", "CONTROLEUR_ETAT", autre)))
+                    .as("chef DEI + contrôleur + " + autre)
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("Cumul de rôles interdit");
+        }
+    }
+
+    @Test
+    void lesDeuxChefsDeDepartement_nePeuventPasEtreCumules() {
+        assertThatThrownBy(() -> RoleCombinationPolicy.verifier(
+                List.of("CHEF_DEI", "CHEF_DAC", "CONTROLEUR_ETAT")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("CHEF_DEI + CHEF_DAC");
+    }
+
+    @Test
+    void lAdministrateurNEstPasExempteDeLExigenceDuRoleControleur() {
+        assertThatThrownBy(() -> RoleCombinationPolicy.verifier(List.of("ADMIN_DDIC", "CHEF_DEI")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("CONTROLEUR_ETAT");
+    }
 }

@@ -1,10 +1,13 @@
 package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationAffectationRequest;
+import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationRepartitionRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.request.FicheAffectationSuiviRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.FicheAffectationResponse;
 import gov.bf.ascelc.univers_audits.model.entity.FicheAffectation;
+import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
+import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.FicheAffectationService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.ApiUrls;
@@ -26,7 +29,7 @@ public class FicheAffectationController {
     private final FicheAffectationService ficheAffectationService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('CGE','ADMIN_DDIC')")
+    @HasPermission(AppPermission.FICHE_AFFECTATION_CREER)
     public ResponseEntity<FicheAffectationResponse> creer(
             @PathVariable UUID id,
             @Valid @RequestBody FicheAffectationCreateRequest request) {
@@ -37,13 +40,24 @@ public class FicheAffectationController {
     }
 
     @PatchMapping("/affectation")
-    @PreAuthorize("hasAnyRole('CGEA','ADMIN_DDIC')")
+    @HasPermission(AppPermission.FICHE_AFFECTATION_AFFECTER)
     public ResponseEntity<FicheAffectationResponse> affecter(
             @PathVariable UUID id,
             @Valid @RequestBody FicheAffectationAffectationRequest request) {
 
         log.info("Affectation CGEA — dossier {}, type {}", id, request.getTypeDesignation());
         FicheAffectation fiche = ficheAffectationService.affecter(id, request);
+        return ResponseEntity.ok(toResponse(fiche));
+    }
+
+    @PostMapping("/repartition")
+    @HasPermission(AppPermission.FICHE_AFFECTATION_REPARTIR)
+    public ResponseEntity<FicheAffectationResponse> repartir(
+            @PathVariable UUID id,
+            @Valid @RequestBody FicheAffectationRepartitionRequest request) {
+
+        log.info("Répartition par le chef de département — dossier {}, {} agent(s)", id, request.getAgentIds().size());
+        FicheAffectation fiche = ficheAffectationService.repartir(id, request.getAgentIds());
         return ResponseEntity.ok(toResponse(fiche));
     }
 

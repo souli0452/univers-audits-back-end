@@ -11,6 +11,7 @@ import org.mapstruct.*;
 )
 public interface AgentMapper {
 
+    @Mapping(target = "departementId", expression = "java(agent.getDepartement() != null ? agent.getDepartement().getId() : null)")
     @Mapping(target = "departementLabel", expression = "java(mapDepartement(agent))")
     AgentSummaryResponse toSummaryResponse(Agent agent);
 
