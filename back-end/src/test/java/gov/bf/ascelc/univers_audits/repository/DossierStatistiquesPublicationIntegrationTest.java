@@ -72,7 +72,7 @@ class DossierStatistiquesPublicationIntegrationTest {
                 .object("Hors période").type(TypeSaisine.PLAINTE).submissionMode(SubmissionMode.WEB_FORM)
                 .status(DossierStatus.SOUMIS).receptionDate(Instant.parse("2099-08-01T10:00:00Z")).build());
 
-        PublicationTrimestrielleResponse t1 = service.situation(2099, 1);
+        PublicationTrimestrielleResponse t1 = service.situation(2099, "T1");
 
         assertThat(t1.total()).isEqualTo(4);
         assertThat(parCode(t1.categories(), "PLAINTE_DENONCIATION")).isEqualTo(1);
@@ -94,8 +94,10 @@ class DossierStatistiquesPublicationIntegrationTest {
         assertThat(parCode(t1.recevabilite(), "CLASSES_INCOMPETENCE")).isEqualTo(1);
         assertThat(parCode(t1.recevabilite(), "CLASSES_PREUVES_INSUFFISANTES")).isEqualTo(1);
         assertThat(parCode(t1.recevabilite(), "RECEVABLES")).isEqualTo(2);
-        assertThat(service.situation(2099, 3).total()).isEqualTo(1);
-        assertThat(service.situation(2099, 2).total()).isZero();
+        assertThat(service.situation(2099, "T3").total()).isEqualTo(1);
+        assertThat(service.situation(2099, "S1").total()).isEqualTo(4);
+        assertThat(service.situation(2099, "ANNEE").total()).isEqualTo(5);
+        assertThat(service.situation(2099, "T2").total()).isZero();
     }
 
     private static long parCode(List<PublicationTrimestrielleResponse.Ligne> lignes, String code) {

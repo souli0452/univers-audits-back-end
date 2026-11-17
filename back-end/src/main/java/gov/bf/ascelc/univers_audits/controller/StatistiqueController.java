@@ -58,17 +58,18 @@ public class StatistiqueController {
     }
 
     /**
-     * « Situation des plaintes et dénonciations » du trimestre, telle que publiée sur le site : huit tableaux
+     * « Situation des plaintes et dénonciations » d'un trimestre (T1 à T4), d'un semestre (S1, S2) ou de l'année
+     * (ANNEE), telle que publiée sur le site : huit tableaux
      * d'agrégats sans donnée personnelle (mêmes droits que le tableau de bord global).
      */
     @GetMapping("/publication")
     @HasPermission(AppPermission.STATISTIQUE_GLOBALE_VOIR)
     public ResponseEntity<PublicationTrimestrielleResponse> getPublicationTrimestrielle(
             @RequestParam int year,
-            @RequestParam int quarter) {
+            @RequestParam String period) {
 
-        log.info("Situation trimestrielle publiée — T{} {}", quarter, year);
-        return ResponseEntity.ok(publicationTrimestrielleService.situation(year, quarter));
+        log.info("Situation publiée — {} {}", period, year);
+        return ResponseEntity.ok(publicationTrimestrielleService.situation(year, period));
     }
 
     @GetMapping("/depassements-etapes")

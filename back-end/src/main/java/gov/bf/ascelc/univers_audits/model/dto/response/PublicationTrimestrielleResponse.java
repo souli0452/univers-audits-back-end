@@ -4,12 +4,12 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * « Situation des plaintes et dénonciations » d'un trimestre, telle que publiée sur le site de l'ASCE-LC : huit
+ * « Situation des plaintes et dénonciations » d'un trimestre, d'un semestre ou d'une année, telle que publiée sur le site de l'ASCE-LC : huit
  * tableaux d'agrégats, sans aucune donnée personnelle.
  */
 public record PublicationTrimestrielleResponse(
         int annee,
-        int trimestre,
+        String codePeriode,
         String periode,
         String genereLe,
         long total,

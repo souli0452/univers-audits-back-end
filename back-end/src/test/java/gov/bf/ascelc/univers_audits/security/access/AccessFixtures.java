@@ -32,7 +32,7 @@ final class AccessFixtures {
             // Conseillers juridiques proposés à l'affectation : le CGEA n'a plus la route d'administration des agents.
             "AgentController#findConseillersJuridiques();GET",
             // Situation trimestrielle publiée sur le site (mêmes droits que le tableau de bord global).
-            "StatistiqueController#getPublicationTrimestrielle(int,int);GET");
+            "StatistiqueController#getPublicationTrimestrielle(int,String);GET");
 
     private AccessFixtures() {
     }

@@ -33,7 +33,7 @@ class PermissionEndToEndIntegrationTest {
     private static final String AGENTS = "/api/v1/agents?page=0&size=1";
     private static final String ANNUAIRE = "/api/v1/agents/active";
     private static final String CONSEILLERS = "/api/v1/agents/conseillers-juridiques";
-    private static final String PUBLICATION = "/api/v1/stats/publication?year=2026&quarter=1";
+    private static final String PUBLICATION = "/api/v1/stats/publication?year=2026&period=T1";
 
     @Autowired
     private MockMvc mvc;

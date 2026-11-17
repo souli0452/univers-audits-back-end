@@ -71,6 +71,7 @@ class PublicationTrimestrielleServiceTest {
         when(dossiers.countClassesPourIncompetenceBetween(any(), any(), anyCollection())).thenReturn(0L);
         when(dossiers.countClassesPourPreuvesInsuffisantesBetween(any(), any(), anyCollection())).thenReturn(0L);
         when(investigations.avgDurationInDays(any(), any())).thenReturn(45.0);
+        when(dossiers.avgOpportunityStudyDelayInDays(any(), any())).thenReturn(2.0);
     }
 
     private static List<Object[]> lignes(Object[]... l) {
@@ -78,7 +79,7 @@ class PublicationTrimestrielleServiceTest {
     }
 
     private PublicationTrimestrielleResponse t1() {
-        return service.situation(2026, 1);
+        return service.situation(2026, "T1");
     }
 
     private static Ligne ligne(Collection<Ligne> lignes, String code) {
@@ -96,7 +97,7 @@ class PublicationTrimestrielleServiceTest {
         PublicationTrimestrielleResponse r = t1();
 
         assertThat(r.annee()).isEqualTo(2026);
-        assertThat(r.trimestre()).isEqualTo(1);
+        assertThat(r.codePeriode()).isEqualTo("T1");
         assertThat(r.periode()).isEqualTo("T1 2026");
         assertThat(r.total()).isEqualTo(74);
     }
@@ -106,6 +107,7 @@ class PublicationTrimestrielleServiceTest {
         PublicationTrimestrielleResponse r = t1();
 
         assertThat(ligne(r.categories(), "DENONCIATION").nombre()).isEqualTo(54);
+        assertThat(ligne(r.categories(), "PLAINTE_DENONCIATION").libelle()).isEqualTo("Plainte-dénonciation");
         assertThat(ligne(r.categories(), "PLAINTE_DENONCIATION").nombre()).isEqualTo(2);
         assertThat(ligne(r.categories(), "DEMANDE_INTERVENTION").nombre()).isEqualTo(6);
         assertThat(ligne(r.categories(), "DENONCIATION").taux()).isEqualTo(72.97);
@@ -207,9 +209,33 @@ class PublicationTrimestrielleServiceTest {
         PublicationTrimestrielleResponse r = t1();
 
         assertThat(r.velocite()).extracting(PublicationTrimestrielleResponse.Phase::code)
-                .containsExactly("ENREGISTRES", "QUALIFIES", "INVESTIGATION", "CLOTURES");
-        assertThat(r.velocite().stream().filter(p -> p.code().equals("INVESTIGATION")).findFirst().orElseThrow()
-                .delaiMoyenJours()).isEqualTo(45.0);
+                .containsExactly("ENREGISTRES", "QUALIFIES", "INVESTIGATION", "CLOTURES", "COUR_DES_COMPTES", "STOCK");
+        assertThat(phase(r, "INVESTIGATION").delaiMoyenJours()).isEqualTo(45.0);
+        assertThat(phase(r, "INVESTIGATION").nombre()).isEqualTo(18);
+        assertThat(phase(r, "CLOTURES").delaiMoyenJours()).isEqualTo(45.0);
+        assertThat(phase(r, "CLOTURES").nombre()).isEqualTo(5);
+    }
+
+    @Test
+    void laVelociteDonneLeDelaiDeQualificationEtLeStockEnInstance() {
+        PublicationTrimestrielleResponse r = t1();
+
+        assertThat(phase(r, "QUALIFIES").nombre()).isEqualTo(63);               // 74 − 11 dossiers pas encore étudiés
+        assertThat(phase(r, "QUALIFIES").delaiMoyenJours()).isEqualTo(2.0);
+        assertThat(phase(r, "STOCK").nombre()).isEqualTo(51);
+        assertThat(phase(r, "STOCK").delaiMoyenJours()).isNull();
+    }
+
+    @Test
+    void laTransmissionALaCourDesComptesNEstPasSuivieEtLeDitHonnetement() {
+        PublicationTrimestrielleResponse r = t1();
+
+        assertThat(phase(r, "COUR_DES_COMPTES").nombre()).isZero();
+        assertThat(phase(r, "COUR_DES_COMPTES").delaiMoyenJours()).isNull();
+    }
+
+    private static PublicationTrimestrielleResponse.Phase phase(PublicationTrimestrielleResponse r, String code) {
+        return r.velocite().stream().filter(p -> p.code().equals(code)).findFirst().orElseThrow();
     }
 
     @Test
@@ -233,14 +259,34 @@ class PublicationTrimestrielleServiceTest {
     }
 
     @Test
-    void unTrimestreInvalideEstRefuse() {
-        assertThatThrownBy(() -> service.situation(2026, 0)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> service.situation(2026, 5)).isInstanceOf(BusinessException.class);
+    void unePeriodeInconnueEstRefusee() {
+        assertThatThrownBy(() -> service.situation(2026, "T5")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> service.situation(2026, "")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> service.situation(2026, null)).isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void leSemestreEtLAnneeCouvrentLesBonsMois() {
+        org.mockito.ArgumentCaptor<Instant> debut = org.mockito.ArgumentCaptor.forClass(Instant.class);
+        org.mockito.ArgumentCaptor<Instant> fin = org.mockito.ArgumentCaptor.forClass(Instant.class);
+
+        PublicationTrimestrielleResponse s2 = service.situation(2026, "s2");
+        org.mockito.Mockito.verify(dossiers).countByReceptionDateBetween(debut.capture(), fin.capture());
+        assertThat(s2.periode()).isEqualTo("S2 2026");
+        assertThat(debut.getValue()).isEqualTo(Instant.parse("2026-07-01T00:00:00Z"));
+        assertThat(fin.getValue()).isEqualTo(Instant.parse("2027-01-01T00:00:00Z"));
+
+        org.mockito.Mockito.clearInvocations(dossiers);
+        PublicationTrimestrielleResponse annee = service.situation(2026, "ANNEE");
+        org.mockito.Mockito.verify(dossiers).countByReceptionDateBetween(debut.capture(), fin.capture());
+        assertThat(annee.periode()).isEqualTo("Année 2026");
+        assertThat(debut.getValue()).isEqualTo(Instant.parse("2026-01-01T00:00:00Z"));
+        assertThat(fin.getValue()).isEqualTo(Instant.parse("2027-01-01T00:00:00Z"));
     }
 
     @Test
     void laSituationLitLesBornesDuTrimestreDemande() {
-        service.situation(2026, 2);
+        service.situation(2026, "T2");
 
         org.mockito.ArgumentCaptor<Instant> debut = org.mockito.ArgumentCaptor.forClass(Instant.class);
         org.mockito.Mockito.verify(dossiers).countByReceptionDateBetween(debut.capture(), any());

@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.service;
 
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.PeriodePublication;
 import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
@@ -11,7 +12,6 @@ import gov.bf.ascelc.univers_audits.model.dto.response.PublicationTrimestrielleR
 import gov.bf.ascelc.univers_audits.model.dto.response.PublicationTrimestrielleResponse.Phase;
 import gov.bf.ascelc.univers_audits.repository.DossierRepository;
 import gov.bf.ascelc.univers_audits.repository.InvestigationRepository;
-import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -30,7 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Calcule les huit tableaux de la « Situation des plaintes et dénonciations » publiée chaque trimestre sur le site
+ * Calcule les huit tableaux de la « Situation des plaintes et dénonciations » publiée sur le site (trimestre, semestre ou année)
  * (catégories, modes de saisine, typologie institutionnelle, allégations, traitement, recevabilité, origine
  * géographique, vélocité). Dossiers comptés : ceux enregistrés (date de réception) pendant le trimestre.
  * Rien de personnel n'en sort : uniquement des nombres et des taux.
@@ -56,14 +55,10 @@ public class PublicationTrimestrielleService {
     private final DossierRepository dossiers;
     private final InvestigationRepository investigations;
 
-    public PublicationTrimestrielleResponse situation(int annee, int trimestre) {
-        if (trimestre < 1 || trimestre > 4) {
-            throw new BusinessException("Le trimestre doit être compris entre 1 et 4.");
-        }
-        int moisDebut = (trimestre - 1) * 3 + 1;
-        Instant debut = YearMonth.of(annee, moisDebut).atDay(1).atStartOfDay(OUAGA_TZ).toInstant();
-        Instant fin = (moisDebut + 3 > 12 ? YearMonth.of(annee + 1, 1) : YearMonth.of(annee, moisDebut + 3))
-                .atDay(1).atStartOfDay(OUAGA_TZ).toInstant();
+    public PublicationTrimestrielleResponse situation(int annee, String codePeriode) {
+        PeriodePublication periode = PeriodePublication.depuis(codePeriode);
+        Instant debut = periode.debut(annee, OUAGA_TZ);
+        Instant fin = periode.fin(annee, OUAGA_TZ);
 
         long total = dossiers.countByReceptionDateBetween(debut, fin);
         Map<DossierStatus, Long> parStatut = parStatut(dossiers.countByStatusAndReceptionDateBetween(debut, fin));
@@ -96,16 +91,21 @@ public class PublicationTrimestrielleService {
                 ligne("CLASSES_MOTIF_NON_RENSEIGNE", "Dossiers classés sans suite (motif non renseigné)",
                         motifNonRenseigne, total));
 
+        Double dureeInvestigation = arrondi(investigations.avgDurationInDays(debut, fin));
         List<Phase> velocite = List.of(
                 new Phase("ENREGISTRES", "Dossiers enregistrés", total, null),
                 new Phase("QUALIFIES", "Dossiers qualifiés et affectés (instruction initiale)",
-                        Math.max(0, total - pasQualifies), null),
+                        Math.max(0, total - pasQualifies), arrondi(dossiers.avgOpportunityStudyDelayInDays(debut, fin))),
                 new Phase("INVESTIGATION", "Dossiers en phase d'investigation / enquêtes de terrain", enCours,
-                        arrondi(investigations.avgDurationInDays(debut, fin))),
-                new Phase("CLOTURES", "Dossiers entièrement clôturés", boucles, null));
+                        dureeInvestigation),
+                new Phase("CLOTURES", "Dossiers entièrement clôturés / transmis à la Justice", boucles,
+                        dureeInvestigation),
+                // L'application ne suit pas encore la transmission à la Cour des comptes.
+                new Phase("COUR_DES_COMPTES", "Dossiers entièrement clôturés / transmis à la Cour des comptes", 0, null),
+                new Phase("STOCK", "Stock en instance", stock, null));
 
         return new PublicationTrimestrielleResponse(
-                annee, trimestre, "T" + trimestre + " " + annee, Instant.now().toString(), total,
+                annee, periode.name(), periode.libelle(annee), Instant.now().toString(), total,
                 categories(total, debut, fin),
                 modes(total, debut, fin),
                 typologies(total, debut, fin),
@@ -128,7 +128,7 @@ public class PublicationTrimestrielleService {
         List<Ligne> lignes = new ArrayList<>();
         lignes.add(ligne("DENONCIATION", "Dénonciations", parType.getOrDefault(TypeSaisine.DENONCIATION, 0L), total));
         lignes.add(ligne("PLAINTE", "Plaintes", parType.getOrDefault(TypeSaisine.PLAINTE, 0L), total));
-        lignes.add(ligne("PLAINTE_DENONCIATION", "Plaintes-dénonciations",
+        lignes.add(ligne("PLAINTE_DENONCIATION", "Plainte-dénonciation",
                 parType.getOrDefault(TypeSaisine.PLAINTE_DENONCIATION, 0L), total));
         lignes.add(ligne("DEMANDE_INTERVENTION", "Demandes d'intervention",
                 parType.getOrDefault(TypeSaisine.DEMANDE_INTERVENTION, 0L), total));
@@ -228,11 +228,12 @@ public class PublicationTrimestrielleService {
 
     private static List<String> notes() {
         return List.of(
-                "Dossiers comptés : ceux enregistrés pendant le trimestre (date de réception).",
+                "Dossiers comptés : ceux enregistrés pendant la période (date de réception).",
                 "En cours de traitement : dossiers en investigation, ou dont le rapport est en circuit d'approbation.",
                 "Traités (bouclés) : dossiers clos ou classés. Stock en instance : tous les autres dossiers enregistrés.",
                 "Classés sans suite : dossiers irrecevables, transférés ou classés ; le motif vient de l'étude d'opportunité.",
-                "La transmission à la Cour des comptes n'est pas encore suivie par l'application.",
+                "Délai de qualification : de la réception à la décision de recevabilité ; durée d'investigation : moyenne des investigations terminées.",
+                "La transmission à la Cour des comptes n'est pas encore suivie par l'application : cette ligne reste à zéro.",
                 "Allégation : infraction retenue à l'étude d'opportunité ; « Non qualifié » tant que cette étude n'est pas faite.");
     }
 

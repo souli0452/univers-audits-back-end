@@ -1217,7 +1217,7 @@
   "roles" : [ ],
   "expression" : null
 }, {
-  "handler" : "StatistiqueController#getPublicationTrimestrielle(int,int)",
+  "handler" : "StatistiqueController#getPublicationTrimestrielle(int,String)",
   "httpMethods" : "GET",
   "kind" : "PERMISSION",
   "roles" : [ ],
