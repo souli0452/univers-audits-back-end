@@ -74,9 +74,26 @@ public class Dossier extends AuditEntity {
     private SocialPlatform socialPlatform;
 
     /** Origine géographique de la saisine (statistiques publiées), renseignée par le citoyen ou l'agent. */
+    /** Zone publiée (Kadiogo, Guiriko, autres régions, diaspora), déduite de l'origine géographique. */
     @Enumerated(EnumType.STRING)
     @Column(name = "region_origine", length = 25)
     private RegionOrigine regionOrigine;
+
+    /** « Burkina Faso », ou le pays étranger indiqué pour la diaspora ; vide si non précisé. */
+    @Column(name = "origine_pays", length = 80)
+    private String originePays;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "origine_region_id")
+    private GeoRegion origineRegion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "origine_province_id")
+    private GeoProvince origineProvince;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "origine_commune_id")
+    private GeoCommune origineCommune;
 
     /** Typologie institutionnelle de l'entité visée, qualifiée par l'agent qui enregistre. */
     @Enumerated(EnumType.STRING)

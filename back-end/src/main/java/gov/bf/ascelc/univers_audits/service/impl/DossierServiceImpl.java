@@ -18,6 +18,8 @@ import gov.bf.ascelc.univers_audits.service.CurrentUserAuditor;
 import gov.bf.ascelc.univers_audits.service.ProtectedIdentityExportAuditor;
 import gov.bf.ascelc.univers_audits.service.DossierHabilitationService;
 import gov.bf.ascelc.univers_audits.service.DossierService;
+import gov.bf.ascelc.univers_audits.service.GeographieService;
+import gov.bf.ascelc.univers_audits.service.GeographieService.OrigineGeographique;
 import gov.bf.ascelc.univers_audits.service.NotificationDispatcherService;
 import gov.bf.ascelc.univers_audits.service.ParametreDelaiService;
 import gov.bf.ascelc.univers_audits.service.PortalConfigService;
@@ -64,6 +66,7 @@ public class DossierServiceImpl implements DossierService {
     private final DossierAuditRecorder          auditRecorder;
     private final ParametreDelaiService          parametreDelaiService;
     private final NatureSaisineResolver         natureSaisineResolver;
+    private final GeographieService             geographieService;
     private final DossierAccessGuard            accessGuard;
     private final DossierHabilitationService    habilitationService;
     private final PortalConfigService           portalConfigService;
@@ -207,7 +210,14 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = dossierMapper.toEntity(request);
         dossier.setDeclarant(declarant);
         dossier.setType(natureSaisine);
-        dossier.setRegionOrigine(request.getRegionOrigine());
+        OrigineGeographique origine = geographieService.resoudreOrigine(request.getPaysOrigine(),
+                request.getOrigineRegionId(), request.getOrigineProvinceId(), request.getOrigineCommuneId(),
+                anonymousRequested);
+        dossier.setOriginePays(origine.pays());
+        dossier.setOrigineRegion(origine.region());
+        dossier.setOrigineProvince(origine.province());
+        dossier.setOrigineCommune(origine.commune());
+        dossier.setRegionOrigine(origine.zone());
         dossier.setTypologieInstitutionnelle(parAgent ? request.getTypologieInstitutionnelle() : null);
         dossier.setAnonymous(anonymousRequested);
         if (natureSaisine == TypeSaisine.SIGNALEMENT

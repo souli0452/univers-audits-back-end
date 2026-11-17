@@ -3,7 +3,6 @@ package gov.bf.ascelc.univers_audits.model.dto.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
-import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
 import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
@@ -33,8 +32,18 @@ public class DossierCreateRequest {
 
     private SocialPlatform socialPlatform;
 
-    /** Origine géographique : renseignée par le citoyen ou par l'agent. */
-    private RegionOrigine regionOrigine;
+    /**
+     * Origine géographique du déclarant, renseignée par le citoyen ou par l'agent : un pays étranger (diaspora), ou
+     * le Burkina Faso avec la région, la province et la commune. La zone publiée est déduite par le serveur.
+     */
+    @Size(max = 80, message = "Le pays ne peut pas dépasser 80 caractères")
+    private String paysOrigine;
+
+    private UUID origineRegionId;
+
+    private UUID origineProvinceId;
+
+    private UUID origineCommuneId;
 
     /**
      * Réservé à l'agent qui enregistre : plainte, dénonciation, plainte-dénonciation ou demande d'intervention.

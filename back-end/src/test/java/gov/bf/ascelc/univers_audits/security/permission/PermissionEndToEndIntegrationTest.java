@@ -33,6 +33,7 @@ class PermissionEndToEndIntegrationTest {
     private static final String AGENTS = "/api/v1/agents?page=0&size=1";
     private static final String ANNUAIRE = "/api/v1/agents/active";
     private static final String CONSEILLERS = "/api/v1/agents/conseillers-juridiques";
+    private static final String GEOGRAPHIE = "/api/v1/public/geographie";
     private static final String PUBLICATION = "/api/v1/stats/publication?year=2026&period=T1";
 
     @Autowired
@@ -116,6 +117,12 @@ class PermissionEndToEndIntegrationTest {
         assertThat(statut(get(PUBLICATION).with(jetonAvecRoles("CONTROLEUR_ETAT")))).isEqualTo(403);
         assertThat(statut(get(PUBLICATION).with(jetonAvecRoles("AGENT_BRPD")))).isEqualTo(403);
         assertThat(statut(get(PUBLICATION))).isEqualTo(401);
+    }
+
+    @Test
+    void laGeographieEstPubliqueCarElleAlimenteLeFormulaireDeDepotDuCitoyen() throws Exception {
+        assertThat(statut(get(GEOGRAPHIE))).isEqualTo(200);
+        assertThat(statut(get(GEOGRAPHIE).with(jetonAvecRoles("AGENT_BRPD")))).isEqualTo(200);
     }
 
     private int statut(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder requete) throws Exception {
