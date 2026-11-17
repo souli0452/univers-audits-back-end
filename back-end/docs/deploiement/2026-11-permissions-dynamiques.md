@@ -1,6 +1,6 @@
 # Déploiement — permissions pilotées par la base, chefs de département, circuit du rapport
 
-Version préparée le 2026-11-16. Back : branche `feature/permissions-dynamiques` (migrations 028 à 034).
+Version préparée le 2026-11-16. Back : branche `feature/permissions-dynamiques` (migrations 028 à 034 ; 035 si la publication trimestrielle part avec).
 Front : branche `feat/menus-metier-seulement`. **Le back et le front partent ensemble.**
 
 Décision d'architecture : `back-end/docs/adr/0001-permissions-dynamiques.md`.
@@ -83,7 +83,7 @@ bash scripts/deploy.sh
 SELECT id FROM databasechangelog WHERE id >= '028' ORDER BY id;
 ```
 
-Attendu : 028, 029, 030, 031, 032, 033, 034.
+Attendu : 028, 029, 030, 031, 032, 033, 034 (et 035 avec la publication trimestrielle).
 
 ```sql
 SELECT count(*) FROM permission WHERE active;
@@ -143,3 +143,4 @@ En dernier recours seulement (perd les données saisies depuis le déploiement) 
 - La suppression d'un rôle est refusée tant que des agents le portent (comptés parmi les porteurs directs dans Keycloak).
 - Le circuit du rapport prévient désormais chaque étape ; un échec de notification est seulement écrit dans les journaux.
 - La validation du plan d'enquête est au chef du DEI (migration 034) : les plans déjà soumis et non validés devront être validés par lui. Requête : `SELECT d.number FROM plan_investigation p JOIN investigation i ON i.id = p.investigation_id JOIN dossier d ON d.id = i.case_id WHERE p.validated_at IS NULL;`
+- **Publication trimestrielle (migration 035)** : ajoute les natures « plainte-dénonciation » et « demande d'intervention », la plateforme Messenger, et deux colonnes facultatives (origine géographique, typologie institutionnelle). Rien n'est supprimé. Attention au retour arrière : dès qu'un agent a enregistré un dossier avec une des nouvelles valeurs, l'ancien code ne sait plus le lire. Pour revenir en arrière après usage, passer d'abord ces dossiers à `DENONCIATION` ou `PLAINTE`. Les chiffres publiés dépendent des champs renseignés : les dossiers sans valeur sont comptés « non précisé », et les allégations restent « non qualifié » tant que la liste des infractions n'est pas configurée dans Paramètres métier.
