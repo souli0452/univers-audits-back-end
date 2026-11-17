@@ -1,6 +1,6 @@
 # Déploiement — permissions pilotées par la base, chefs de département, circuit du rapport
 
-Version préparée le 2026-11-16. Back : branche `feature/permissions-dynamiques` (migrations 028 à 034 ; 035 si la publication trimestrielle part avec).
+Version préparée le 2026-11-16. Back : branche `feature/permissions-dynamiques` (migrations 028 à 034 ; 035 à 037 si la publication trimestrielle part avec).
 Front : branche `feat/menus-metier-seulement`. **Le back et le front partent ensemble.**
 
 Décision d'architecture : `back-end/docs/adr/0001-permissions-dynamiques.md`.
@@ -83,7 +83,7 @@ bash scripts/deploy.sh
 SELECT id FROM databasechangelog WHERE id >= '028' ORDER BY id;
 ```
 
-Attendu : 028, 029, 030, 031, 032, 033, 034 (et 035 avec la publication trimestrielle).
+Attendu : 028, 029, 030, 031, 032, 033, 034 (et 035, 036, 037 avec la publication trimestrielle).
 
 ```sql
 SELECT count(*) FROM permission WHERE active;
@@ -144,3 +144,4 @@ En dernier recours seulement (perd les données saisies depuis le déploiement) 
 - Le circuit du rapport prévient désormais chaque étape ; un échec de notification est seulement écrit dans les journaux.
 - La validation du plan d'enquête est au chef du DEI (migration 034) : les plans déjà soumis et non validés devront être validés par lui. Requête : `SELECT d.number FROM plan_investigation p JOIN investigation i ON i.id = p.investigation_id JOIN dossier d ON d.id = i.case_id WHERE p.validated_at IS NULL;`
 - **Publication trimestrielle (migration 035)** : ajoute les natures « plainte-dénonciation » et « demande d'intervention », la plateforme Messenger, et deux colonnes facultatives (origine géographique, typologie institutionnelle). Rien n'est supprimé. Attention au retour arrière : dès qu'un agent a enregistré un dossier avec une des nouvelles valeurs, l'ancien code ne sait plus le lire. Pour revenir en arrière après usage, passer d'abord ces dossiers à `DENONCIATION` ou `PLAINTE`. Les chiffres publiés dépendent des champs renseignés : les dossiers sans valeur sont comptés « non précisé », et les allégations restent « non qualifié » tant que la liste des infractions n'est pas configurée dans Paramètres métier.
+- **Référentiel géographique (migration 037)** : crée les tables `geo_region`, `geo_province`, `geo_commune` (17 régions, 47 provinces, 351 communes, d'après la liste du Ministère de l'Administration territoriale et de la Mobilité) et quatre colonnes sur `dossier` (pays, région, province, commune d'origine). Les identifiants sont calculés à partir des noms : identiques dans tous les environnements. La liste est servie sans connexion par `GET /api/v1/public/geographie` (le proxy ne doit pas la bloquer). Les communes à statut particulier (Ouagadougou, Bobo-Dioulasso) ne figurent pas dans les deux listes du Ministère : elles ont été ajoutées. Orthographe : celle des listes officielles (majuscules sans accent) remise en casse normale avec les accents d'usage ; à relire. Une modification du découpage = une nouvelle migration.
