@@ -138,6 +138,21 @@ class ComplementPublicServiceTest {
     }
 
     @Test
+    void submitComplement_pour_un_dossier_anonyme_ne_conserve_aucune_adresse_ip() {
+        Dossier anonyme = dossier(DossierStatus.EN_ATTENTE_COMPLEMENT, Instant.parse("2026-09-30T23:59:59Z"));
+        anonyme.setAnonymous(true);
+        when(dossierRepository.findByAccessCode("ABCD1234")).thenReturn(Optional.of(anonyme));
+        when(observationRepository.findTopByDossierIdAndTypeOrderByCreatedAtDesc(
+                dossierId, ObservationType.COMPLEMENT_REQUEST)).thenReturn(Optional.of(demande()));
+
+        service.submitComplement("ABCD1234", "Voici", null, "10.0.0.1", NOW);
+
+        verify(auditRecorder).recordStatusChange(any(Dossier.class), any(), any(), anyString(), eq(null), eq(null));
+        verify(auditService).logAction(eq(null), eq("Déclarant (via le portail)"), eq(null),
+                eq("RECEVOIR_COMPLEMENT"), eq("DOSSIER"), anyString(), anyString(), eq(null), eq(null));
+    }
+
+    @Test
     void submitComplement_message_seul_fait_repasser_le_dossier_en_etude() {
         givenDossierEnAttente(Instant.parse("2026-09-30T23:59:59Z"));
 

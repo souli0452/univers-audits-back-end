@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.shared.utils.ProtectionAdresseIp;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
 import gov.bf.ascelc.univers_audits.enums.NotificationChannel;
 import gov.bf.ascelc.univers_audits.enums.NotificationType;
@@ -123,15 +124,17 @@ public class ComplementPublicService {
                 .scheduledAt(now)
                 .build());
 
+        // Anonyme ou sous protection : l'adresse de connexion n'est conservée ni dans l'historique ni dans le journal.
+        String adresseConservee = ProtectionAdresseIp.aConserver(dossier, ipAddress);
         auditRecorder.recordStatusChange(dossier,
                 DossierStatus.EN_ATTENTE_COMPLEMENT, DossierStatus.EN_ETUDE_OPPORTUNITE,
-                "Complément reçu du déclarant" + (late ? " (en retard)" : ""), null, ipAddress);
+                "Complément reçu du déclarant" + (late ? " (en retard)" : ""), null, adresseConservee);
 
         auditService.logAction(null, DECLARANT_LABEL, null, "RECEVOIR_COMPLEMENT", "DOSSIER",
                 dossier.getId().toString(),
                 "Complément reçu via le portail" + (late ? " (en retard)" : "")
                         + " — " + uploaded + " fichier(s)",
-                ipAddress, null);
+                adresseConservee, null);
 
         return new ComplementSubmissionResponse(
                 DossierStatus.EN_ETUDE_OPPORTUNITE.name(), late, uploaded);

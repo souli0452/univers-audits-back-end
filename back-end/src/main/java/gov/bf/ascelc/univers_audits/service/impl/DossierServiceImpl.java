@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service.impl;
 
+import gov.bf.ascelc.univers_audits.shared.utils.ProtectionAdresseIp;
 import gov.bf.ascelc.univers_audits.enums.*;
 import gov.bf.ascelc.univers_audits.mapper.DeclarantMapper;
 import gov.bf.ascelc.univers_audits.mapper.DossierDetailsMapper;
@@ -244,8 +245,8 @@ public class DossierServiceImpl implements DossierService {
 
         if (protectionRequested) {
             dossier.setIsConfidential(true);
-            log.warn("[SECURITE] Protection lanceur d'alerte — dossier marqué "
-                    + "confidentiel d'office à la soumission. IP: {}", ipAddress);
+            // L'adresse de connexion n'est volontairement pas écrite : elle trahirait le lanceur d'alerte.
+            log.warn("[SECURITE] Protection lanceur d'alerte — dossier marqué confidentiel d'office à la soumission.");
         }
 
         String accessCode;
@@ -285,7 +286,7 @@ public class DossierServiceImpl implements DossierService {
 
         auditRecorder.recordStatusChange(saved, null, DossierStatus.SOUMIS,
                 "Dossier soumis via " + request.getSubmissionMode(),
-                null, ipAddress);
+                null, ProtectionAdresseIp.aConserver(anonymousRequested, protectionRequested, ipAddress));
 
         log.info("Dossier créé — accessCode: {}", accessCode);
         return dossierMapper.toResponse(saved);

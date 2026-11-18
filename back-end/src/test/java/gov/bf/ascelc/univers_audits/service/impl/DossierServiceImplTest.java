@@ -229,6 +229,68 @@ class DossierServiceImplTest {
                 && "Côte d'Ivoire".equals(d.getOriginePays()) && d.getOrigineRegion() == null));
     }
 
+    // ───────── adresse IP du citoyen : jamais conservée quand elle pourrait trahir un lanceur d'alerte ─────────
+
+    private static final String IP_CITOYEN = "203.0.113.9";
+
+    private Declarant declarantCitoyen(boolean protection) {
+        return Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).protectionRequested(protection).build();
+    }
+
+    @Test
+    void submitAnonyme_neConservePasLAdresseIpDuCitoyen() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN, true);
+        stubSoumission(request, declarantCitoyen(false), TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, IP_CITOYEN);
+
+        verify(auditRecorder).recordStatusChange(any(Dossier.class), isNull(), eq(DossierStatus.SOUMIS),
+                anyString(), isNull(), isNull());
+    }
+
+    @Test
+    void submitSousProtection_neConservePasLAdresseIpDuCitoyen() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        stubSoumission(request, declarantCitoyen(true), TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, IP_CITOYEN);
+
+        verify(auditRecorder).recordStatusChange(any(Dossier.class), isNull(), eq(DossierStatus.SOUMIS),
+                anyString(), isNull(), isNull());
+    }
+
+    @Test
+    void submitIdentifieSansProtection_conserveLAdresseIpPourLaTracabilite() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        stubSoumission(request, declarantCitoyen(false), TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, IP_CITOYEN);
+
+        verify(auditRecorder).recordStatusChange(any(Dossier.class), isNull(), eq(DossierStatus.SOUMIS),
+                anyString(), isNull(), eq(IP_CITOYEN));
+    }
+
+    @Test
+    void submitSousProtection_n_ecritJamaisLAdresseIpDansLesJournauxDuServeur() {
+        ch.qos.logback.classic.Logger journal =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(DossierServiceImpl.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> collecteur =
+                new ch.qos.logback.core.read.ListAppender<>();
+        collecteur.start();
+        journal.addAppender(collecteur);
+        try {
+            DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+            stubSoumission(request, declarantCitoyen(true), TypeSaisine.DENONCIATION, null);
+
+            service.submit(request, IP_CITOYEN);
+
+            assertThat(collecteur.list).isNotEmpty();
+            assertThat(collecteur.list).noneMatch(e -> e.getFormattedMessage().contains(IP_CITOYEN));
+        } finally {
+            journal.detachAppender(collecteur);
+        }
+    }
+
     @Test
     void submit_appliesResolvedNatureSaisineToNewDossier() {
         DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
