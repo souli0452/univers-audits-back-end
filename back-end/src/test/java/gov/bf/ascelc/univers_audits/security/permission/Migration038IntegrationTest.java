@@ -12,8 +12,9 @@ import java.util.TreeSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Migration 038 : le téléchargement d'une pièce jointe devient un droit à part, et le CGE et le CGEA, au-dessus de
- * l'agent BRPD, peuvent faire son travail (suppléance, ajustable dans l'écran Rôles & Permissions).
+ * Migration 038 : le téléchargement d'une pièce jointe devient un droit à part. Décision du 2026-11-19 : aucune
+ * suppléance automatique entre rôles — chacun reste responsable des tâches qui lui sont attribuées (séparation des
+ * pouvoirs : celui qui prépare n'est pas celui qui approuve).
  */
 @SpringBootTest
 class Migration038IntegrationTest {
@@ -39,16 +40,37 @@ class Migration038IntegrationTest {
                 "CONTROLEUR_ETAT", "MEMBRE_CTADP", "DCP");
     }
 
+    /** Le travail courant de l'agent BRPD : seul lui (et l'administrateur) le fait. */
+    private static final List<String> TRAVAIL_DE_L_AGENT_BRPD = List.of("DOSSIER_ENREGISTRER", "DOSSIER_MODIFIER",
+            "PARTIE_VISEE_GERER", "TEMOIN_GERER", "PIECE_JOINTE_RECLASSER", "SECTION_DOSSIER_TRAVAIL_GERER",
+            "INFO_PREOCCUPANTE_AUTOSAISIR", "INFO_PREOCCUPANTE_CREER", "INFO_PREOCCUPANTE_TRAITER", "INFO_PREOCCUPANTE_VOIR");
+
     @Test
-    void leCgeaEtLeCgePeuventEnregistrerEtCompleterUnDossierEnSuppleanceDeLAgentBrpd() {
-        for (String permission : List.of("DOSSIER_ENREGISTRER", "DOSSIER_MODIFIER", "PARTIE_VISEE_GERER",
-                "TEMOIN_GERER", "PIECE_JOINTE_RECLASSER", "INFO_PREOCCUPANTE_CREER", "INFO_PREOCCUPANTE_TRAITER")) {
-            assertThat(roles(permission)).as(permission).contains("AGENT_BRPD", "CGEA", "CGE");
+    void lAgentBrpdGardeSonTravailEtLesSuperieursNeLeFontPasEnSuppleance() {
+        for (String permission : TRAVAIL_DE_L_AGENT_BRPD) {
+            assertThat(roles(permission)).as(permission).contains("AGENT_BRPD").doesNotContain("CGE", "CGEA");
         }
     }
 
     @Test
-    void laSuppleanceNeDonneAuxSuperieursNiAdministrationNiIdentiteProtegeeDeLAgent() {
+    void leCgeNaAucunDroitDeSaisieDeLAgentBrpdMemePasSesSuppressions() {
+        // Avant la 038, le CGEA avait déjà ces quatre droits (migration 028) ; le CGE n'en avait aucun. Rien n'a changé.
+        assertThat(roles("DOSSIER_MES_DOSSIERS_VOIR")).doesNotContain("CGE");
+        for (String permission : List.of("PARTIE_VISEE_SUPPRIMER", "TEMOIN_SUPPRIMER", "PIECE_JOINTE_SUPPRIMER")) {
+            assertThat(roles(permission)).as(permission).doesNotContain("CGE");
+        }
+    }
+
+    @Test
+    void leCgeaGardeExactementLesQuatreDroitsQuIlAvaitAvantLa038() {
+        for (String permission : List.of("DOSSIER_MES_DOSSIERS_VOIR", "PARTIE_VISEE_SUPPRIMER", "TEMOIN_SUPPRIMER",
+                "PIECE_JOINTE_SUPPRIMER")) {
+            assertThat(roles(permission)).as(permission).contains("CGEA");
+        }
+    }
+
+    @Test
+    void laMigrationNAjouteNiAdministrationNiAuditNiIdentiteProtegeeAuxSuperieurs() {
         assertThat(roles("AGENT_CREER")).doesNotContain("CGE", "CGEA", "AGENT_BRPD");
         assertThat(roles("AUDIT_JOURNAL_VOIR")).doesNotContain("CGE", "CGEA", "AGENT_BRPD");
     }

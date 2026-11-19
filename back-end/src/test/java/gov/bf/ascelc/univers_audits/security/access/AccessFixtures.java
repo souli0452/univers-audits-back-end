@@ -58,23 +58,7 @@ final class AccessFixtures {
      * processus C, limite l'accès aux dossiers d'investigation au CGE, au CGEA et au chef du DEI). Migration 030.
      */
     static boolean accordeeParLaPolitique(String role, AppPermission permission) {
-        return (role.equals("CGE") && permission == AppPermission.REGISTRE_AUDITIONS_VOIR)
-                || accordeeParLaSuppleance(role, permission);
-    }
-
-    /**
-     * Décision du 2026-11-18 : le CGEA et le CGE, au-dessus de l'agent BRPD, peuvent faire son travail courant
-     * (enregistrer et compléter un dossier, parties visées, témoins, informations préoccupantes). Migration 038.
-     */
-    static boolean accordeeParLaSuppleance(String role, AppPermission permission) {
-        return (role.equals("CGE") || role.equals("CGEA")) && Set.of(
-                AppPermission.DOSSIER_ENREGISTRER, AppPermission.DOSSIER_MODIFIER,
-                AppPermission.DOSSIER_MES_DOSSIERS_VOIR, AppPermission.PARTIE_VISEE_GERER,
-                AppPermission.PARTIE_VISEE_SUPPRIMER, AppPermission.TEMOIN_GERER, AppPermission.TEMOIN_SUPPRIMER,
-                AppPermission.PIECE_JOINTE_RECLASSER, AppPermission.PIECE_JOINTE_SUPPRIMER,
-                AppPermission.SECTION_DOSSIER_TRAVAIL_GERER, AppPermission.INFO_PREOCCUPANTE_AUTOSAISIR,
-                AppPermission.INFO_PREOCCUPANTE_CREER, AppPermission.INFO_PREOCCUPANTE_TRAITER,
-                AppPermission.INFO_PREOCCUPANTE_VOIR).contains(permission);
+        return role.equals("CGE") && permission == AppPermission.REGISTRE_AUDITIONS_VOIR;
     }
 
     /**
