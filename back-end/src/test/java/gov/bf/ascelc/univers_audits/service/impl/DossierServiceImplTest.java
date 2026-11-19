@@ -28,6 +28,7 @@ import gov.bf.ascelc.univers_audits.model.entity.Agent;
 import gov.bf.ascelc.univers_audits.model.entity.Declarant;
 import gov.bf.ascelc.univers_audits.model.entity.DecisionCGE;
 import gov.bf.ascelc.univers_audits.model.entity.Dossier;
+import gov.bf.ascelc.univers_audits.model.entity.EtudeOpportunite;
 import gov.bf.ascelc.univers_audits.repository.AgentRepository;
 import gov.bf.ascelc.univers_audits.repository.DeclarantRepository;
 import gov.bf.ascelc.univers_audits.repository.DecisionCGERepository;
@@ -1185,5 +1186,95 @@ class DossierServiceImplTest {
         verify(decisionCGERepository).save(argThat(dc ->
                 dc.getDecision() == RecommandationCtadp.TRANSMISSION_INSTITUTION_PARTENAIRE
                         && dc.getDossier() == dossier));
+    }
+
+    // ───────── séparation des pouvoirs : celui qui a rédigé l'étude d'opportunité ne prend pas la décision du CGE ─────────
+
+    private static final String KC_AUTEUR = "kc-auteur-de-l-etude";
+
+    private Dossier dossierEnRevueAvecEtude(String creePar, String modifiePar) {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).status(DossierStatus.EN_REVUE_CTADP).build();
+        EtudeOpportunite etude = EtudeOpportunite.builder().dossier(dossier).createdById(creePar).updatedById(modifiePar).build();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        when(etudeOpportuniteRepository.findByDossierId(dossierId)).thenReturn(Optional.of(etude));
+        return dossier;
+    }
+
+    private void decideur(String keycloakId) {
+        when(agentContextResolver.getCurrentAgent())
+                .thenReturn(Agent.builder().id(UUID.randomUUID()).keycloakId(keycloakId).build());
+    }
+
+    /** Les quatre décisions que le CGE prend sur un dossier en revue : recevable, irrecevable, transmission, orientation. */
+    private List<java.util.function.Consumer<UUID>> lesDecisionsDuCge() {
+        StatusTransitionRequest motif = StatusTransitionRequest.builder().reason("Motif de la décision").build();
+        StatusTransitionRequest transmission = StatusTransitionRequest.builder().reason("Autre institution compétente")
+                .transferInstitution("Autorité de régulation").build();
+        return List.of(
+                id -> service.declareAdmissible(id, motif, "127.0.0.1"),
+                id -> service.declareInadmissible(id, motif, "127.0.0.1"),
+                id -> service.transfer(id, transmission, "127.0.0.1"),
+                id -> service.orientAdministratif(id, motif, "127.0.0.1"));
+    }
+
+    @Test
+    void decisionDuCge_refuseCeluiQuiACreeLEtudeDOpportunite() {
+        for (java.util.function.Consumer<UUID> decision : lesDecisionsDuCge()) {
+            Dossier dossier = dossierEnRevueAvecEtude(KC_AUTEUR, KC_AUTEUR);
+            decideur(KC_AUTEUR);
+
+            assertThatThrownBy(() -> decision.accept(dossier.getId()))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("rédigé l'étude d'opportunité");
+
+            assertThat(dossier.getStatus()).isEqualTo(DossierStatus.EN_REVUE_CTADP);
+        }
+        verify(dossierRepository, never()).save(any());
+        verify(decisionCGERepository, never()).save(any());
+    }
+
+    @Test
+    void decisionDuCge_refuseCeluiQuiAModifieLEtudeEnDernier() {
+        Dossier dossier = dossierEnRevueAvecEtude("kc-createur-initial", KC_AUTEUR);
+        decideur(KC_AUTEUR);
+
+        assertThatThrownBy(() -> service.declareAdmissible(dossier.getId(),
+                StatusTransitionRequest.builder().reason("Motif").build(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("rédigé l'étude d'opportunité");
+
+        verify(decisionCGERepository, never()).save(any());
+    }
+
+    @Test
+    void decisionDuCge_accepteUneAutrePersonneQueLAuteurDeLEtude() {
+        Dossier dossier = dossierEnRevueAvecEtude(KC_AUTEUR, KC_AUTEUR);
+        decideur("kc-le-cge");
+        when(decisionCGERepository.findByDossierId(dossier.getId())).thenReturn(Optional.empty());
+        when(decisionCGERepository.save(any(DecisionCGE.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+
+        service.declareAdmissible(dossier.getId(), StatusTransitionRequest.builder().reason("Preuves suffisantes").build(),
+                "127.0.0.1");
+
+        assertThat(dossier.getStatus()).isEqualTo(DossierStatus.RECEVABLE);
+    }
+
+    @Test
+    void decisionDuCge_neChangeRienQuandAucuneEtudeNExiste() {
+        UUID dossierId = UUID.randomUUID();
+        Dossier dossier = Dossier.builder().id(dossierId).status(DossierStatus.EN_REVUE_CTADP).build();
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
+        decideur(KC_AUTEUR);
+        when(decisionCGERepository.findByDossierId(dossierId)).thenReturn(Optional.empty());
+        when(decisionCGERepository.save(any(DecisionCGE.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+
+        service.declareAdmissible(dossierId, StatusTransitionRequest.builder().reason("Motif").build(), "127.0.0.1");
+
+        assertThat(dossier.getStatus()).isEqualTo(DossierStatus.RECEVABLE);
     }
 }

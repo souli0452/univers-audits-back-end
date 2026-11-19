@@ -528,6 +528,7 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.RECEVABLE);
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserLAuteurDeLEtude(dossier, agent);
 
         dossier.setStatus(DossierStatus.RECEVABLE);
         dossier.setEligibilityDecisionDate(Instant.now());
@@ -562,6 +563,7 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.IRRECEVABLE);
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserLAuteurDeLEtude(dossier, agent);
 
         if (request.getReason() == null || request.getReason().isBlank()) {
             throw new BusinessException(
@@ -600,6 +602,7 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.TRANSFERE);
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserLAuteurDeLEtude(dossier, agent);
 
         if (request.getTransferInstitution() == null
                 || request.getTransferInstitution().isBlank()) {
@@ -642,6 +645,7 @@ public class DossierServiceImpl implements DossierService {
         Dossier dossier = getDossierOrThrow(dossierId);
         validateTransition(dossier, DossierStatus.ORIENTEE_ADMINISTRATIF);
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserLAuteurDeLEtude(dossier, agent);
 
         if (request.getReason() == null || request.getReason().isBlank()) {
             throw new BusinessException(
@@ -1059,6 +1063,24 @@ public class DossierServiceImpl implements DossierService {
                     "Transition invalide : "
                             + dossier.getStatus() + " → " + target);
         }
+    }
+
+    /**
+     * Séparation des pouvoirs : celui qui a rédigé l'étude d'opportunité (créée ou modifiée en dernier par lui) ne prend
+     * pas la décision sur ce dossier (recevable, irrecevable, transmission, orientation administrative). L'auteur est
+     * l'identifiant Keycloak que l'audit des entités enregistre déjà ; sans étude, la règle ne s'applique pas.
+     */
+    private void refuserLAuteurDeLEtude(Dossier dossier, Agent decideur) {
+        if (decideur == null || decideur.getKeycloakId() == null) {
+            return;
+        }
+        etudeOpportuniteRepository.findByDossierId(dossier.getId()).ifPresent(etude -> {
+            String idDuDecideur = decideur.getKeycloakId();
+            if (idDuDecideur.equals(etude.getCreatedById()) || idDuDecideur.equals(etude.getUpdatedById())) {
+                throw new BusinessException("Vous avez rédigé l'étude d'opportunité de ce dossier : la décision doit être "
+                        + "prise par une autre personne.");
+            }
+        });
     }
 
     private void recordDecisionCGE(Dossier dossier,
