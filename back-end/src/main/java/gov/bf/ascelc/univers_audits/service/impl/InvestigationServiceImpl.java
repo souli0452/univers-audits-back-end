@@ -465,6 +465,8 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserSiMembreDeLEquipe(investigationId, agent, "l'avis du conseiller juridique");
+        refuserLeCumulDApprobations(inv, agent);
         inv.setLegalAdvisorApprovedAt(Instant.now());
         inv.setLegalAdvisorApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
@@ -498,6 +500,7 @@ public class InvestigationServiceImpl implements InvestigationService {
 
         Agent agent = agentContextResolver.getCurrentAgent();
         refuserLAutoApprobationDei(investigationId, agent);
+        refuserLeCumulDApprobations(inv, agent);
         inv.setDeiApprovedAt(Instant.now());
         inv.setDeiApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
@@ -547,6 +550,36 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
     }
 
+    /**
+     * Séparation des pouvoirs : quiconque a fait partie de l'équipe d'enquête (même retiré depuis) ne peut approuver
+     * aucune étape du rapport qu'elle a produit. Même règle que pour l'approbation DEI, étendue au conseiller juridique,
+     * au CGEA et au CGE.
+     */
+    private void refuserSiMembreDeLEquipe(UUID investigationId, Agent approbateur, String etape) {
+        boolean aFaitPartieDeLEquipe = memberRepository
+                .findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigationId, approbateur.getId())
+                .isPresent();
+        if (aFaitPartieDeLEquipe) {
+            throw new BusinessException("Vous faites partie de l'équipe de cette investigation : " + etape
+                    + " doit être donnée par une autre personne.");
+        }
+    }
+
+    /**
+     * Séparation des pouvoirs : les étapes d'approbation du rapport (conseiller juridique, DEI, CGEA, CGE) sont données
+     * par des personnes différentes. Sans cette règle, un administrateur, ou quelqu'un qui cumule deux rôles, pourrait
+     * approuver seul toute la chaîne. Une approbation dont l'auteur n'est pas renseigné (données anciennes) est ignorée.
+     */
+    private void refuserLeCumulDApprobations(Investigation inv, Agent approbateur) {
+        for (Agent dejaIntervenu : java.util.Arrays.asList(inv.getLegalAdvisorApprovedBy(), inv.getDeiApprovedBy(),
+                inv.getCgeaApprovedBy())) {
+            if (dejaIntervenu != null && dejaIntervenu.getId() != null && dejaIntervenu.getId().equals(approbateur.getId())) {
+                throw new BusinessException("Vous avez déjà donné une approbation sur ce rapport : chaque étape "
+                        + "(conseiller juridique, DEI, CGEA, CGE) doit être donnée par une personne différente.");
+            }
+        }
+    }
+
     @Override
     @Transactional
     public InvestigationResponse approveCgea(UUID investigationId, String ipAddress) {
@@ -558,6 +591,8 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
 
         Agent agent = agentContextResolver.getCurrentAgent();
+        refuserSiMembreDeLEquipe(investigationId, agent, "l'approbation du CGEA");
+        refuserLeCumulDApprobations(inv, agent);
         inv.setCgeaApprovedAt(Instant.now());
         inv.setCgeaApprovedBy(agent);
         Investigation saved = investigationRepository.save(inv);
@@ -586,6 +621,8 @@ public class InvestigationServiceImpl implements InvestigationService {
         }
 
         Agent cge = agentContextResolver.getCurrentAgent();
+        refuserSiMembreDeLEquipe(investigationId, cge, "la décision du CGE");
+        refuserLeCumulDApprobations(inv, cge);
         inv.setCgeApprovedAt(Instant.now());
         inv.setCgeApprovedBy(cge);
         inv.setStatus(InvestigationStatus.ARCHIVED);
