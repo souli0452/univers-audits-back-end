@@ -19,6 +19,7 @@ Vérifié avant publication : 984 tests du serveur verts ; 331 tests de l'écran
 | Tous | écran muet après un dépôt | phrase « Prochaine étape » sur le dossier |
 | Dépôt anonyme ou sous protection | adresse IP conservée | **plus d'adresse IP conservée** (nouveaux dépôts seulement : voir contrôle 2d) |
 | Citoyen (invisible) | les journaux du serveur web gardaient l'adresse IP **et le code de suivi** de chaque visite | dépôt, suivi, complément et envoi de pièces **ne laissent aucune trace** dans ces journaux ; le reste du site journalise une adresse tronquée (dernier nombre à 0) |
+| Rapport d'enquête | seule l'approbation DEI refusait un membre de l'équipe | les 4 approbations (conseiller juridique, DEI, CGEA, CGE) sont données par des **personnes différentes**, et un membre de l'équipe d'enquête n'en donne aucune (message « Vous avez déjà donné une approbation… » ou « Vous faites partie de l'équipe… ») |
 | Tous | « Se déconnecter » menait à l'accueil public | mène à la page de connexion |
 | Tous | pages 404 / accès refusé / erreur du modèle d'origine | pages au logo de l'ASCE-LC ; un agent sans le rôle requis voit « Accès refusé » (403) et non « Page introuvable » |
 
@@ -178,6 +179,7 @@ Attendu : « TOUS LES CONTROLES PASSENT » ; dans les journaux réels, des ligne
 | AGENT_BRPD | sur un dossier « Soumis » : boutons « Compléter la fiche » et « Enregistrer » ; onglet Pièces jointes : aperçu et écoute, **pas de bouton Télécharger** ; sur un dépôt vocal, le lecteur audio affiche la durée |
 | CGEA | **ni « Enregistrer » ni « Compléter la fiche »** sur un dossier « Soumis » (la phrase « Prochaine étape » dit que l'agent BRPD s'en charge) ; le bouton Télécharger est présent ; un téléchargement apparaît au Journal d'audit (`TELECHARGER_PIECE_JOINTE`) |
 | ADMIN_DDIC | Télécharger présent ; Journal d'audit lisible |
+| Chef du DEI, CGEA, CGE, conseiller juridique | sur un rapport qu'ils ont déjà approuvé à une autre étape, le serveur refuse avec le message ci-dessus ; il faut une autre personne (en cas d'absence : attribution temporaire d'un rôle, voir le point 6) |
 | Tout rôle | « Se déconnecter » mène à la page de connexion ; une adresse inconnue (`/#/nimportequoi`) affiche la page 404 au logo |
 | Citoyen | dépôt en 5 écrans ; enregistrement vocal : le lecteur affiche une durée avant l'envoi |
 
@@ -199,6 +201,7 @@ En dernier recours seulement (perd les données saisies depuis le déploiement) 
 
 ## 6. Points d'attention connus
 
+- **Une seule approbation par personne sur un rapport.** Dans une petite équipe, il faut donc au moins quatre personnes différentes pour mener un rapport jusqu'à la décision (conseiller juridique, chef du DEI, CGEA, CGE) et aucune d'elles ne doit avoir fait partie de l'équipe d'enquête. L'étude d'opportunité et la décision d'admissibilité du CGE ne sont **pas** couvertes par cette règle (l'auteur de l'étude n'est pas enregistré).
 - **Pas de suppléance entre rôles (décision du 2026-11-19).** Pour une absence, l'administrateur attribue temporairement le rôle nécessaire dans l'écran Agents, puis le retire ; chaque attribution est inscrite au Journal d'audit (`MODIFIER_ROLES_AGENT`, avec la liste des rôles). Surveiller ces lignes : c'est le seul chemin légitime pour qu'une personne fasse le travail d'une autre.
 - **Base de développement ayant déjà joué l'ancienne 038** (elle donnait des droits de saisie au CGE et au CGEA) : la migration 039 les retire toute seule au prochain démarrage du serveur (le CGEA garde ses 4 droits d'avant). La production n'est pas concernée : elle n'a jamais joué cette version. Si le serveur de développement se plaint de deux fichiers 038, supprimer l'ancien `038-…-et-suppleance.sql` resté dans `target/classes/db/changelog/migrations/`.
 - **Journaux du serveur web : traité dans cette livraison** (voir 4c). Ce qui reste hors de portée de l'application : l'opérateur de connexion du déposant et l'hébergeur voient toujours qu'une connexion a eu lieu, et l'heure d'un dépôt peut être rapprochée de l'heure d'une connexion si quelqu'un a accès à la fois à la base et aux flux réseau. Conseiller l'usage d'un réseau public ou d'un navigateur de confidentialité à un lanceur d'alerte à risque (l'écran « Votre sécurité » du portail peut le dire).
