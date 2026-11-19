@@ -464,6 +464,11 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "La revue du conseiller juridique n'est possible qu'après soumission du rapport.");
         }
 
+        if (inv.getLegalAdvisorApprovedAt() != null) {
+            // Ré-approuver écraserait le nom de l'approbateur : on pourrait ainsi se faire effacer de la chaîne.
+            throw new BusinessException("L'étape du conseiller juridique a déjà été approuvée pour ce rapport.");
+        }
+
         Agent agent = agentContextResolver.getCurrentAgent();
         refuserSiMembreDeLEquipe(investigationId, agent, "l'avis du conseiller juridique");
         refuserLeCumulDApprobations(inv, agent);
@@ -590,6 +595,10 @@ public class InvestigationServiceImpl implements InvestigationService {
                     "Le rapport doit d'abord être approuvé par le DEI.");
         }
 
+        if (inv.getCgeaApprovedAt() != null) {
+            throw new BusinessException("L'étape du CGEA a déjà été approuvée pour ce rapport.");
+        }
+
         Agent agent = agentContextResolver.getCurrentAgent();
         refuserSiMembreDeLEquipe(investigationId, agent, "l'approbation du CGEA");
         refuserLeCumulDApprobations(inv, agent);
@@ -618,6 +627,10 @@ public class InvestigationServiceImpl implements InvestigationService {
         if (inv.getCgeaApprovedAt() == null) {
             throw new BusinessException(
                     "Le rapport doit être approuvé par le CGEA avant la décision CGE.");
+        }
+
+        if (inv.getCgeApprovedAt() != null) {
+            throw new BusinessException("La décision du CGE a déjà été rendue pour ce rapport.");
         }
 
         Agent cge = agentContextResolver.getCurrentAgent();

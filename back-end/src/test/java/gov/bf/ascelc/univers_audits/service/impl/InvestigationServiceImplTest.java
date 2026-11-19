@@ -2470,7 +2470,8 @@ class InvestigationServiceImplTest {
 
     private void agentCourant(Investigation investigation, Agent agent) {
         when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
-        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        // « lenient » : un refus peut survenir avant que l'agent courant ne soit lu.
+        org.mockito.Mockito.lenient().when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
     }
 
     private void membreDeLEquipe(Investigation investigation, Agent agent) {
@@ -2606,5 +2607,106 @@ class InvestigationServiceImplTest {
         service.approveCge(investigation.getId(), "Motif", "127.0.0.1");
 
         assertThat(investigation.getCgeApprovedBy()).isEqualTo(cge);
+    }
+
+    // ───────── une étape déjà approuvée ne se ré-approuve pas : sinon on pourrait effacer le nom d'un approbateur ─────────
+
+    @Test
+    void approveLegalAdvisor_refuseUneNouvelleApprobationQuiEcraseraitLApprobateur() {
+        Investigation investigation = buildCompletedInvestigation();
+        Agent premier = unAgent();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setLegalAdvisorApprovedBy(premier);
+        Agent autre = unAgent();
+        agentCourant(investigation, autre);
+
+        assertThatThrownBy(() -> service.approveLegalAdvisor(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà été approuvée");
+
+        assertThat(investigation.getLegalAdvisorApprovedBy()).isSameAs(premier);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCgea_refuseUneNouvelleApprobationQuiEcraseraitLApprobateur() {
+        Investigation investigation = buildCompletedInvestigation();
+        Agent premier = unAgent();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setCgeaApprovedAt(Instant.now());
+        investigation.setCgeaApprovedBy(premier);
+        Agent autre = unAgent();
+        agentCourant(investigation, autre);
+
+        assertThatThrownBy(() -> service.approveCgea(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà été approuvée");
+
+        assertThat(investigation.getCgeaApprovedBy()).isSameAs(premier);
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCge_refuseUneDecisionDejaRendue() {
+        Investigation investigation = buildCompletedInvestigation();
+        Agent premier = unAgent();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setCgeaApprovedAt(Instant.now());
+        investigation.setCgeApprovedAt(Instant.now());
+        investigation.setCgeApprovedBy(premier);
+        Agent autre = unAgent();
+        agentCourant(investigation, autre);
+
+        assertThatThrownBy(() -> service.approveCge(investigation.getId(), "motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà été rendue");
+
+        assertThat(investigation.getCgeApprovedBy()).isSameAs(premier);
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void contournementParReApprobation_unAgentNePeutPasSeFaireEffacerPuisApprouverUneAutreEtape() {
+        // A approuve l'étape juridique ; B approuve le DEI ; C tente de ré-approuver le juridique pour effacer A ;
+        // A tenterait ensuite d'approuver le CGEA. Les deux tentatives doivent échouer.
+        Investigation investigation = buildCompletedInvestigation();
+        Agent a = unAgent();
+        Agent b = unAgent();
+        Agent c = unAgent();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setLegalAdvisorApprovedBy(a);
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setDeiApprovedBy(b);
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        org.mockito.Mockito.lenient().when(agentContextResolver.getCurrentAgent()).thenReturn(c);
+
+        assertThatThrownBy(() -> service.approveLegalAdvisor(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class);
+        org.mockito.Mockito.lenient().when(agentContextResolver.getCurrentAgent()).thenReturn(a);
+        assertThatThrownBy(() -> service.approveCgea(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà donné une approbation");
+
+        assertThat(investigation.getLegalAdvisorApprovedBy()).isSameAs(a);
+        assertThat(investigation.getCgeaApprovedAt()).isNull();
+    }
+
+    @Test
+    void apresUnRejet_uneNouvelleApprobationEstPermiseParUneAutrePersonne() {
+        // Le rejet du DEI remet l'étape juridique à zéro : une approbation neuve (par quelqu'un d'autre que le DEI) reste possible.
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(null);
+        investigation.setLegalAdvisorApprovedBy(null);
+        Agent nouveau = unAgent();
+        agentCourant(investigation, nouveau);
+        when(investigationRepository.save(any(Investigation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId())).thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation)).thenReturn(InvestigationResponse.builder().build());
+
+        service.approveLegalAdvisor(investigation.getId(), "127.0.0.1");
+
+        assertThat(investigation.getLegalAdvisorApprovedBy()).isEqualTo(nouveau);
     }
 }
