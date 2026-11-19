@@ -18,6 +18,7 @@ Vérifié avant publication : 984 tests du serveur verts ; 331 tests de l'écran
 | Qui peut modifier une fiche | — | nouveau bouton « Compléter la fiche » (objet, faits, lieu, période, montant, nature, type d'institution), avec le lecteur audio en tête pour un dépôt vocal ; une note interne nomme les champs complétés, jamais leur contenu |
 | Tous | écran muet après un dépôt | phrase « Prochaine étape » sur le dossier |
 | Dépôt anonyme ou sous protection | adresse IP conservée | **plus d'adresse IP conservée** (nouveaux dépôts seulement : voir contrôle 2d) |
+| Citoyen (invisible) | les journaux du serveur web gardaient l'adresse IP **et le code de suivi** de chaque visite | dépôt, suivi, complément et envoi de pièces **ne laissent aucune trace** dans ces journaux ; le reste du site journalise une adresse tronquée (dernier nombre à 0) |
 | Tous | « Se déconnecter » menait à l'accueil public | mène à la page de connexion |
 | Tous | pages 404 / accès refusé / erreur du modèle d'origine | pages au logo de l'ASCE-LC ; un agent sans le rôle requis voit « Accès refusé » (403) et non « Page introuvable » |
 
@@ -32,6 +33,10 @@ git push origin origin/dev-front:refs/heads/amandement_cge
 ```
 
 (à lancer dans le dossier du front ; vérifier ensuite `git log --oneline -1 origin/amandement_cge` = `8a9ca43`).
+
+Fichiers à envoyer sur `rpd` avec cette livraison (copies versionnées dans `back-end/docs/deploiement/2026-11-19/`) :
+- `asce.conf.template` → `/opt/asce/deploy/nginx/asce.conf.template` (remplace l'ancien : journaux sans adresse ni code de suivi) ;
+- `journaux-anonymes.sh` → `/opt/asce/deploy/tests/journaux-anonymes.sh` (essai de ces journaux, voir 4c).
 
 ## 2. Contrôles avant d'appuyer sur « déployer » (sur `rpd`)
 
@@ -100,6 +105,14 @@ Attendu, les 10 : ADMIN_DDIC, CGE, CGEA, AGENT_BRPD, CONSEILLER_JURIDIQUE, CONTR
 
 ## 3. Déploiement (commandes à taper une par une)
 
+Avant la première commande, déposer les deux fichiers de l'étape 1 (par exemple `scp` depuis votre poste), puis contrôler que le modèle `nginx` est le nouveau :
+
+```
+grep -c 'access_log off' /opt/asce/deploy/nginx/asce.conf.template
+```
+
+Attendu : `1`.
+
 ```
 cd /opt/asce/deploy
 bash scripts/backup.sh
@@ -112,6 +125,7 @@ bash scripts/deploy.sh
 - La construction de l'écran dure environ 18 minutes (`npm ci`).
 - Si elle échoue sur `Connection reset` vers Maven Central, relancer : coupure passagère ; la production reste intacte tant que `up -d` n'a pas eu lieu.
 - Le thème Keycloak ne change pas : pas de redémarrage de Keycloak.
+- Le conteneur du serveur web est **recréé** : ses anciens journaux (qui contiennent des adresses IP et des codes de suivi) disparaissent avec lui. Si une trace doit être conservée pour une enquête, la copier avant : `docker logs asce_proxy > /opt/asce/backups/proxy-avant-$D.log` (à protéger ensuite, ce fichier contient ces données).
 
 ## 4. Après le déploiement
 
@@ -139,6 +153,16 @@ curl -s -o /dev/null -w '%{http_code}\n' https://denoncer.asce-lc.bf/api/v1/auth
 ```
 
 Attendu : `1`, puis `401`, puis `401`.
+
+**Journaux du serveur web** (le script lance un `nginx` jetable avec un faux back ; il ne touche pas à la production) :
+
+```
+cd /opt/asce/deploy
+bash tests/journaux-anonymes.sh nginx/asce.conf.template
+docker logs --since 10m asce_proxy | tail -5
+```
+
+Attendu : « TOUS LES CONTROLES PASSENT » ; dans les journaux réels, des lignes de la forme `41.138.12.0 - [..] "GET /index.html" 200 ..` (dernier nombre à 0), jamais de `/dossiers/public/` ni de code de suivi. Les erreurs `[error] … client: <adresse>` des routes **d'agents** (par exemple un envoi trop gros) gardent l'adresse : c'est voulu, ces adresses sont celles de votre personnel.
 
 **d) Avec de vrais comptes, dans le navigateur** (page de connexion, puis les rôles ci-dessous) :
 
@@ -172,7 +196,7 @@ En dernier recours seulement (perd les données saisies depuis le déploiement) 
 ## 6. Points d'attention connus
 
 - **Suppléance fixée dans la migration.** Le CGEA et le CGE reçoivent les droits de travail courant de l'agent BRPD ; ce n'est pas un mécanisme configurable. Le tableau complet de la hiérarchie reste à confirmer avec le client ; tout ajustement passe par l'écran Rôles & Permissions.
-- **Adresses IP des journaux du serveur web.** `nginx` consigne l'adresse de chaque connexion (y compris celle d'un déposant anonyme). Si ce risque doit être couvert, c'est une décision d'infrastructure (désactiver ou anonymiser les journaux d'accès pour `/api/v1/dossiers/public/`), à traiter à part.
+- **Journaux du serveur web : traité dans cette livraison** (voir 4c). Ce qui reste hors de portée de l'application : l'opérateur de connexion du déposant et l'hébergeur voient toujours qu'une connexion a eu lieu, et l'heure d'un dépôt peut être rapprochée de l'heure d'une connexion si quelqu'un a accès à la fois à la base et aux flux réseau. Conseiller l'usage d'un réseau public ou d'un navigateur de confidentialité à un lanceur d'alerte à risque (l'écran « Votre sécurité » du portail peut le dire).
 - **Courriels de notification.** Dépendent de `MAIL_PASSWORD` (2b). Les SMS restent désactivés (`sms.enabled=false`) : l'application n'en promet plus.
 - **Un compte sans fiche agent** reçoit « Agent introuvable. Contactez l'administrateur DDIC. » à la première action qui s'inscrit à son nom : créer les agents par l'écran Administration, pas seulement dans Keycloak.
 - **Comptes de formation.** Voir `back-end/docs/formation/guide-formation.md` ; ne pas les créer avant d'avoir décidé de la remise à zéro de la base.
