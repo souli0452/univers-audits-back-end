@@ -101,6 +101,12 @@
   "roles" : [ ],
   "expression" : "hasAuthority('PERM_PIECE_JOINTE_RECLASSER')"
 }, {
+  "handler" : "AttachmentController#telecharger(String,HttpServletRequest,Jwt)",
+  "httpMethods" : "GET",
+  "kind" : "PERMISSION",
+  "roles" : [ ],
+  "expression" : "hasAuthority('PERM_PIECE_JOINTE_TELECHARGER')"
+}, {
   "handler" : "AttachmentController#uploadFiles(String,List,String,AttachmentSource,ModeObtention,String,String)",
   "httpMethods" : "POST",
   "kind" : "NONE",

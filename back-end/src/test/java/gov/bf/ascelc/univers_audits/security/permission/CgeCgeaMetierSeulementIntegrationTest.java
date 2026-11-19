@@ -84,7 +84,8 @@ class CgeCgeaMetierSeulementIntegrationTest {
                 AppPermission.INVESTIGATION_DEI_STATUER.authority(),
                 AppPermission.REGISTRE_AUDITIONS_VOIR.authority(),
                 AppPermission.FICHE_AFFECTATION_REPARTIR.authority(),
-                AppPermission.INVESTIGATION_PLAN_VALIDER.authority());
+                AppPermission.INVESTIGATION_PLAN_VALIDER.authority(),
+                AppPermission.PIECE_JOINTE_TELECHARGER.authority());     // migration 038
 
         Set<String> controleur = resolver.resolve(List.of("CONTROLEUR_ETAT"));
         assertThat(resolver.resolve(List.of("CHEF_DEI", "CONTROLEUR_ETAT")))

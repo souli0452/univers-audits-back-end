@@ -45,6 +45,21 @@ final class PermissionMigrationSql {
             // l'administrateur la garde ; les chefs la reçoivent par la migration 032.
             AppPermission.FICHE_AFFECTATION_REPARTIR, Set.of("ADMIN_DDIC"));
 
+    /**
+     * Permissions créées après le déploiement de la migration 028 (qui ne doit plus bouger) : elles ne figurent pas
+     * dans 028, mais dans la migration indiquée, avec leurs rôles de départ.
+     */
+    static final Map<AppPermission, Set<String>> AJOUTEES_APRES_028 = Map.of(
+            // Migration 038 : télécharger une pièce jointe est un droit distinct de la consulter.
+            AppPermission.PIECE_JOINTE_TELECHARGER, Set.of("ADMIN_DDIC", "CGE", "CGEA", "CHEF_DEI"));
+
+    /** Catalogue tel que la migration 028 le sème : sans les permissions ajoutées depuis. */
+    static List<AppPermission> catalogue028() {
+        List<AppPermission> catalogue = new ArrayList<>(List.of(AppPermission.values()));
+        catalogue.removeAll(AJOUTEES_APRES_028.keySet());
+        return catalogue;
+    }
+
     private static final List<String> ORDRE_DES_ROLES = List.of(
             "ADMIN_DDIC", "CGE", "CGEA", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP", "AGENT_BRPD", "DCP");
 
@@ -103,7 +118,7 @@ final class PermissionMigrationSql {
         sql.append(");\n\n");
 
         sql.append("INSERT INTO permission (id, permission_key, label, category, active, created_at) VALUES\n");
-        List<AppPermission> catalogue = new ArrayList<>(List.of(AppPermission.values()));
+        List<AppPermission> catalogue = catalogue028();
         catalogue.sort(Comparator.comparing(AppPermission::category).thenComparing(AppPermission::key));
         for (int i = 0; i < catalogue.size(); i++) {
             AppPermission p = catalogue.get(i);

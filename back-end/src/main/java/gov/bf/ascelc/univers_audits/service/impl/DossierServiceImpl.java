@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.Year;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -733,13 +734,72 @@ public class DossierServiceImpl implements DossierService {
                             + "Seuls les agents habilités à traiter ces dossiers peuvent le modifier.");
         }
 
+        Map<String, Object> avant = champsSuivis(dossier);
         dossierMapper.updateEntity(request, dossier);
+        appliquerNatureEtTypologie(request, dossier);
 
         if (dossier.getIsConfidential() == null) {
             dossier.setIsConfidential(false);
         }
 
-        return enrichAndMaskDetail(dossierRepository.save(dossier));
+        Dossier enregistre = dossierRepository.save(dossier);
+        List<String> modifies = champsModifies(avant, champsSuivis(enregistre));
+        if (!modifies.isEmpty()) {
+            // Trace de qui a complété la fiche et quels champs : jamais leur contenu (il peut être sensible).
+            auditRecorder.addObservation(enregistre, ObservationType.INTERNAL_NOTE,
+                    "Fiche complétée : " + String.join(", ", modifies) + ".", false,
+                    agentContextResolver.getCurrentAgent());
+        }
+        return enrichAndMaskDetail(enregistre);
+    }
+
+    /** Valeurs des champs qu'un agent peut compléter, pour savoir lesquels ont réellement changé. */
+    private static Map<String, Object> champsSuivis(Dossier d) {
+        Map<String, Object> champs = new java.util.LinkedHashMap<>();
+        champs.put("objet", d.getObject());
+        champs.put("description", d.getDescription());
+        champs.put("motifs", d.getMotifs());
+        champs.put("lieu des faits", d.getIncidentLocation());
+        champs.put("période", d.getIncidentPeriod());
+        champs.put("montant estimé", d.getEstimatedLoss());
+        champs.put("numéro de courrier", d.getNumeroCourrier());
+        champs.put("nature", d.getType());
+        champs.put("type d'institution", d.getTypologieInstitutionnelle());
+        champs.put("confidentialité", d.getIsConfidential());
+        return champs;
+    }
+
+    private static List<String> champsModifies(Map<String, Object> avant, Map<String, Object> apres) {
+        List<String> modifies = new ArrayList<>();
+        apres.forEach((nom, valeur) -> {
+            if (!java.util.Objects.equals(avant.get(nom), valeur)) {
+                modifies.add(nom);
+            }
+        });
+        return modifies;
+    }
+
+    /**
+     * La nature et le type d'institution se choisissent à l'enregistrement ou en complétant la fiche : le citoyen
+     * n'a que plainte ou dénonciation. Un signalement d'autorité ou une auto-saisine garde sa nature.
+     */
+    private static void appliquerNatureEtTypologie(DossierUpdateRequest request, Dossier dossier) {
+        TypeSaisine choisie = request.getNatureSaisineChoisie();
+        if (choisie != null && choisie != dossier.getType()) {
+            if (dossier.getType() == TypeSaisine.SIGNALEMENT || dossier.getType() == TypeSaisine.AUTO_SAISINE) {
+                throw new BusinessException(
+                        "La nature d'un signalement d'autorité ou d'une auto-saisine ne peut pas être modifiée.");
+            }
+            if (!NatureSaisineResolver.CHOIX_DE_L_AGENT.contains(choisie)) {
+                throw new BusinessException(
+                        "Nature non autorisée : choisissez plainte, dénonciation, plainte-dénonciation "
+                                + "ou demande d'intervention.");
+            }
+            dossier.setType(choisie);
+        }
+        if (request.getTypologieInstitutionnelle() != null) {
+            dossier.setTypologieInstitutionnelle(request.getTypologieInstitutionnelle());
+        }
     }
 
     @Override

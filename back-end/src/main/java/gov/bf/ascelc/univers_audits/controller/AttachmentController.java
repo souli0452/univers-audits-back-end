@@ -7,15 +7,19 @@ import gov.bf.ascelc.univers_audits.model.entity.Dossier;
 import gov.bf.ascelc.univers_audits.security.permission.AppPermission;
 import gov.bf.ascelc.univers_audits.security.permission.HasPermission;
 import gov.bf.ascelc.univers_audits.service.AttachmentStorageService;
+import gov.bf.ascelc.univers_audits.service.AuditService;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,6 +37,7 @@ public class AttachmentController {
 
     private final AttachmentStorageService attachmentStorageService;
     private final DossierAccessGuard       accessGuard;
+    private final AuditService             auditService;
 
     @PostMapping("/dossier/{dossierId}")
     public ResponseEntity<?> uploadFiles(
@@ -113,6 +118,53 @@ public class AttachmentController {
 
         } catch (Exception e) {
             log.error("Erreur download: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * Téléchargement : droit distinct de la consultation, toujours forcé en pièce jointe, et inscrit au journal
+     * d'audit (qui, quel dossier, quel fichier, depuis quelle adresse). Aucune trace si l'accès est refusé.
+     */
+    @GetMapping("/{attachmentId}/telecharger")
+    @HasPermission(AppPermission.PIECE_JOINTE_TELECHARGER)
+    public ResponseEntity<Resource> telecharger(@PathVariable String attachmentId,
+                                                HttpServletRequest httpRequest,
+                                                @AuthenticationPrincipal Jwt jwt) {
+
+        Attachment att = attachmentStorageService.getOrThrow(UUID.fromString(attachmentId));
+        Dossier dossier = accessGuard.getDossierOrThrow(att.getDossier().getId());
+        accessGuard.checkReadAccess(dossier);
+
+        if (Boolean.TRUE.equals(dossier.getIsConfidential()) && !accessGuard.canSeeConfidential()) {
+            throw new BusinessException("Accès refusé — ce dossier est confidentiel");
+        }
+
+        try {
+            Resource resource = new UrlResource(Paths.get(att.getFilePath()).toUri());
+            if (!resource.exists()) {
+                log.warn("Fichier introuvable sur disque: {}", att.getFilePath());
+                return ResponseEntity.notFound().build();
+            }
+
+            auditService.logAction(
+                    jwt != null ? jwt.getSubject() : null,
+                    jwt != null ? jwt.getClaimAsString("name") : null,
+                    jwt != null && jwt.getClaimAsStringList("roles") != null && !jwt.getClaimAsStringList("roles").isEmpty()
+                            ? jwt.getClaimAsStringList("roles").get(0) : null,
+                    "TELECHARGER_PIECE_JOINTE", "PIECE_JOINTE", att.getId().toString(),
+                    "Téléchargement de « " + sanitizeFilename(att.getOriginalName()) + " » (dossier "
+                            + (dossier.getNumber() != null ? dossier.getNumber() : dossier.getId()) + ")",
+                    AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(att.getMimeType()))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + sanitizeFilename(att.getOriginalName()) + "\"")
+                    .header("X-Content-Type-Options", "nosniff")
+                    .body(resource);
+        } catch (java.net.MalformedURLException e) {
+            log.error("Erreur téléchargement: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }

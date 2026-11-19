@@ -49,6 +49,7 @@ public enum AppPermission {
     PARTIE_VISEE_VOIR("Dossiers", "Consulter les parties visées"),
     PIECE_JOINTE_RECLASSER("Dossiers", "Reclasser une pièce jointe"),
     PIECE_JOINTE_SUPPRIMER("Dossiers", "Supprimer une pièce jointe"),
+    PIECE_JOINTE_TELECHARGER("Dossiers", "Télécharger une pièce jointe"),
     PIECE_JOINTE_VOIR("Dossiers", "Consulter les pièces jointes"),
     TEMOIN_GERER("Dossiers", "Enregistrer ou modifier un témoin"),
     TEMOIN_SUPPRIMER("Dossiers", "Supprimer un témoin"),
