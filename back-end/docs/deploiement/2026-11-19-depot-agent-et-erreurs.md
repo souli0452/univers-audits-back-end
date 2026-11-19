@@ -2,7 +2,7 @@
 
 Préparé le 2026-11-19. Il vient **après** le déploiement du 2026-11-17 (migrations 028 à 037, déjà en production).
 
-- Back : branche `feature/workflow-denociation-asce-fix` à `2dd139a` — **une seule migration nouvelle : 038**.
+- Back : branche `feature/workflow-denociation-asce-fix`, **après fusion de #15 (séparation des pouvoirs)** — une seule migration nouvelle : 038 (`038-pieces-jointes-telechargement`).
 - Front : `dev-front` à `8a9ca43`, à pousser vers `amandement_cge` (qui est encore à `681cd7c`, 11 commits de retard).
 - **Le back et le front partent ensemble** (sans le back, le bouton Télécharger n'apparaît pas et « Compléter la fiche » échoue).
 
@@ -14,8 +14,8 @@ Vérifié avant publication : 984 tests du serveur verts ; 331 tests de l'écran
 |---|---|---|
 | Citoyen | dépôt en un écran dense, lecteur audio figé à 0:00, promesse de SMS | dépôt en 5 écrans, écran « Votre sécurité », protection lue avant d'être demandée, période au calendrier, retour à l'accueil, plus de promesse de SMS, **lecteur audio qui charge** |
 | Tous les agents | pièces jointes téléchargeables par tous | on peut toujours les **consulter et les écouter** sur la plateforme ; le **téléchargement** est réservé à l'administrateur, au CGE, au CGEA et au chef du DEI, et **chaque téléchargement est inscrit au journal d'audit** |
-| Agent BRPD, CGEA, CGE | seul l'agent BRPD enregistrait | **CGEA et CGE enregistrent et complètent un dossier en suppléance** (parties visées, témoins, informations préoccupantes aussi) ; chaque action reste à leur nom |
-| Qui peut modifier une fiche | — | nouveau bouton « Compléter la fiche » (objet, faits, lieu, période, montant, nature, type d'institution), avec le lecteur audio en tête pour un dépôt vocal ; une note interne nomme les champs complétés, jamais leur contenu |
+| Agent BRPD, CGEA, CGE | seul l'agent BRPD enregistrait | **inchangé : aucune suppléance** — chacun reste responsable des tâches qui lui sont attribuées (décision du 2026-11-19, pour éviter les abus de pouvoir) ; le CGE et le CGEA n'enregistrent ni ne complètent un dossier à la place de l'agent BRPD |
+| Agent BRPD (droit de modifier) | — | nouveau bouton « Compléter la fiche » (objet, faits, lieu, période, montant, nature, type d'institution), avec le lecteur audio en tête pour un dépôt vocal ; une note interne nomme les champs complétés, jamais leur contenu |
 | Tous | écran muet après un dépôt | phrase « Prochaine étape » sur le dossier |
 | Dépôt anonyme ou sous protection | adresse IP conservée | **plus d'adresse IP conservée** (nouveaux dépôts seulement : voir contrôle 2d) |
 | Citoyen (invisible) | les journaux du serveur web gardaient l'adresse IP **et le code de suivi** de chaque visite | dépôt, suivi, complément et envoi de pièces **ne laissent aucune trace** dans ces journaux ; le reste du site journalise une adresse tronquée (dernier nombre à 0) |
@@ -147,7 +147,7 @@ WHERE p.permission_key = 'PIECE_JOINTE_TELECHARGER' ORDER BY 1;
 SELECT count(*) FROM permission WHERE active;
 ```
 
-Attendu : `038-pieces-jointes-telechargement-et-suppleance` ; les rôles ADMIN_DDIC, CGE, CGEA, CHEF_DEI ; **125** permissions actives.
+Attendu : `038-pieces-jointes-telechargement` ; les rôles ADMIN_DDIC, CGE, CGEA, CHEF_DEI ; **125** permissions actives. **Aucune** ligne `…-et-suppleance` (si elle existe, c'est l'ancienne version de la migration : voir le point 6).
 
 **b) Contrôles automatiques.** `bash scripts/smoke-test.sh` : tous les contrôles passent (le script ne couvre pas cette livraison, d'où les contrôles manuels ci-dessous).
 
@@ -176,7 +176,7 @@ Attendu : « TOUS LES CONTROLES PASSENT » ; dans les journaux réels, des ligne
 | Rôle | À vérifier |
 |---|---|
 | AGENT_BRPD | sur un dossier « Soumis » : boutons « Compléter la fiche » et « Enregistrer » ; onglet Pièces jointes : aperçu et écoute, **pas de bouton Télécharger** ; sur un dépôt vocal, le lecteur audio affiche la durée |
-| CGEA | mêmes boutons que le BRPD **plus** le bouton Télécharger ; enregistrer un dossier donne un numéro ; le Journal d'audit montre `ENREGISTRER_DOSSIER` et `TELECHARGER_PIECE_JOINTE` |
+| CGEA | **ni « Enregistrer » ni « Compléter la fiche »** sur un dossier « Soumis » (la phrase « Prochaine étape » dit que l'agent BRPD s'en charge) ; le bouton Télécharger est présent ; un téléchargement apparaît au Journal d'audit (`TELECHARGER_PIECE_JOINTE`) |
 | ADMIN_DDIC | Télécharger présent ; Journal d'audit lisible |
 | Tout rôle | « Se déconnecter » mène à la page de connexion ; une adresse inconnue (`/#/nimportequoi`) affiche la page 404 au logo |
 | Citoyen | dépôt en 5 écrans ; enregistrement vocal : le lecteur affiche une durée avant l'envoi |
@@ -185,7 +185,7 @@ Attendu : « TOUS LES CONTROLES PASSENT » ; dans les journaux réels, des ligne
 
 ## 5. Retour arrière
 
-La migration 038 ne fait qu'**ajouter** (un droit, ses attributions, des droits de suppléance). L'ancien code l'ignore ; Liquibase tolère une migration déjà jouée qu'il ne connaît plus. Retour arrière du code seulement :
+La migration 038 ne fait qu'**ajouter** un droit et ses attributions. L'ancien code l'ignore ; Liquibase tolère une migration déjà jouée qu'il ne connaît plus. Retour arrière du code seulement :
 
 ```
 cd /opt/asce/deploy
@@ -194,15 +194,25 @@ docker tag asce-lc-proxy:avant-<date> asce-lc-proxy:latest
 docker compose up -d backend proxy
 ```
 
-Après un retour arrière, le CGE et le CGEA gardent en base leurs droits de suppléance (ils pourraient encore enregistrer un dossier) ; pour les retirer :
-`DELETE FROM role_permission WHERE role_id IN (SELECT id FROM role_definition WHERE role_key IN ('CGE','CGEA')) AND permission_id IN (SELECT id FROM permission WHERE permission_key IN ('DOSSIER_ENREGISTRER','DOSSIER_MODIFIER','DOSSIER_MES_DOSSIERS_VOIR','PARTIE_VISEE_GERER','PARTIE_VISEE_SUPPRIMER','TEMOIN_GERER','TEMOIN_SUPPRIMER','PIECE_JOINTE_RECLASSER','PIECE_JOINTE_SUPPRIMER','SECTION_DOSSIER_TRAVAIL_GERER','INFO_PREOCCUPANTE_AUTOSAISIR','INFO_PREOCCUPANTE_CREER','INFO_PREOCCUPANTE_TRAITER','INFO_PREOCCUPANTE_VOIR'));`
-(attention : retire aussi ceux qu'ils avaient avant 038 ; ne le faire qu'en connaissance de cause).
 
 En dernier recours seulement (perd les données saisies depuis le déploiement) : restaurer la sauvegarde de `scripts/backup.sh` dans `/opt/asce/backups`.
 
 ## 6. Points d'attention connus
 
-- **Suppléance fixée dans la migration.** Le CGEA et le CGE reçoivent les droits de travail courant de l'agent BRPD ; ce n'est pas un mécanisme configurable. Le tableau complet de la hiérarchie reste à confirmer avec le client ; tout ajustement passe par l'écran Rôles & Permissions.
+- **Pas de suppléance entre rôles (décision du 2026-11-19).** Pour une absence, l'administrateur attribue temporairement le rôle nécessaire dans l'écran Agents, puis le retire ; chaque attribution est inscrite au Journal d'audit (`MODIFIER_ROLES_AGENT`, avec la liste des rôles). Surveiller ces lignes : c'est le seul chemin légitime pour qu'une personne fasse le travail d'une autre.
+- **Base de développement ayant déjà joué l'ancienne 038** (elle donnait des droits de saisie au CGE et au CGEA) : à réparer à la main, la production n'est pas concernée (elle n'a jamais joué cette version) :
+
+```sql
+DELETE FROM role_permission rp USING role_definition r, permission p
+WHERE rp.role_id = r.id AND rp.permission_id = p.id AND r.role_key = 'CGE'
+  AND p.permission_key IN ('DOSSIER_ENREGISTRER','DOSSIER_MODIFIER','DOSSIER_MES_DOSSIERS_VOIR','PARTIE_VISEE_GERER','PARTIE_VISEE_SUPPRIMER','TEMOIN_GERER','TEMOIN_SUPPRIMER','PIECE_JOINTE_RECLASSER','PIECE_JOINTE_SUPPRIMER','SECTION_DOSSIER_TRAVAIL_GERER','INFO_PREOCCUPANTE_AUTOSAISIR','INFO_PREOCCUPANTE_CREER','INFO_PREOCCUPANTE_TRAITER','INFO_PREOCCUPANTE_VOIR');
+DELETE FROM role_permission rp USING role_definition r, permission p
+WHERE rp.role_id = r.id AND rp.permission_id = p.id AND r.role_key = 'CGEA'
+  AND p.permission_key IN ('DOSSIER_ENREGISTRER','DOSSIER_MODIFIER','PARTIE_VISEE_GERER','TEMOIN_GERER','PIECE_JOINTE_RECLASSER','SECTION_DOSSIER_TRAVAIL_GERER','INFO_PREOCCUPANTE_AUTOSAISIR','INFO_PREOCCUPANTE_CREER','INFO_PREOCCUPANTE_TRAITER','INFO_PREOCCUPANTE_VOIR');
+DELETE FROM databasechangelog WHERE id = '038-pieces-jointes-telechargement-et-suppleance';
+```
+
+  (le CGEA garde ses 4 droits d'avant : mes dossiers, suppression d'une partie, d'un témoin, d'une pièce ; supprimer aussi `target/classes/db/changelog/migrations/038-…-et-suppleance.sql` du dossier de compilation).
 - **Journaux du serveur web : traité dans cette livraison** (voir 4c). Ce qui reste hors de portée de l'application : l'opérateur de connexion du déposant et l'hébergeur voient toujours qu'une connexion a eu lieu, et l'heure d'un dépôt peut être rapprochée de l'heure d'une connexion si quelqu'un a accès à la fois à la base et aux flux réseau. Conseiller l'usage d'un réseau public ou d'un navigateur de confidentialité à un lanceur d'alerte à risque (l'écran « Votre sécurité » du portail peut le dire).
 - **Courriels de notification.** Dépendent de `MAIL_PASSWORD` (2b). Les SMS restent désactivés (`sms.enabled=false`) : l'application n'en promet plus.
 - **Un compte sans fiche agent** reçoit « Agent introuvable. Contactez l'administrateur DDIC. » à la première action qui s'inscrit à son nom : créer les agents par l'écran Administration, pas seulement dans Keycloak.
