@@ -17,6 +17,11 @@
 
 set -euo pipefail
 
+# Sous Windows (Git Bash), les chemins comme /opt/keycloak/... seraient réécrits en C:/Program Files/Git/opt/...
+# avant d'être passés à Docker : Keycloak serait alors introuvable. Sans effet sous Linux.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL='*'
+
 KC="${KC_CONTENEUR:-asce_keycloak}"
 PG="${PG_CONTENEUR:-asce_postgres}"
 REALM="${REALM:-asce-lc}"
