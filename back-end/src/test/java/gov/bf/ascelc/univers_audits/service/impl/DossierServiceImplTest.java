@@ -5,6 +5,7 @@ import gov.bf.ascelc.univers_audits.enums.HabilitationSource;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.RecommandationCtadp;
 import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
+import gov.bf.ascelc.univers_audits.enums.ObservationType;
 import gov.bf.ascelc.univers_audits.model.entity.GeoRegion;
 import gov.bf.ascelc.univers_audits.service.GeographieService;
 import gov.bf.ascelc.univers_audits.service.GeographieService.OrigineGeographique;
@@ -919,6 +920,97 @@ class DossierServiceImplTest {
                 .isInstanceOf(BusinessException.class);
 
         verify(dossierRepository, never()).save(any());
+    }
+
+    // ───────── compléter un dossier : nature, type d'institution, et une trace qui ne contient pas le contenu ─────────
+
+    private Dossier dossierACompleter(TypeSaisine type) {
+        UUID id = UUID.randomUUID();
+        Dossier d = Dossier.builder().id(id).type(type).object("Témoignage vocal en attente de traitement")
+                .description("Témoignage audio soumis via le portail citoyen.").build();
+        when(dossierRepository.findById(id)).thenReturn(Optional.of(d));
+        lenient().when(dossierRepository.save(any(Dossier.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(dossierMapper.toResponse(any(Dossier.class))).thenReturn(DossierResponse.builder().build());
+        return d;
+    }
+
+    /** Le mappeur simulé applique l'objet et la description de la demande, comme le vrai. */
+    private void mappeurQuiApplique() {
+        org.mockito.Mockito.doAnswer(inv -> {
+            DossierUpdateRequest r = inv.getArgument(0);
+            Dossier d = inv.getArgument(1);
+            if (r.getObject() != null) { d.setObject(r.getObject()); }
+            if (r.getDescription() != null) { d.setDescription(r.getDescription()); }
+            return null;
+        }).when(dossierMapper).updateEntity(any(DossierUpdateRequest.class), any(Dossier.class));
+    }
+
+    @Test
+    void update_laNatureChoisieParLAgentRemplaceCelleDuDepot() {
+        Dossier d = dossierACompleter(TypeSaisine.DENONCIATION);
+
+        service.update(d.getId(), DossierUpdateRequest.builder().natureSaisineChoisie(TypeSaisine.PLAINTE_DENONCIATION).build());
+
+        assertThat(d.getType()).isEqualTo(TypeSaisine.PLAINTE_DENONCIATION);
+    }
+
+    @Test
+    void update_refuseUneNatureQuiNEstPasUnChoixDeLAgent() {
+        Dossier d = dossierACompleter(TypeSaisine.DENONCIATION);
+
+        assertThatThrownBy(() -> service.update(d.getId(),
+                DossierUpdateRequest.builder().natureSaisineChoisie(TypeSaisine.SIGNALEMENT).build()))
+                .isInstanceOf(BusinessException.class);
+        assertThat(d.getType()).isEqualTo(TypeSaisine.DENONCIATION);
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void update_neChangePasLaNatureDUnSignalementDAutoriteNiDUneAutoSaisine() {
+        for (TypeSaisine type : List.of(TypeSaisine.SIGNALEMENT, TypeSaisine.AUTO_SAISINE)) {
+            Dossier d = dossierACompleter(type);
+
+            assertThatThrownBy(() -> service.update(d.getId(),
+                    DossierUpdateRequest.builder().natureSaisineChoisie(TypeSaisine.PLAINTE).build()))
+                    .as(type.name()).isInstanceOf(BusinessException.class);
+            assertThat(d.getType()).isEqualTo(type);
+        }
+    }
+
+    @Test
+    void update_renseigneLeTypeDInstitutionQueLeCitoyenNePeutPasChoisir() {
+        Dossier d = dossierACompleter(TypeSaisine.DENONCIATION);
+
+        service.update(d.getId(), DossierUpdateRequest.builder()
+                .typologieInstitutionnelle(TypologieInstitutionnelle.COLLECTIVITES_TERRITORIALES).build());
+
+        assertThat(d.getTypologieInstitutionnelle()).isEqualTo(TypologieInstitutionnelle.COLLECTIVITES_TERRITORIALES);
+    }
+
+    @Test
+    void update_inscritUneNoteInterneQuiNommeLesChampsCompletesSansLeurContenu() {
+        Dossier d = dossierACompleter(TypeSaisine.DENONCIATION);
+        mappeurQuiApplique();
+
+        service.update(d.getId(), DossierUpdateRequest.builder()
+                .object("Détournement de carburant au parc automobile")
+                .description("Contenu confidentiel de la description")
+                .natureSaisineChoisie(TypeSaisine.PLAINTE)
+                .typologieInstitutionnelle(TypologieInstitutionnelle.SOCIETES_D_ETAT).build());
+
+        org.mockito.ArgumentCaptor<String> note = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(auditRecorder).addObservation(eq(d), eq(ObservationType.INTERNAL_NOTE), note.capture(), eq(false), any());
+        assertThat(note.getValue()).contains("objet", "description", "nature", "type d'institution");
+        assertThat(note.getValue()).doesNotContain("Détournement", "Contenu confidentiel", "PLAINTE", "SOCIETES");
+    }
+
+    @Test
+    void update_n_inscritAucuneNoteQuandRienNeChange() {
+        Dossier d = dossierACompleter(TypeSaisine.DENONCIATION);
+
+        service.update(d.getId(), DossierUpdateRequest.builder().natureSaisineChoisie(TypeSaisine.DENONCIATION).build());
+
+        verify(auditRecorder, never()).addObservation(any(), any(), anyString(), org.mockito.ArgumentMatchers.anyBoolean(), any());
     }
 
     @Test

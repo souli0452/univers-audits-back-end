@@ -34,6 +34,7 @@ class PermissionEndToEndIntegrationTest {
     private static final String ANNUAIRE = "/api/v1/agents/active";
     private static final String CONSEILLERS = "/api/v1/agents/conseillers-juridiques";
     private static final String GEOGRAPHIE = "/api/v1/public/geographie";
+    private static final String TELECHARGER = "/api/v1/attachments/00000000-0000-0000-0000-000000000001/telecharger";
     private static final String PUBLICATION = "/api/v1/stats/publication?year=2026&period=T1";
 
     @Autowired
@@ -117,6 +118,18 @@ class PermissionEndToEndIntegrationTest {
         assertThat(statut(get(PUBLICATION).with(jetonAvecRoles("CONTROLEUR_ETAT")))).isEqualTo(403);
         assertThat(statut(get(PUBLICATION).with(jetonAvecRoles("AGENT_BRPD")))).isEqualTo(403);
         assertThat(statut(get(PUBLICATION))).isEqualTo(401);
+    }
+
+    @Test
+    void telechargerUnePieceJointeEstInterditALAgentBrpdEtAuxMetiersMaisOuvertAuxDirections() throws Exception {
+        for (String role : List.of("AGENT_BRPD", "CONSEILLER_JURIDIQUE", "CONTROLEUR_ETAT", "MEMBRE_CTADP", "DCP")) {
+            assertThat(statut(get(TELECHARGER).with(jetonAvecRoles(role)))).as(role).isEqualTo(403);
+        }
+        for (String role : List.of("ADMIN_DDIC", "CGE", "CGEA")) {
+            // Autorisé : la pièce de ce test n'existe pas, donc la route répond « introuvable » et non « interdit ».
+            assertThat(statut(get(TELECHARGER).with(jetonAvecRoles(role)))).as(role).isNotEqualTo(403).isNotEqualTo(401);
+        }
+        assertThat(statut(get(TELECHARGER))).isEqualTo(401);
     }
 
     @Test

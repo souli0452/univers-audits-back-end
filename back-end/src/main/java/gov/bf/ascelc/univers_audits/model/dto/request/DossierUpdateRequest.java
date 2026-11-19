@@ -42,6 +42,12 @@ public class DossierUpdateRequest {
 
     private String transferInstitution;
 
+    /** Nature choisie par l'agent parmi plainte, dénonciation, plainte-dénonciation, demande d'intervention. */
+    private gov.bf.ascelc.univers_audits.enums.TypeSaisine natureSaisineChoisie;
+
+    /** Type de l'institution mise en cause, que seul l'agent qualifie. */
+    private gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle typologieInstitutionnelle;
+
 
     public Boolean getIsConfidential() {
         return isConfidential;

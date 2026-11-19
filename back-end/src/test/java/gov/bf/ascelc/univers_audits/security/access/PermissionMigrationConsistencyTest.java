@@ -74,7 +74,7 @@ class PermissionMigrationConsistencyTest {
         String sql = Files.readString(MIGRATION);
         Set<String> inserees = new TreeSet<>(PermissionMigrationSql.clesInserees(sql));
         Set<String> catalogue = new TreeSet<>();
-        for (AppPermission p : AppPermission.values()) {
+        for (AppPermission p : PermissionMigrationSql.catalogue028()) {
             catalogue.add(p.key());
         }
         assertThat(inserees).isEqualTo(catalogue);
@@ -85,7 +85,9 @@ class PermissionMigrationConsistencyTest {
         Map<AppPermission, SortedSet<String>> roles = PermissionMigrationSql.rolesParPermission(golden, table);
         for (AppPermission p : AppPermission.values()) {
             if (p.protegee()) {
-                assertThat(roles.get(p)).as(p.key()).contains("ADMIN_DDIC");
+                assertThat(roles.getOrDefault(p, PermissionMigrationSql.AJOUTEES_APRES_028.get(p) == null
+                        ? new java.util.TreeSet<>() : new java.util.TreeSet<>(PermissionMigrationSql.AJOUTEES_APRES_028.get(p))))
+                        .as(p.key()).contains("ADMIN_DDIC");
             }
         }
     }
@@ -94,8 +96,18 @@ class PermissionMigrationConsistencyTest {
     void chaquePermissionDuCatalogueEstAttribueeAuMoinsAUnRole() {
         Map<AppPermission, SortedSet<String>> roles = PermissionMigrationSql.rolesParPermission(golden, table);
         for (AppPermission p : AppPermission.values()) {
-            assertThat(roles.get(p)).as("rôles de " + p.key()).isNotEmpty();
+            boolean ajoutee = PermissionMigrationSql.AJOUTEES_APRES_028.containsKey(p);
+            assertThat(ajoutee ? PermissionMigrationSql.AJOUTEES_APRES_028.get(p) : roles.get(p))
+                    .as("rôles de " + p.key()).isNotEmpty();
         }
+
+    }
+
+    @Test
+    void lesPermissionsAjouteesApres028ConnaissentLeursRolesDeDepart() {
+        assertThat(PermissionMigrationSql.AJOUTEES_APRES_028.keySet())
+                .as("une permission ajoutée après 028 ne doit pas avoir de point d'entrée dans l'instantané « avant »")
+                .doesNotContainAnyElementsOf(table.values());
     }
 
     @Test

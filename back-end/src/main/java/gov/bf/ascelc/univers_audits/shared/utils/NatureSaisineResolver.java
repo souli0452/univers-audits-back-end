@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 public class NatureSaisineResolver {
 
     /** Catégories qu'un agent peut choisir lui-même en enregistrant un dossier. */
-    private static final java.util.Set<TypeSaisine> CHOIX_DE_L_AGENT = java.util.EnumSet.of(
+    public static final java.util.Set<TypeSaisine> CHOIX_DE_L_AGENT = java.util.EnumSet.of(
             TypeSaisine.PLAINTE, TypeSaisine.DENONCIATION,
             TypeSaisine.PLAINTE_DENONCIATION, TypeSaisine.DEMANDE_INTERVENTION);
 
