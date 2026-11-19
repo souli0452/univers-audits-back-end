@@ -34,9 +34,11 @@ git push origin origin/dev-front:refs/heads/amandement_cge
 
 (à lancer dans le dossier du front ; vérifier ensuite `git log --oneline -1 origin/amandement_cge` = `8a9ca43`).
 
-Fichiers à envoyer sur `rpd` avec cette livraison (copies versionnées dans `back-end/docs/deploiement/2026-11-19/`) :
+Deux fichiers de cette livraison sont versionnés dans `back-end/docs/deploiement/2026-11-19/` et se copient **depuis le dépôt cloné sur `rpd`** (jamais depuis un poste Windows : les fins de ligne casseraient le script) :
 - `asce.conf.template` → `/opt/asce/deploy/nginx/asce.conf.template` (remplace l'ancien : journaux sans adresse ni code de suivi) ;
 - `journaux-anonymes.sh` → `/opt/asce/deploy/tests/journaux-anonymes.sh` (essai de ces journaux, voir 4c).
+
+**Fusionner d'abord la demande de ce guide** (back #14) : sans cela, le dépôt cloné sur `rpd` ne contient pas ces fichiers.
 
 ## 2. Contrôles avant d'appuyer sur « déployer » (sur `rpd`)
 
@@ -105,10 +107,15 @@ Attendu, les 10 : ADMIN_DDIC, CGE, CGEA, AGENT_BRPD, CONSEILLER_JURIDIQUE, CONTR
 
 ## 3. Déploiement (commandes à taper une par une)
 
-Avant la première commande, déposer les deux fichiers de l'étape 1 (par exemple `scp` depuis votre poste), puis contrôler que le modèle `nginx` est le nouveau :
+Avant la première commande, mettre en place les deux fichiers de l'étape 1, puis contrôler que le modèle `nginx` est le nouveau :
 
 ```
-grep -c 'access_log off' /opt/asce/deploy/nginx/asce.conf.template
+cd /opt/asce/deploy
+( cd sources/back && git fetch -q origin && git reset -q --hard origin/feature/workflow-denociation-asce-fix )
+mkdir -p tests
+cp sources/back/back-end/docs/deploiement/2026-11-19/asce.conf.template nginx/asce.conf.template
+cp sources/back/back-end/docs/deploiement/2026-11-19/journaux-anonymes.sh tests/journaux-anonymes.sh
+grep -c 'access_log off' nginx/asce.conf.template
 ```
 
 Attendu : `1`.
