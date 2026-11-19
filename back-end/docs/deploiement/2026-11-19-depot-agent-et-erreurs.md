@@ -2,7 +2,7 @@
 
 Préparé le 2026-11-19. Il vient **après** le déploiement du 2026-11-17 (migrations 028 à 037, déjà en production).
 
-- Back : branche `feature/workflow-denociation-asce-fix`, **après fusion de #15 (séparation des pouvoirs)** — une seule migration nouvelle : 038 (`038-pieces-jointes-telechargement`).
+- Back : branche `feature/workflow-denociation-asce-fix`, **après fusion de #15 (séparation des pouvoirs)** — deux migrations nouvelles : 038 (`038-pieces-jointes-telechargement`) et 039 (qui ne change rien en production).
 - Front : `dev-front` à `8a9ca43`, à pousser vers `amandement_cge` (qui est encore à `681cd7c`, 11 commits de retard).
 - **Le back et le front partent ensemble** (sans le back, le bouton Télécharger n'apparaît pas et « Compléter la fiche » échoue).
 
@@ -139,7 +139,7 @@ bash scripts/deploy.sh
 **a) La migration 038 a tourné** (`psql`) :
 
 ```sql
-SELECT id FROM databasechangelog WHERE id >= '038';
+SELECT id FROM databasechangelog WHERE id >= '038' ORDER BY id;
 SELECT r.role_key FROM role_permission rp
 JOIN role_definition r ON r.id = rp.role_id
 JOIN permission p ON p.id = rp.permission_id
@@ -147,7 +147,7 @@ WHERE p.permission_key = 'PIECE_JOINTE_TELECHARGER' ORDER BY 1;
 SELECT count(*) FROM permission WHERE active;
 ```
 
-Attendu : `038-pieces-jointes-telechargement` ; les rôles ADMIN_DDIC, CGE, CGEA, CHEF_DEI ; **125** permissions actives. **Aucune** ligne `…-et-suppleance` (si elle existe, c'est l'ancienne version de la migration : voir le point 6).
+Attendu : `038-pieces-jointes-telechargement` ; les rôles ADMIN_DDIC, CGE, CGEA, CHEF_DEI ; **125** permissions actives. **Aucune** ligne `…-et-suppleance` (en production, elle n'a jamais existé), et `039-retrait-suppleance-ancienne-038` (qui ne change rien en production).
 
 **b) Contrôles automatiques.** `bash scripts/smoke-test.sh` : tous les contrôles passent (le script ne couvre pas cette livraison, d'où les contrôles manuels ci-dessous).
 
@@ -200,19 +200,7 @@ En dernier recours seulement (perd les données saisies depuis le déploiement) 
 ## 6. Points d'attention connus
 
 - **Pas de suppléance entre rôles (décision du 2026-11-19).** Pour une absence, l'administrateur attribue temporairement le rôle nécessaire dans l'écran Agents, puis le retire ; chaque attribution est inscrite au Journal d'audit (`MODIFIER_ROLES_AGENT`, avec la liste des rôles). Surveiller ces lignes : c'est le seul chemin légitime pour qu'une personne fasse le travail d'une autre.
-- **Base de développement ayant déjà joué l'ancienne 038** (elle donnait des droits de saisie au CGE et au CGEA) : à réparer à la main, la production n'est pas concernée (elle n'a jamais joué cette version) :
-
-```sql
-DELETE FROM role_permission rp USING role_definition r, permission p
-WHERE rp.role_id = r.id AND rp.permission_id = p.id AND r.role_key = 'CGE'
-  AND p.permission_key IN ('DOSSIER_ENREGISTRER','DOSSIER_MODIFIER','DOSSIER_MES_DOSSIERS_VOIR','PARTIE_VISEE_GERER','PARTIE_VISEE_SUPPRIMER','TEMOIN_GERER','TEMOIN_SUPPRIMER','PIECE_JOINTE_RECLASSER','PIECE_JOINTE_SUPPRIMER','SECTION_DOSSIER_TRAVAIL_GERER','INFO_PREOCCUPANTE_AUTOSAISIR','INFO_PREOCCUPANTE_CREER','INFO_PREOCCUPANTE_TRAITER','INFO_PREOCCUPANTE_VOIR');
-DELETE FROM role_permission rp USING role_definition r, permission p
-WHERE rp.role_id = r.id AND rp.permission_id = p.id AND r.role_key = 'CGEA'
-  AND p.permission_key IN ('DOSSIER_ENREGISTRER','DOSSIER_MODIFIER','PARTIE_VISEE_GERER','TEMOIN_GERER','PIECE_JOINTE_RECLASSER','SECTION_DOSSIER_TRAVAIL_GERER','INFO_PREOCCUPANTE_AUTOSAISIR','INFO_PREOCCUPANTE_CREER','INFO_PREOCCUPANTE_TRAITER','INFO_PREOCCUPANTE_VOIR');
-DELETE FROM databasechangelog WHERE id = '038-pieces-jointes-telechargement-et-suppleance';
-```
-
-  (le CGEA garde ses 4 droits d'avant : mes dossiers, suppression d'une partie, d'un témoin, d'une pièce ; supprimer aussi `target/classes/db/changelog/migrations/038-…-et-suppleance.sql` du dossier de compilation).
+- **Base de développement ayant déjà joué l'ancienne 038** (elle donnait des droits de saisie au CGE et au CGEA) : la migration 039 les retire toute seule au prochain démarrage du serveur (le CGEA garde ses 4 droits d'avant). La production n'est pas concernée : elle n'a jamais joué cette version. Si le serveur de développement se plaint de deux fichiers 038, supprimer l'ancien `038-…-et-suppleance.sql` resté dans `target/classes/db/changelog/migrations/`.
 - **Journaux du serveur web : traité dans cette livraison** (voir 4c). Ce qui reste hors de portée de l'application : l'opérateur de connexion du déposant et l'hébergeur voient toujours qu'une connexion a eu lieu, et l'heure d'un dépôt peut être rapprochée de l'heure d'une connexion si quelqu'un a accès à la fois à la base et aux flux réseau. Conseiller l'usage d'un réseau public ou d'un navigateur de confidentialité à un lanceur d'alerte à risque (l'écran « Votre sécurité » du portail peut le dire).
 - **Courriels de notification.** Dépendent de `MAIL_PASSWORD` (2b). Les SMS restent désactivés (`sms.enabled=false`) : l'application n'en promet plus.
 - **Un compte sans fiche agent** reçoit « Agent introuvable. Contactez l'administrateur DDIC. » à la première action qui s'inscrit à son nom : créer les agents par l'écran Administration, pas seulement dans Keycloak.
