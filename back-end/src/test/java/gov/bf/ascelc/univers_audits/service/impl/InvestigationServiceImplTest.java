@@ -694,10 +694,11 @@ class InvestigationServiceImplTest {
     void circuitComplet_sequenceNominaleApprouveLesQuatreEtapes() {
         Investigation investigation = buildCompletedInvestigation();
         investigation.setOutcome(InvestigationOutcome.ARCHIVED);
-        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        // Quatre personnes différentes : chaque étape est donnée par quelqu'un d'autre.
         when(investigationRepository.findById(investigation.getId()))
                 .thenReturn(Optional.of(investigation));
-        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+        when(agentContextResolver.getCurrentAgent())
+                .thenReturn(unAgent(), unAgent(), unAgent(), unAgent());
         when(investigationRepository.save(any(Investigation.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId()))
@@ -2459,5 +2460,151 @@ class InvestigationServiceImplTest {
         assertThatThrownBy(() -> service.findByDossierId(dossierId))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Accès refusé");
+    }
+
+    // ───────── séparation des pouvoirs : une même personne ne donne qu'une approbation, et l'équipe n'approuve pas ─────────
+
+    private Agent unAgent() {
+        return Agent.builder().id(UUID.randomUUID()).build();
+    }
+
+    private void agentCourant(Investigation investigation, Agent agent) {
+        when(investigationRepository.findById(investigation.getId())).thenReturn(Optional.of(investigation));
+        when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+    }
+
+    private void membreDeLEquipe(Investigation investigation, Agent agent) {
+        when(memberRepository.findFirstByInvestigationIdAndAgentIdOrderByCreatedAtDesc(investigation.getId(), agent.getId()))
+                .thenReturn(Optional.of(InvestigationMember.builder().agent(agent).active(true).build()));
+    }
+
+    @Test
+    void approveLegalAdvisor_refuseUnMembreDeLEquipeDEnquete() {
+        Investigation investigation = buildCompletedInvestigation();
+        Agent membre = unAgent();
+        agentCourant(investigation, membre);
+        membreDeLEquipe(investigation, membre);
+
+        assertThatThrownBy(() -> service.approveLegalAdvisor(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(investigation.getLegalAdvisorApprovedAt()).isNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveDei_refuseCeluiQuiAdejaApprouveLeRapportCommeConseillerJuridique() {
+        Investigation investigation = buildCompletedInvestigation();
+        Agent personne = unAgent();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setLegalAdvisorApprovedBy(personne);
+        agentCourant(investigation, personne);
+
+        assertThatThrownBy(() -> service.approveDei(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("déjà donné une approbation");
+
+        assertThat(investigation.getDeiApprovedAt()).isNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCgea_refuseUnMembreDeLEquipeDEnquete() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        Agent membre = unAgent();
+        agentCourant(investigation, membre);
+        membreDeLEquipe(investigation, membre);
+
+        assertThatThrownBy(() -> service.approveCgea(investigation.getId(), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(investigation.getCgeaApprovedAt()).isNull();
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCgea_refuseCeluiQuiADejaApprouveCommeJuridiqueOuCommeDei() {
+        for (boolean commeJuridique : new boolean[] {true, false}) {
+            Investigation investigation = buildCompletedInvestigation();
+            Agent personne = unAgent();
+            investigation.setLegalAdvisorApprovedAt(Instant.now());
+            investigation.setDeiApprovedAt(Instant.now());
+            investigation.setLegalAdvisorApprovedBy(commeJuridique ? personne : unAgent());
+            investigation.setDeiApprovedBy(commeJuridique ? unAgent() : personne);
+            agentCourant(investigation, personne);
+
+            assertThatThrownBy(() -> service.approveCgea(investigation.getId(), "127.0.0.1"))
+                    .as(commeJuridique ? "déjà juridique" : "déjà DEI")
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("déjà donné une approbation");
+
+            assertThat(investigation.getCgeaApprovedAt()).isNull();
+        }
+        verify(investigationRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCge_refuseUnMembreDeLEquipeDEnquete() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setDeiApprovedAt(Instant.now());
+        investigation.setCgeaApprovedAt(Instant.now());
+        Agent membre = unAgent();
+        agentCourant(investigation, membre);
+        membreDeLEquipe(investigation, membre);
+
+        assertThatThrownBy(() -> service.approveCge(investigation.getId(), "motif", "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("faites partie de l'équipe");
+
+        assertThat(investigation.getCgeApprovedAt()).isNull();
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCge_refuseCeluiQuiADejaApprouveUneEtapeDuRapport() {
+        for (int etape = 0; etape < 3; etape++) {      // 0 = juridique, 1 = DEI, 2 = CGEA
+            Investigation investigation = buildCompletedInvestigation();
+            Agent personne = unAgent();
+            investigation.setLegalAdvisorApprovedAt(Instant.now());
+            investigation.setDeiApprovedAt(Instant.now());
+            investigation.setCgeaApprovedAt(Instant.now());
+            investigation.setLegalAdvisorApprovedBy(etape == 0 ? personne : unAgent());
+            investigation.setDeiApprovedBy(etape == 1 ? personne : unAgent());
+            investigation.setCgeaApprovedBy(etape == 2 ? personne : unAgent());
+            agentCourant(investigation, personne);
+
+            assertThatThrownBy(() -> service.approveCge(investigation.getId(), "motif", "127.0.0.1"))
+                    .as("étape " + etape)
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("déjà donné une approbation");
+
+            assertThat(investigation.getCgeApprovedAt()).isNull();
+        }
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void approveCge_accepteDesPersonnesDistinctesEtIgnoreUnApprobateurInconnu() {
+        Investigation investigation = buildCompletedInvestigation();
+        investigation.setLegalAdvisorApprovedAt(Instant.now());
+        investigation.setLegalAdvisorApprovedBy(unAgent());
+        investigation.setDeiApprovedAt(Instant.now());          // approbateur non renseigné (données anciennes)
+        investigation.setCgeaApprovedAt(Instant.now());
+        investigation.setCgeaApprovedBy(unAgent());
+        investigation.setOutcome(InvestigationOutcome.ARCHIVED);
+        Agent cge = unAgent();
+        agentCourant(investigation, cge);
+        when(investigationRepository.save(any(Investigation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(memberRepository.findByInvestigationIdAndActiveTrue(investigation.getId())).thenReturn(List.of());
+        when(investigationMapper.toResponse(investigation)).thenReturn(InvestigationResponse.builder().build());
+
+        service.approveCge(investigation.getId(), "Motif", "127.0.0.1");
+
+        assertThat(investigation.getCgeApprovedBy()).isEqualTo(cge);
     }
 }
