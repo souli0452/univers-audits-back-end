@@ -9,6 +9,7 @@ import gov.bf.ascelc.univers_audits.enums.ObservationType;
 import gov.bf.ascelc.univers_audits.model.entity.GeoRegion;
 import gov.bf.ascelc.univers_audits.service.GeographieService;
 import gov.bf.ascelc.univers_audits.service.GeographieService.OrigineGeographique;
+import gov.bf.ascelc.univers_audits.enums.MotifSignalement;
 import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.enums.TypeDeclarant;
@@ -197,6 +198,42 @@ class DossierServiceImplTest {
                 && d.getTypologieInstitutionnelle() == null
                 && d.getRegionOrigine() == RegionOrigine.KADIOGO
                 && d.getOrigineRegion() == kadiogo));
+    }
+
+    @Test
+    void submitCitoyen_enregistreLeMotifQuIlAChoisi_sansEnFaireLAllegationOfficielle() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(MotifSignalement.CORRUPTION);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == MotifSignalement.CORRUPTION
+                && d.getType() == TypeSaisine.DENONCIATION));
+    }
+
+    @Test
+    void submitCitoyen_sansMotifNEstPasBloque() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == null));
+    }
+
+    @Test
+    void submitParAgent_peutAussiRenseignerLeMotif() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(MotifSignalement.FAVORITISME);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submitParAgent(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == MotifSignalement.FAVORITISME));
     }
 
     @Test

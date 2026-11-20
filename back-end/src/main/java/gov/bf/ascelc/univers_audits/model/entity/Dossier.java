@@ -4,6 +4,7 @@ import gov.bf.ascelc.univers_audits.abstracts.AuditEntity;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.DossierPriority;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.MotifSignalement;
 import gov.bf.ascelc.univers_audits.enums.OrganisationDetail;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
@@ -99,6 +100,11 @@ public class Dossier extends AuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "typologie_institutionnelle", length = 40)
     private TypologieInstitutionnelle typologieInstitutionnelle;
+
+    /** Motif choisi par le citoyen en mots simples (facultatif) ; l'allégation officielle reste celle de l'agent. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "motif_declare", length = 40)
+    private MotifSignalement motifDeclare;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auto_referral_source", length = 30)
