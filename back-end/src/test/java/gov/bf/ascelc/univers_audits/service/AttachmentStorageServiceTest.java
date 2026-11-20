@@ -155,11 +155,12 @@ class AttachmentStorageServiceTest {
     }
 
     @Test
-    void upload_ignoresProvidedSourceModeObtentionAndPersonneRemettanteWhenAnonymous() {
+    void upload_ignoresProvidedSourceModeObtentionAndPersonneRemettanteWhenAnonymous() throws Exception {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
+        // Au dépôt public, une image doit être une vraie image : ses métadonnées sont retirées avant stockage.
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.jpg", "image/jpeg", "contenu".getBytes());
+                "files", "preuve.jpg", "image/jpeg", photoAvecExif());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
@@ -429,6 +430,249 @@ class AttachmentStorageServiceTest {
         assertThat(summary.source()).isEqualTo("FIELD_INVESTIGATION");
         assertThat(summary.modeObtention()).isEqualTo("REQUISITION");
         assertThat(summary.code()).isEqualTo("ACC-T-00007");
+    }
+
+    // ── pièces jointes fiables : refus nommés, formats de téléphone, métadonnées retirées ──────────
+
+    private static final String SECRET = "SECRET-AUTEUR-GPS";
+
+    /** Vraie photo JPEG dont un bloc EXIF contient un texte reconnaissable (modèle d'appareil, position…). */
+    private static byte[] photoAvecExif() throws java.io.IOException {
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(8, 8, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.io.ByteArrayOutputStream jpeg = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(img, "jpg", jpeg);
+        byte[] base = jpeg.toByteArray();
+        byte[] charge = ("Exif\0\0" + SECRET).getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        java.io.ByteArrayOutputStream s = new java.io.ByteArrayOutputStream();
+        s.write(base, 0, 2);
+        s.write(0xFF); s.write(0xE1); s.write((charge.length + 2) >> 8); s.write((charge.length + 2) & 0xFF);
+        s.writeBytes(charge);
+        s.write(base, 2, base.length - 2);
+        return s.toByteArray();
+    }
+
+    private static boolean contient(byte[] octets, String texte) {
+        return new String(octets, java.nio.charset.StandardCharsets.ISO_8859_1).contains(texte);
+    }
+
+    private void deposantAnonyme(UUID dossierId) {
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(buildDossier(dossierId)));
+        lenient().when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
+        lenient().when(attachmentRepository.findByDossierId(dossierId)).thenReturn(List.of());
+        prepareEnregistrement();
+    }
+
+    private void agentAuthentifie(UUID dossierId) {
+        when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(buildDossier(dossierId)));
+        lenient().when(agentContextResolver.getCurrentAgentOrNull())
+                .thenReturn(Agent.builder().id(UUID.randomUUID()).build());
+        prepareEnregistrement();
+    }
+
+    private void prepareEnregistrement() {
+        lenient().when(attachmentRepository.count()).thenReturn(0L);
+        lenient().when(accessCodeGenerator.generateAttachmentCode(any(), anyLong())).thenReturn("ACC-S-00001");
+        lenient().when(attachmentRepository.existsByCode(any())).thenReturn(false);
+        lenient().when(attachmentRepository.save(any(Attachment.class))).thenAnswer(inv -> {
+            Attachment a = inv.getArgument(0);
+            a.setId(UUID.randomUUID());
+            return a;
+        });
+    }
+
+    private List<Attachment> enregistrees() {
+        org.mockito.ArgumentCaptor<Attachment> c = org.mockito.ArgumentCaptor.forClass(Attachment.class);
+        verify(attachmentRepository, atLeastOnce()).save(c.capture());
+        return c.getAllValues();
+    }
+
+    private long nombreDeFichiersEcrits() throws java.io.IOException {
+        try (var flux = java.nio.file.Files.walk(uploadDir)) {
+            return flux.filter(java.nio.file.Files::isRegularFile).count();
+        }
+    }
+
+    @Test
+    void upload_public_retireLesInformationsCacheesDUnePhoto() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+        byte[] photo = photoAvecExif();
+        assertThat(contient(photo, SECRET)).as("la photo de départ contient bien le secret").isTrue();
+
+        service.upload(dossierId.toString(), List.of(new MockMultipartFile("files", "photo.jpg", "image/jpeg", photo)),
+                null, null, null, null, null);
+
+        Attachment pj = enregistrees().get(0);
+        byte[] stocke = java.nio.file.Files.readAllBytes(java.nio.file.Path.of(pj.getFilePath()));
+        assertThat(contient(stocke, SECRET)).isFalse();
+        assertThat(pj.getFileSizeBytes()).as("la taille enregistrée est celle du fichier stocké").isEqualTo(stocke.length);
+        assertThat(pj.getHashSha256()).as("l'empreinte est celle du fichier stocké").isEqualTo(sha256(stocke));
+    }
+
+    @Test
+    void upload_agentAuthentifie_gardeLesMetadonneesDeLaPiece() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        agentAuthentifie(dossierId);
+        byte[] photo = photoAvecExif();
+
+        service.upload(dossierId.toString(), List.of(new MockMultipartFile("files", "constat.jpg", "image/jpeg", photo)),
+                null, AttachmentSource.FIELD_INVESTIGATION, ModeObtention.REQUISITION, null, null);
+
+        byte[] stocke = java.nio.file.Files.readAllBytes(java.nio.file.Path.of(enregistrees().get(0).getFilePath()));
+        assertThat(stocke).as("la date et le lieu d'un constat peuvent faire partie de la preuve").isEqualTo(photo);
+    }
+
+    private static String sha256(byte[] octets) throws Exception {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : java.security.MessageDigest.getInstance("SHA-256").digest(octets)) { sb.append(String.format("%02x", b)); }
+        return sb.toString();
+    }
+
+    @Test
+    void upload_refuseUnFichierDeTypeNonAccepte_enLeNommant_aulieuDeLePerdreEnSilence() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("virus.exe", "application/x-msdownload")), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("virus.exe");
+
+        verify(attachmentRepository, never()).save(any());
+        assertThat(nombreDeFichiersEcrits()).isZero();
+    }
+
+    @Test
+    void upload_unSeulFichierRefuse_annuleTout_etNEcritRien() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("acte.pdf", "application/pdf"), fichier("virus.exe", "application/x-msdownload")),
+                null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("virus.exe")
+                .hasMessageNotContaining("acte.pdf");
+
+        verify(attachmentRepository, never()).save(any());
+        assertThat(nombreDeFichiersEcrits()).as("même le fichier valide n'est pas laissé orphelin").isZero();
+    }
+
+    @Test
+    void upload_public_refuseUneImageIllisible_enLaNommant_sansRienEcrire() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("acte.pdf", "application/pdf"),
+                        new MockMultipartFile("files", "photo.jpg", "image/jpeg", "pas une image".getBytes())),
+                null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("photo.jpg");
+
+        verify(attachmentRepository, never()).save(any());
+        assertThat(nombreDeFichiersEcrits()).isZero();
+    }
+
+    @Test
+    void upload_public_refuseUneImageDontOnNePeutPasRetirerLesMetadonnees() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("anim.gif", "image/gif")), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("anim.gif");
+    }
+
+    @Test
+    void upload_agentAuthentifie_accepteUneImageGif() {
+        UUID dossierId = UUID.randomUUID();
+        agentAuthentifie(dossierId);
+
+        service.upload(dossierId.toString(), List.of(fichier("anim.gif", "image/gif")), null, null, null, null, null);
+
+        verify(attachmentRepository).save(any(Attachment.class));
+    }
+
+    @Test
+    void upload_accepteLaNoteVocaleDUnTelephone_m4a() {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        service.upload(dossierId.toString(), List.of(fichier("note.m4a", "audio/x-m4a")), null, null, null, null, null);
+
+        Attachment pj = enregistrees().get(0);
+        assertThat(pj.getMimeType()).isEqualTo("audio/mp4");
+        assertThat(pj.getType()).isEqualTo(gov.bf.ascelc.univers_audits.enums.AttachmentType.AUDIO_EVIDENCE);
+    }
+
+    @Test
+    void upload_accepteLEnregistrementDuNavigateurAvecSesParametres() {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        service.upload(dossierId.toString(), List.of(fichier("t.webm", "audio/webm;codecs=opus")), null, null, null, null, null);
+
+        assertThat(enregistrees().get(0).getMimeType()).isEqualTo("audio/webm");
+    }
+
+    @Test
+    void upload_devineLeTypeQuandLeNavigateurNEnDonneAucun_opusDeWhatsApp() {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        service.upload(dossierId.toString(), List.of(fichier("note.opus", "application/octet-stream")), null, null, null, null, null);
+
+        Attachment pj = enregistrees().get(0);
+        assertThat(pj.getMimeType()).isEqualTo("audio/ogg");
+        assertThat(pj.getType()).isEqualTo(gov.bf.ascelc.univers_audits.enums.AttachmentType.AUDIO_EVIDENCE);
+    }
+
+    @Test
+    void upload_neSeFieJamaisAuxSeulesExtensions_unFichierSansTypeNiExtensionConnueEstRefuse() {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("script.sh", "application/octet-stream")), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("script.sh");
+    }
+
+    @Test
+    void upload_uneErreurDEcriture_nelaisseAucunFichierOrphelin_etEstSignalee() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+        when(attachmentRepository.save(any(Attachment.class)))
+                .thenAnswer(inv -> { Attachment a = inv.getArgument(0); a.setId(UUID.randomUUID()); return a; })
+                .thenThrow(new IllegalStateException("base indisponible"));
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("a.pdf", "application/pdf"), fichier("b.pdf", "application/pdf")),
+                null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("n'ont pas pu être enregistrées")
+                .as("le détail technique reste dans le journal du serveur, jamais renvoyé au citoyen")
+                .hasMessageNotContaining("base indisponible");
+
+        assertThat(nombreDeFichiersEcrits()).as("le premier fichier écrit est retiré quand le second échoue").isZero();
+    }
+
+    @Test
+    void upload_lectureImpossibleDUnFichier_neRenvoiePasLeDetailTechnique() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+        org.springframework.web.multipart.MultipartFile illisible = org.mockito.Mockito.mock(MockMultipartFile.class);
+        when(illisible.getOriginalFilename()).thenReturn("acte.pdf");
+        when(illisible.getContentType()).thenReturn("application/pdf");
+        when(illisible.getBytes()).thenThrow(new java.io.IOException("C:\\asce-lc\\uploads\\tmp\\upload_123.tmp (accès refusé)"));
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(), List.of(illisible), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("acte.pdf")
+                .hasMessageNotContaining("asce-lc")
+                .hasMessageNotContaining("accès refusé");
     }
 
     private static MockMultipartFile fichier(String nom, String mime) {

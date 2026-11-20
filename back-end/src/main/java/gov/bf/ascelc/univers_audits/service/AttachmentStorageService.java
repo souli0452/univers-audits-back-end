@@ -14,6 +14,7 @@ import gov.bf.ascelc.univers_audits.repository.SectionDossierTravailRepository;
 import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ResourceNotFoundException;
 import gov.bf.ascelc.univers_audits.shared.utils.AccessCodeGenerator;
+import gov.bf.ascelc.univers_audits.shared.utils.AssainisseurPieceJointe;
 import gov.bf.ascelc.univers_audits.shared.utils.AgentContextResolver;
 import gov.bf.ascelc.univers_audits.shared.utils.DossierAccessGuard;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,8 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -50,8 +53,26 @@ public class AttachmentStorageService {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "text/plain", "text/csv",
             "audio/mpeg", "audio/mp3", "audio/wav", "audio/webm", "audio/ogg",
+            "audio/mp4", "audio/aac",
             "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"
     );
+
+    /** Noms de type équivalents que les téléphones et navigateurs emploient : ramenés au type de la liste. */
+    private static final Map<String, String> TYPES_EQUIVALENTS = Map.of(
+            "audio/x-m4a", "audio/mp4", "audio/m4a", "audio/mp4", "audio/x-aac", "audio/aac",
+            "audio/opus", "audio/ogg", "audio/x-wav", "audio/wav", "audio/wave", "audio/wav",
+            "image/pjpeg", "image/jpeg");
+
+    /** Type déduit du nom quand le navigateur n'en donne aucun (certains envoient « octet-stream »). */
+    private static final Map<String, String> TYPE_PAR_EXTENSION = Map.ofEntries(
+            Map.entry("jpg", "image/jpeg"), Map.entry("jpeg", "image/jpeg"), Map.entry("png", "image/png"),
+            Map.entry("gif", "image/gif"), Map.entry("webp", "image/webp"), Map.entry("pdf", "application/pdf"),
+            Map.entry("doc", "application/msword"),
+            Map.entry("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            Map.entry("mp3", "audio/mpeg"), Map.entry("wav", "audio/wav"), Map.entry("ogg", "audio/ogg"),
+            Map.entry("opus", "audio/ogg"), Map.entry("m4a", "audio/mp4"), Map.entry("aac", "audio/aac"),
+            Map.entry("webm", "audio/webm"), Map.entry("mp4", "video/mp4"), Map.entry("mov", "video/quicktime"),
+            Map.entry("avi", "video/x-msvideo"));
 
     private final AttachmentRepository attachmentRepository;
     private final DossierRepository    dossierRepository;
@@ -99,7 +120,8 @@ public class AttachmentStorageService {
             Files.createDirectories(dir);
         } catch (IOException e) {
             log.error("Erreur création dossier upload: {}", e.getMessage(), e);
-            throw new BusinessException("Erreur création dossier upload : " + e.getMessage());
+            // Le détail (chemin du serveur…) reste dans le journal : il ne doit jamais être renvoyé au client.
+            throw new BusinessException("Les pièces jointes n'ont pas pu être enregistrées. Réessayez ou contactez l'ASCE-LC.");
         }
 
         Agent uploader = agentContextResolver.getCurrentAgentOrNull();
@@ -118,43 +140,33 @@ public class AttachmentStorageService {
         SectionDossierTravail section = resolveSectionForDossierOrThrow(sectionId, dossier);
         AtomicLong nextSequence = new AtomicLong(attachmentRepository.count() + 1);
 
+        // 1) Tout est vérifié et nettoyé AVANT d'écrire quoi que ce soit : un fichier refusé n'est jamais perdu en
+        //    silence, et un dépôt à moitié enregistré ne laisse pas de fichiers orphelins.
+        List<PieceAEcrire> pieces = preparer(files, isAuthenticatedAgent);
+
+        // 2) Écriture : si un enregistrement échoue, les fichiers déjà écrits sont retirés et l'erreur est signalée.
         List<UploadedFile> saved = new ArrayList<>();
-
-        for (MultipartFile file : files) {
-            try {
-                String originalName = file.getOriginalFilename() != null
-                        ? file.getOriginalFilename() : "fichier";
-
-                String mime = file.getContentType() != null
-                        ? file.getContentType() : "application/octet-stream";
-
-                if (!ALLOWED_MIME_TYPES.contains(mime)) {
-                    log.warn("Upload rejeté — type non autorisé '{}' pour {}",
-                            mime, file.getOriginalFilename());
-                    continue;
-                }
-
+        List<Path> ecrits = new ArrayList<>();
+        try {
+            for (PieceAEcrire piece : pieces) {
                 String ext = "";
-                int dotIdx = originalName.lastIndexOf('.');
-                if (dotIdx > 0) ext = originalName.substring(dotIdx);
+                int dotIdx = piece.nomOriginal().lastIndexOf('.');
+                if (dotIdx > 0) ext = piece.nomOriginal().substring(dotIdx);
 
                 String storedName = UUID.randomUUID() + ext;
                 Path filePath = dir.resolve(storedName);
-                byte[] fileBytes = file.getBytes();
-                Files.write(filePath, fileBytes);
-
-                String hash = computeHash(fileBytes);
-                AttachmentType attType = detectType(mime, originalName);
+                Files.write(filePath, piece.octets());
+                ecrits.add(filePath);
 
                 Attachment att = Attachment.builder()
                         .dossier(dossier)
-                        .originalName(originalName)
+                        .originalName(piece.nomOriginal())
                         .storedName(storedName)
                         .filePath(filePath.toString())
-                        .mimeType(mime)
-                        .fileSizeBytes(file.getSize())
-                        .hashSha256(hash)
-                        .type(attType)
+                        .mimeType(piece.mime())
+                        .fileSizeBytes((long) piece.octets().length)
+                        .hashSha256(computeHash(piece.octets()))
+                        .type(detectType(piece.mime(), piece.nomOriginal()))
                         .source(effectiveSource)
                         .modeObtention(effectiveModeObtention)
                         .personneRemettante(effectivePersonneRemettante)
@@ -166,18 +178,78 @@ public class AttachmentStorageService {
                         .build();
 
                 attachmentRepository.save(att);
-                log.info("Fichier sauvegardé: {}", originalName);
+                log.info("Fichier sauvegardé: {}", piece.nomOriginal());
 
-                saved.add(new UploadedFile(att.getId().toString(), originalName, mime,
-                        file.getSize(), mime.contains("audio")));
-
-            } catch (Exception e) {
-                log.error("Erreur upload fichier {}: {}",
-                        file.getOriginalFilename(), e.getMessage(), e);
+                saved.add(new UploadedFile(att.getId().toString(), piece.nomOriginal(), piece.mime(),
+                        piece.octets().length, piece.mime().contains("audio")));
             }
+        } catch (IOException | RuntimeException e) {
+            ecrits.forEach(AttachmentStorageService::supprimerSansErreur);
+            log.error("Erreur upload : {}", e.getMessage(), e);
+            if (e instanceof BusinessException be) { throw be; }
+            throw new BusinessException("Les pièces jointes n'ont pas pu être enregistrées. Réessayez ou contactez l'ASCE-LC.");
         }
 
         return saved;
+    }
+
+    private record PieceAEcrire(String nomOriginal, String mime, byte[] octets) {}
+
+    /**
+     * Contrôle chaque fichier (type accepté, image lisible) et, pour un déposant non authentifié, retire les
+     * informations cachées des images. Lève une erreur qui NOMME les fichiers refusés.
+     */
+    private List<PieceAEcrire> preparer(List<MultipartFile> files, boolean agentAuthentifie) {
+        List<String> refuses = new ArrayList<>();
+        List<PieceAEcrire> pieces = new ArrayList<>();
+        for (MultipartFile file : files) {
+            String nom = file.getOriginalFilename() != null ? file.getOriginalFilename() : "fichier";
+            String mime = mimeEffectif(file.getContentType(), nom);
+            boolean accepte = mime != null && ALLOWED_MIME_TYPES.contains(mime)
+                    // Au dépôt public, une image dont on ne sait pas retirer les métadonnées est refusée plutôt que gardée telle quelle.
+                    && (agentAuthentifie || !AssainisseurPieceJointe.estImage(mime)
+                            || AssainisseurPieceJointe.estImageAssainissable(mime));
+            if (!accepte) {
+                log.warn("Upload rejeté — type non autorisé '{}' pour {}", file.getContentType(), nom);
+                refuses.add(nom);
+                continue;
+            }
+            try {
+                byte[] octets = file.getBytes();
+                if (!agentAuthentifie) {
+                    octets = AssainisseurPieceJointe.retirerMetadonnees(mime, octets);
+                }
+                pieces.add(new PieceAEcrire(nom, mime, octets));
+            } catch (IllegalArgumentException e) {
+                refuses.add(nom + " (image illisible)");
+            } catch (IOException e) {
+                log.error("Lecture impossible du fichier {} : {}", nom, e.getMessage(), e);
+                throw new BusinessException("Lecture impossible du fichier " + nom + ". Réessayez.");
+            }
+        }
+        if (!refuses.isEmpty()) {
+            throw new BusinessException("Fichier non accepté : " + String.join(", ", refuses)
+                    + ". Aucune pièce n'a été enregistrée ; formats acceptés : PDF, Word, JPG, PNG, MP3, M4A, WAV, MP4, MOV, AVI.");
+        }
+        return pieces;
+    }
+
+    /** Type du fichier sans paramètres (« audio/webm;codecs=opus » → « audio/webm »), ramené au type de la liste. */
+    static String mimeEffectif(String declare, String nomFichier) {
+        String type = declare == null ? "" : declare.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+        if (type.isEmpty() || type.equals("application/octet-stream")) {
+            int point = nomFichier.lastIndexOf('.');
+            type = point < 0 ? null : TYPE_PAR_EXTENSION.get(nomFichier.substring(point + 1).toLowerCase(Locale.ROOT));
+        }
+        return type == null ? null : TYPES_EQUIVALENTS.getOrDefault(type, type);
+    }
+
+    private static void supprimerSansErreur(Path fichier) {
+        try {
+            Files.deleteIfExists(fichier);
+        } catch (IOException e) {
+            log.warn("Fichier orphelin non supprimé : {}", fichier);
+        }
     }
 
     public List<AttachmentSummary> listByDossier(UUID dossierId) {
@@ -208,7 +280,8 @@ public class AttachmentStorageService {
         try {
             Files.deleteIfExists(Paths.get(attachment.getFilePath()));
         } catch (IOException e) {
-            throw new BusinessException("Erreur suppression fichier : " + e.getMessage());
+            log.error("Erreur suppression fichier {} : {}", attachment.getFilePath(), e.getMessage(), e);
+            throw new BusinessException("Le fichier n'a pas pu être supprimé. Réessayez ou contactez l'administrateur.");
         }
         attachmentRepository.delete(attachment);
     }
@@ -286,9 +359,10 @@ public class AttachmentStorageService {
                 .filter(a -> a.getType() == AttachmentType.AUDIO_EVIDENCE).count();
         long piecesExistantes = existantes.size() - audioExistants;
 
-        long audioNouveaux = files.stream().filter(f -> detectType(
-                f.getContentType(), f.getOriginalFilename() != null ? f.getOriginalFilename() : "fichier")
-                == AttachmentType.AUDIO_EVIDENCE).count();
+        long audioNouveaux = files.stream().filter(f -> {
+            String nom = f.getOriginalFilename() != null ? f.getOriginalFilename() : "fichier";
+            return detectType(mimeEffectif(f.getContentType(), nom), nom) == AttachmentType.AUDIO_EVIDENCE;
+        }).count();
         long piecesNouvelles = files.size() - audioNouveaux;
 
         if (piecesExistantes + piecesNouvelles > MAX_PIECES_DEPOT_PUBLIC) {
@@ -305,7 +379,8 @@ public class AttachmentStorageService {
 
         if (contentType.contains("audio")
                 || fn.endsWith(".mp3") || fn.endsWith(".webm")
-                || fn.endsWith(".wav") || fn.endsWith(".ogg"))
+                || fn.endsWith(".wav") || fn.endsWith(".ogg")
+                || fn.endsWith(".m4a") || fn.endsWith(".aac") || fn.endsWith(".opus"))
             return AttachmentType.AUDIO_EVIDENCE;
 
         if (contentType.contains("video")
