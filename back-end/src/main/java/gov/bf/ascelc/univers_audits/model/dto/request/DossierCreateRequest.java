@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.model.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
+import gov.bf.ascelc.univers_audits.enums.MotifSignalement;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.TypeSaisine;
 import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
@@ -53,6 +54,9 @@ public class DossierCreateRequest {
 
     /** Réservé à l'agent : typologie institutionnelle de l'entité visée. Ignorée sur le dépôt public. */
     private TypologieInstitutionnelle typologieInstitutionnelle;
+
+    /** Facultatif : motif que le citoyen choisit en mots simples ; l'agent retient seul l'allégation officielle. */
+    private MotifSignalement motifDeclare;
 
     private AutoReferralSource autoReferralSource;
 

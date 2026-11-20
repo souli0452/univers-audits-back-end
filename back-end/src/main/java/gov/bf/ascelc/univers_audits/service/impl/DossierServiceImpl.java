@@ -221,6 +221,8 @@ public class DossierServiceImpl implements DossierService {
         dossier.setOrigineCommune(origine.commune());
         dossier.setRegionOrigine(origine.zone());
         dossier.setTypologieInstitutionnelle(parAgent ? request.getTypologieInstitutionnelle() : null);
+        // Le motif, lui, est celui du citoyen (en mots simples) : il le donne ou non, l'agent qualifie ensuite.
+        dossier.setMotifDeclare(request.getMotifDeclare());
         dossier.setAnonymous(anonymousRequested);
         if (natureSaisine == TypeSaisine.SIGNALEMENT
                 || natureSaisine == TypeSaisine.AUTO_SAISINE) {

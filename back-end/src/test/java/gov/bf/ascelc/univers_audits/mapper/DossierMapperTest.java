@@ -1,6 +1,7 @@
 package gov.bf.ascelc.univers_audits.mapper;
 
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.MotifSignalement;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import gov.bf.ascelc.univers_audits.model.dto.request.DossierCreateRequest;
 import gov.bf.ascelc.univers_audits.model.dto.response.DossierResponse;
@@ -16,6 +17,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DossierMapperTest {
 
     private final DossierMapper mapper = new DossierMapperImpl();
+
+    @Test
+    void toResponse_donneAAgentLeMotifChoisiParLeCitoyen() {
+        Dossier dossier = Dossier.builder().id(UUID.randomUUID()).status(DossierStatus.RECU)
+                .motifDeclare(MotifSignalement.FAVORITISME).build();
+
+        assertThat(mapper.toResponse(dossier).getMotifDeclare()).isEqualTo(MotifSignalement.FAVORITISME);
+    }
+
+    @Test
+    void toEntity_recopieLeMotifDeLaDemande() {
+        DossierCreateRequest request = DossierCreateRequest.builder().submissionMode(SubmissionMode.WEB_FORM)
+                .motifDeclare(MotifSignalement.FONCIER).build();
+
+        assertThat(mapper.toEntity(request).getMotifDeclare()).isEqualTo(MotifSignalement.FONCIER);
+    }
 
     @Test
     void toResponse_computesAcknowledgmentOverdueAndDaysSinceReception() {

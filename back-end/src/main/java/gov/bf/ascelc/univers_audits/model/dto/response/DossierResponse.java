@@ -2,6 +2,7 @@ package gov.bf.ascelc.univers_audits.model.dto.response;
 
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.DossierStatus;
+import gov.bf.ascelc.univers_audits.enums.MotifSignalement;
 import gov.bf.ascelc.univers_audits.enums.QualiteDeclarant;
 import gov.bf.ascelc.univers_audits.enums.RegionOrigine;
 import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
@@ -34,6 +35,7 @@ public class DossierResponse {
     private SocialPlatform             socialPlatform;
     private RegionOrigine              regionOrigine;
     private TypologieInstitutionnelle  typologieInstitutionnelle;
+    private MotifSignalement           motifDeclare;
     private AutoReferralSource         autoReferralSource;
     private String                     sourceReference;
     private String                     object;
