@@ -120,7 +120,8 @@ public class AttachmentStorageService {
             Files.createDirectories(dir);
         } catch (IOException e) {
             log.error("Erreur création dossier upload: {}", e.getMessage(), e);
-            throw new BusinessException("Erreur création dossier upload : " + e.getMessage());
+            // Le détail (chemin du serveur…) reste dans le journal : il ne doit jamais être renvoyé au client.
+            throw new BusinessException("Les pièces jointes n'ont pas pu être enregistrées. Réessayez ou contactez l'ASCE-LC.");
         }
 
         Agent uploader = agentContextResolver.getCurrentAgentOrNull();
@@ -186,7 +187,7 @@ public class AttachmentStorageService {
             ecrits.forEach(AttachmentStorageService::supprimerSansErreur);
             log.error("Erreur upload : {}", e.getMessage(), e);
             if (e instanceof BusinessException be) { throw be; }
-            throw new BusinessException("Les pièces jointes n'ont pas pu être enregistrées : " + e.getMessage());
+            throw new BusinessException("Les pièces jointes n'ont pas pu être enregistrées. Réessayez ou contactez l'ASCE-LC.");
         }
 
         return saved;
@@ -222,7 +223,8 @@ public class AttachmentStorageService {
             } catch (IllegalArgumentException e) {
                 refuses.add(nom + " (image illisible)");
             } catch (IOException e) {
-                throw new BusinessException("Lecture impossible du fichier " + nom + " : " + e.getMessage());
+                log.error("Lecture impossible du fichier {} : {}", nom, e.getMessage(), e);
+                throw new BusinessException("Lecture impossible du fichier " + nom + ". Réessayez.");
             }
         }
         if (!refuses.isEmpty()) {
@@ -278,7 +280,8 @@ public class AttachmentStorageService {
         try {
             Files.deleteIfExists(Paths.get(attachment.getFilePath()));
         } catch (IOException e) {
-            throw new BusinessException("Erreur suppression fichier : " + e.getMessage());
+            log.error("Erreur suppression fichier {} : {}", attachment.getFilePath(), e.getMessage(), e);
+            throw new BusinessException("Le fichier n'a pas pu être supprimé. Réessayez ou contactez l'administrateur.");
         }
         attachmentRepository.delete(attachment);
     }

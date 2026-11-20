@@ -651,9 +651,28 @@ class AttachmentStorageServiceTest {
         assertThatThrownBy(() -> service.upload(dossierId.toString(),
                 List.of(fichier("a.pdf", "application/pdf"), fichier("b.pdf", "application/pdf")),
                 null, null, null, null, null))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("n'ont pas pu être enregistrées")
+                .as("le détail technique reste dans le journal du serveur, jamais renvoyé au citoyen")
+                .hasMessageNotContaining("base indisponible");
 
         assertThat(nombreDeFichiersEcrits()).as("le premier fichier écrit est retiré quand le second échoue").isZero();
+    }
+
+    @Test
+    void upload_lectureImpossibleDUnFichier_neRenvoiePasLeDetailTechnique() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+        org.springframework.web.multipart.MultipartFile illisible = org.mockito.Mockito.mock(MockMultipartFile.class);
+        when(illisible.getOriginalFilename()).thenReturn("acte.pdf");
+        when(illisible.getContentType()).thenReturn("application/pdf");
+        when(illisible.getBytes()).thenThrow(new java.io.IOException("C:\\asce-lc\\uploads\\tmp\\upload_123.tmp (accès refusé)"));
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(), List.of(illisible), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("acte.pdf")
+                .hasMessageNotContaining("asce-lc")
+                .hasMessageNotContaining("accès refusé");
     }
 
     private static MockMultipartFile fichier(String nom, String mime) {
