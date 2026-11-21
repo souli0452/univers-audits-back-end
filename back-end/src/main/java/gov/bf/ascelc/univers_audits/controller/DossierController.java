@@ -130,10 +130,17 @@ public class DossierController {
         auditService.logAction(
                 agentId(jwt), agentName(jwt), agentRole(jwt),
                 "CREER_DOSSIER", "DOSSIER", result.getId().toString(),
-                "Création dossier : " + result.getNumber(),
+                descriptionCreation(result.getNumber()),
                 AuditService.extractIp(httpRequest), AuditService.extractUserAgent(httpRequest));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    /** Description de la création dans le journal d'audit : le numéro n'est attribué qu'à l'enregistrement du dossier. */
+    static String descriptionCreation(String numero) {
+        return (numero == null || numero.isBlank())
+                ? "Création dossier (numéro attribué à l'enregistrement)"
+                : "Création dossier : " + numero;
     }
 
     @PatchMapping("/{id}/register")

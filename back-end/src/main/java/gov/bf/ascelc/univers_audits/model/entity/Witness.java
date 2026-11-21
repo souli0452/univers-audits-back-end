@@ -83,6 +83,6 @@ public class Witness extends AuditEntity {
         if (firstName != null && lastName != null) {
             return firstName + " " + lastName;
         }
-        return "Not provided";
+        return "Non renseigné";
     }
 }
