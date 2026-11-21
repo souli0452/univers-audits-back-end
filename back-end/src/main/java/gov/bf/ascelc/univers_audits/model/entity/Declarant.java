@@ -91,10 +91,10 @@ public class Declarant extends AuditEntity {
 
     public String getDisplayName() {
         if (TypeDeclarant.ANONYMOUS.equals(typeDeclarant)) {
-            return "Anonymous";
+            return "Anonyme";
         }
         if (TypeDeclarant.ASCE_SELF_REFERRAL.equals(typeDeclarant)) {
-            return "ASCE-LC (Self-referral)";
+            return "ASCE-LC (auto-saisine)";
         }
         if (organizationName != null && !organizationName.isBlank()) {
             return organizationName;
@@ -102,7 +102,7 @@ public class Declarant extends AuditEntity {
         if (firstName != null && lastName != null) {
             return firstName + " " + lastName;
         }
-        return "Not provided";
+        return "Non renseigné";
     }
 
 
