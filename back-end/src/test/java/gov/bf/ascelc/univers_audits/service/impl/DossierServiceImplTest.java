@@ -636,6 +636,52 @@ class DossierServiceImplTest {
         assertThat(reponse.getDeclarant().getOrganizationName()).isNull();
     }
 
+    private DossierResponse reponseAvecMotif(boolean confidentiel) {
+        DossierResponse r = new DossierResponse();
+        r.setNumber("DOS-1");
+        r.setIsConfidential(confidentiel);
+        r.setDescription("Récit sensible");
+        r.setMotifDeclare(MotifSignalement.CORRUPTION);
+        return r;
+    }
+
+    private DossierResponse premiereLigneVuePar(boolean habilite, DossierResponse reponse) {
+        Dossier d1 = Dossier.builder().id(UUID.randomUUID()).number("DOS-1").build();
+        Agent agent = Agent.builder().id(UUID.randomUUID()).build();
+        Pageable pageable = PageRequest.of(0, 20);
+        when(accessGuard.canSeeConfidential()).thenReturn(habilite);
+        when(dossierMapper.toResponse(d1)).thenReturn(reponse);
+        if (habilite) {
+            when(dossierRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(d1)));
+        } else {
+            when(agentContextResolver.getCurrentAgent()).thenReturn(agent);
+            when(dossierRepository.findAccessibleByAgentId(agent.getId(), pageable)).thenReturn(new PageImpl<>(List.of(d1)));
+        }
+        return service.findAll(pageable).getContent().get(0);
+    }
+
+    @Test
+    void leMotifDuCitoyenEstMasqueDansUnDossierConfidentielPourUnAgentSansAcces() {
+        DossierResponse ligne = premiereLigneVuePar(false, reponseAvecMotif(true));
+
+        assertThat(ligne.getMotifDeclare()).isNull();
+        assertThat(ligne.getDescription()).contains("confidentiel");
+    }
+
+    @Test
+    void leMotifRestePourUnAgentHabilite() {
+        DossierResponse ligne = premiereLigneVuePar(true, reponseAvecMotif(true));
+
+        assertThat(ligne.getMotifDeclare()).isEqualTo(MotifSignalement.CORRUPTION);
+    }
+
+    @Test
+    void leMotifRestePourUnDossierNonConfidentielMemePourUnAgentSansAcces() {
+        DossierResponse ligne = premiereLigneVuePar(false, reponseAvecMotif(false));
+
+        assertThat(ligne.getMotifDeclare()).isEqualTo(MotifSignalement.CORRUPTION);
+    }
+
     @Test
     void findAll_usesAccessibleDossiersForNonPrivilegedAgent() {
         Agent agent = Agent.builder().id(UUID.randomUUID()).build();

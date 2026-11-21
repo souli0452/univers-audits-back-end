@@ -1216,6 +1216,8 @@ public class DossierServiceImpl implements DossierService {
             response.setDeclarant(null);
             response.setDescription("** Contenu confidentiel — accès restreint **");
             response.setMotifs(null);
+            // le motif choisi par le citoyen dit de quoi il s'agit : aussi sensible que le récit
+            response.setMotifDeclare(null);
             response.setIncidentLocation(null);
             response.setEstimatedLoss(null);
             response.setObservations(null);
