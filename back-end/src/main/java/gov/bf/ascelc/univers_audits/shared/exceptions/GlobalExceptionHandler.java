@@ -72,6 +72,22 @@ public class GlobalExceptionHandler {
                         "Méthode non autorisée sur cette ressource"));
     }
 
+    /**
+     * Corps envoyé avec un type de contenu que la route n'accepte pas : erreur du client (415), pas une erreur interne.
+     * Sans ce gestionnaire, la réponse générale renvoyait un 500 et écrivait une trace complète dans les journaux.
+     */
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(
+            org.springframework.web.HttpMediaTypeNotSupportedException ex) {
+        log.warn("Type de contenu non pris en charge : {}", ex.getContentType());
+        return ResponseEntity
+                .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ErrorResponse.of(
+                        HttpStatus.UNSUPPORTED_MEDIA_TYPE.value(),
+                        "UNSUPPORTED_MEDIA_TYPE",
+                        "Type de contenu non pris en charge par cette ressource"));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(
             BusinessException ex) {
