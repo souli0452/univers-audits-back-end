@@ -41,7 +41,7 @@ Gravité : C = critique, É = élevé, M = moyen, F = faible, I = information. �
 | N° | Gr. | Réf. | Constat | Correction | État |
 |---|---|---|---|---|---|
 | S-01 | C | A06 | Spring Boot 3.3.5 (fin de support) : Tomcat 10.1.31 (24 avis), Spring MVC et Security, Netty, Jackson, PostgreSQL JDBC… | Montée à Spring Boot 3.5.16 | Branche `chore/spring-boot-3-5` : Spring Boot 3.5.16, Tomcat 10.1.62, Netty 4.1.141, Jackson 2.21.8, pilote PostgreSQL 42.7.15 ; 1076 tests |
-| S-02 | É | A02 | Clé API Africa's Talking (SMS) **en clair dans l'historique git** (2 commits, plusieurs branches) | **Révoquer la clé chez Africa's Talking et en créer une nouvelle** ; garder seulement la variable d'environnement | **À faire (vous)** |
+| S-02 | É | A02 | Clé API Africa's Talking (SMS) **en clair dans l'historique git** (2 commits, plusieurs branches) | Clé retirée du code, `AT_API_KEY` facultative (SMS coupés), test qui interdit son retour ; clé du bac à sable régénérée chez Africa’s Talking le 24/11 (l’ancienne ne fonctionne plus) | **Corrigé** |
 | S-03 | É | A02 | Secret de client Keycloak dans `test-asce.ps1` (32 caractères aléatoires) et valeur de secret dans `realm-export.json` | Comparer les empreintes avec la production (§6) ; si identiques, changer le secret dans Keycloak et `.env` ; retirer ces valeurs des fichiers | À faire (vous) |
 | S-04 | É | A06 | nginx 1.27.5 : version annoncée et signalée avec vulnérabilités connues par ZAP | Image `nginx:stable-alpine` à la reconstruction ; `server_tokens off` | Modèle corrigé et essayé ; **image à changer sur `rpd`** |
 | S-05 | M | A06 | Keycloak 25.0.2 : avis élevé sur `keycloak-core`, corrigé en 26.0.6 | Montée de version planifiée et essayée hors production | À planifier |
