@@ -34,10 +34,12 @@ echo "console.log(1)" > "$T/html/main-ABCDEFG1.js"
 cp "$MODELE" "$T/modele.template"
 cat > "$T/back.conf" <<'EOF'
 server { listen 8081; location / { return 200 "ok"; } }
+server { listen 8080; location / { return 200 "keycloak"; } }
 EOF
 
 docker network create "$RES" >/dev/null
-docker run -d --name "backend-$$" --network "$RES" --network-alias backend \
+# Un seul faux serveur répond sous les deux noms que le modèle attend : « backend » (8081) et « keycloak » (8080).
+docker run -d --name "backend-$$" --network "$RES" --network-alias backend --network-alias keycloak \
   -v "$T/back.conf:/etc/nginx/conf.d/default.conf:ro" "$IMG" >/dev/null
 docker run -d --name "$RES-proxy" --network "$RES" -p 18444:443 -e DOMAIN=test.local \
   -v "$T/modele.template:/etc/nginx/templates/default.conf.template:ro" \
@@ -86,6 +88,10 @@ echo "== méthodes et API =="
 check "POST sur une page statique est refusé (405)"                "$(code -X POST -d x "$U/")" "405"
 check "TRACE n'est pas accepté (jamais 200)"                       "$([ "$(code -X TRACE "$U/")" = 200 ] && echo 200 || echo refusé)" "refusé"
 check "l'API reste joignable (faux back)"                          "$(code "$U/api/v1/stats/dashboard")" "200"
+echo "== Keycloak (connexion) reste joignable, y compris les chemins à point et à extension =="
+for chemin in /auth/realms/asce-lc/.well-known/openid-configuration /auth/realms/asce-lc/protocol/openid-connect/certs /auth/resources/abc/login/asce-lc/css/login.css /auth/resources/abc/common/keycloak/web_modules/x.js; do
+  check "$chemin atteint Keycloak (200)" "$(code "$U$chemin")" "200"
+done
 check "le dépôt citoyen reste joignable (faux back)"               "$(code -X POST -d '{}' "$U/api/v1/dossiers/public/submit")" "200"
 
 echo; [ "$FAIL" -eq 0 ] && echo "TOUS LES CONTROLES PASSENT" || echo "$FAIL CONTROLE(S) EN ECHEC"
