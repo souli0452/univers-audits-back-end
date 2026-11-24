@@ -36,6 +36,7 @@ public class DossierResponse {
     private RegionOrigine              regionOrigine;
     private TypologieInstitutionnelle  typologieInstitutionnelle;
     private MotifSignalement           motifDeclare;
+    private String                     motifAutre;
     private AutoReferralSource         autoReferralSource;
     private String                     sourceReference;
     private String                     object;

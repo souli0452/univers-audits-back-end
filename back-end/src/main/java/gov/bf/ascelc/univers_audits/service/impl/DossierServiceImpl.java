@@ -223,6 +223,9 @@ public class DossierServiceImpl implements DossierService {
         dossier.setTypologieInstitutionnelle(parAgent ? request.getTypologieInstitutionnelle() : null);
         // Le motif, lui, est celui du citoyen (en mots simples) : il le donne ou non, l'agent qualifie ensuite.
         dossier.setMotifDeclare(request.getMotifDeclare());
+        // Le texte libre n'existe que pour « Autre » : nettoyé, et jamais gardé avec une allégation précise.
+        dossier.setMotifAutre(request.getMotifDeclare() == MotifSignalement.AUTRE && request.getMotifAutre() != null
+                ? request.getMotifAutre().trim() : null);
         dossier.setAnonymous(anonymousRequested);
         if (natureSaisine == TypeSaisine.SIGNALEMENT
                 || natureSaisine == TypeSaisine.AUTO_SAISINE) {
@@ -1218,6 +1221,7 @@ public class DossierServiceImpl implements DossierService {
             response.setMotifs(null);
             // le motif choisi par le citoyen dit de quoi il s'agit : aussi sensible que le récit
             response.setMotifDeclare(null);
+            response.setMotifAutre(null);
             response.setIncidentLocation(null);
             response.setEstimatedLoss(null);
             response.setObservations(null);

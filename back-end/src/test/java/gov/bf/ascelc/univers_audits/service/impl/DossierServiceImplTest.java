@@ -214,6 +214,34 @@ class DossierServiceImplTest {
     }
 
     @Test
+    void submitCitoyen_motifAutre_conserveLeTexteLibreSansEspacesEnTrop() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(MotifSignalement.AUTRE);
+        request.setMotifAutre("  Un enseignant vend des notes  ");
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == MotifSignalement.AUTRE
+                && "Un enseignant vend des notes".equals(d.getMotifAutre())));
+    }
+
+    @Test
+    void submitCitoyen_uneAllegationPrecise_neGardeJamaisDeTexteLibre() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(MotifSignalement.FRAUDE);
+        request.setMotifAutre("texte resté dans le champ");
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == MotifSignalement.FRAUDE
+                && d.getMotifAutre() == null));
+    }
+
+    @Test
     void submitCitoyen_sansMotifNEstPasBloque() {
         DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
         Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
@@ -666,6 +694,18 @@ class DossierServiceImplTest {
 
         assertThat(ligne.getMotifDeclare()).isNull();
         assertThat(ligne.getDescription()).contains("confidentiel");
+    }
+
+    @Test
+    void leTexteLibreDuMotifEstMasqueAvecLeMotifDansUnDossierConfidentiel() {
+        DossierResponse reponse = reponseAvecMotif(true);
+        reponse.setMotifDeclare(MotifSignalement.AUTRE);
+        reponse.setMotifAutre("Détail sensible");
+
+        DossierResponse ligne = premiereLigneVuePar(false, reponse);
+
+        assertThat(ligne.getMotifDeclare()).isNull();
+        assertThat(ligne.getMotifAutre()).isNull();
     }
 
     @Test
