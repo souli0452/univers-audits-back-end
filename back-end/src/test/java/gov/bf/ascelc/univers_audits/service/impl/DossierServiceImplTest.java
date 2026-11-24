@@ -214,6 +214,42 @@ class DossierServiceImplTest {
     }
 
     @Test
+    void submitCitoyen_objetDePlusDeSoixanteCaracteres_estRefuseSansRienEnregistrer() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setObject("x".repeat(61));
+
+        assertThatThrownBy(() -> service.submit(request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("L'objet ne doit pas dépasser 60 caractères");
+
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void submitCitoyen_objetDeSoixanteCaracteres_estAccepte() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setObject("x".repeat(60));
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(any());
+    }
+
+    @Test
+    void submitParAgent_peutSaisirUnObjetPlusLong() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setObject("x".repeat(200));
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submitParAgent(request, "127.0.0.1");
+
+        verify(dossierRepository).save(any());
+    }
+
+    @Test
     void submitCitoyen_motifAutre_conserveLeTexteLibreSansEspacesEnTrop() {
         DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
         request.setMotifDeclare(MotifSignalement.AUTRE);

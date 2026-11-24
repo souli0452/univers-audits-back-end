@@ -54,6 +54,9 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class DossierServiceImpl implements DossierService {
 
+    /** Longueur maximale de l'objet d'un dépôt public en ligne (marge de 10 caractères sur les 50 de l'écran). */
+    static final int OBJET_MAX_DEPOT_PUBLIC = 60;
+
     private final DossierRepository             dossierRepository;
     private final DeclarantRepository           declarantRepository;
     private final NotificationRepository        notificationRepository;
@@ -183,6 +186,15 @@ public class DossierServiceImpl implements DossierService {
 
     private DossierResponse enregistrer(DossierCreateRequest request, String ipAddress, boolean parAgent) {
         log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
+
+        // Dépôt public en ligne : l'objet est le début du récit (50 caractères côté écran) ; l'agent, lui, peut être plus long.
+        if (!parAgent
+                && request.getSubmissionMode() == SubmissionMode.WEB_FORM
+                && request.getObject() != null
+                && request.getObject().length() > OBJET_MAX_DEPOT_PUBLIC) {
+            throw new BusinessException(
+                    "L'objet ne doit pas dépasser " + OBJET_MAX_DEPOT_PUBLIC + " caractères.");
+        }
 
         if (request.getDeclarantData() != null
                 && Boolean.TRUE.equals(
