@@ -128,6 +128,7 @@ class DossierServiceImplTest {
         return DossierCreateRequest.builder()
                 .submissionMode(SubmissionMode.WEB_FORM)
                 .object("Marché public suspect")
+                .motifDeclare(MotifSignalement.CORRUPTION)
                 .quality(quality)
                 .anonymous(anonymous)
                 .declarantData(declarantData)
@@ -214,12 +215,101 @@ class DossierServiceImplTest {
     }
 
     @Test
-    void submitCitoyen_sansMotifNEstPasBloque() {
+    void submitCitoyen_objetDePlusDeSoixanteCaracteres_estRefuseSansRienEnregistrer() {
         DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setObject("x".repeat(61));
+
+        assertThatThrownBy(() -> service.submit(request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("L'objet ne doit pas dépasser 60 caractères");
+
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void submitCitoyen_objetDeSoixanteCaracteres_estAccepte() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setObject("x".repeat(60));
         Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
         stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
 
         service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(any());
+    }
+
+    @Test
+    void submitParAgent_peutSaisirUnObjetPlusLong() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setObject("x".repeat(200));
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submitParAgent(request, "127.0.0.1");
+
+        verify(dossierRepository).save(any());
+    }
+
+    @Test
+    void submitCitoyen_motifAutre_conserveLeTexteLibreSansEspacesEnTrop() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(MotifSignalement.AUTRE);
+        request.setMotifAutre("  Un enseignant vend des notes  ");
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == MotifSignalement.AUTRE
+                && "Un enseignant vend des notes".equals(d.getMotifAutre())));
+    }
+
+    @Test
+    void submitCitoyen_uneAllegationPrecise_neGardeJamaisDeTexteLibre() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(MotifSignalement.FRAUDE);
+        request.setMotifAutre("texte resté dans le champ");
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == MotifSignalement.FRAUDE
+                && d.getMotifAutre() == null));
+    }
+
+    @Test
+    void submitCitoyen_sansMotif_estRefuseSansRienEnregistrer() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(null);
+
+        assertThatThrownBy(() -> service.submit(request, "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Choisissez l'objet de votre signalement");
+
+        verify(dossierRepository, never()).save(any());
+    }
+
+    @Test
+    void submitCitoyen_avecUnMotif_estAccepte() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(MotifSignalement.CONCUSSION);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submit(request, "127.0.0.1");
+
+        verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == MotifSignalement.CONCUSSION));
+    }
+
+    @Test
+    void submitParAgent_peutNePasRenseignerLeMotif() {
+        DossierCreateRequest request = buildRequest(QualiteDeclarant.TEMOIN);
+        request.setMotifDeclare(null);
+        Declarant declarant = Declarant.builder().typeDeclarant(TypeDeclarant.CITIZEN).build();
+        stubSoumission(request, declarant, TypeSaisine.DENONCIATION, null);
+
+        service.submitParAgent(request, "127.0.0.1");
 
         verify(dossierRepository).save(argThat(d -> d.getMotifDeclare() == null));
     }
@@ -363,6 +453,7 @@ class DossierServiceImplTest {
         DossierCreateRequest request = DossierCreateRequest.builder()
                 .submissionMode(SubmissionMode.WEB_FORM)
                 .object("Signalement d'une autorité publique")
+                .motifDeclare(MotifSignalement.ABUS_DE_FONCTION)
                 .quality(QualiteDeclarant.VICTIME)
                 .declarantData(declarantData)
                 .build();
@@ -669,6 +760,18 @@ class DossierServiceImplTest {
     }
 
     @Test
+    void leTexteLibreDuMotifEstMasqueAvecLeMotifDansUnDossierConfidentiel() {
+        DossierResponse reponse = reponseAvecMotif(true);
+        reponse.setMotifDeclare(MotifSignalement.AUTRE);
+        reponse.setMotifAutre("Détail sensible");
+
+        DossierResponse ligne = premiereLigneVuePar(false, reponse);
+
+        assertThat(ligne.getMotifDeclare()).isNull();
+        assertThat(ligne.getMotifAutre()).isNull();
+    }
+
+    @Test
     void leMotifRestePourUnAgentHabilite() {
         DossierResponse ligne = premiereLigneVuePar(true, reponseAvecMotif(true));
 
@@ -879,6 +982,7 @@ class DossierServiceImplTest {
         DossierCreateRequest anonymousRequest = DossierCreateRequest.builder()
                 .submissionMode(SubmissionMode.WEB_FORM)
                 .object("Premier signalement")
+                .motifDeclare(MotifSignalement.FRAUDE)
                 .quality(QualiteDeclarant.TEMOIN)
                 .anonymous(true)
                 .declarantId(declarantId)
@@ -899,6 +1003,7 @@ class DossierServiceImplTest {
         DossierCreateRequest namedRequest = DossierCreateRequest.builder()
                 .submissionMode(SubmissionMode.WEB_FORM)
                 .object("Deuxième plainte, identité révélée")
+                .motifDeclare(MotifSignalement.FRAUDE)
                 .quality(QualiteDeclarant.VICTIME)
                 .anonymous(false)
                 .declarantId(declarantId)

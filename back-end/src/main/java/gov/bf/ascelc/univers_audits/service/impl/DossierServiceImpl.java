@@ -54,6 +54,9 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class DossierServiceImpl implements DossierService {
 
+    /** Longueur maximale de l'objet d'un dépôt public en ligne (marge de 10 caractères sur les 50 de l'écran). */
+    static final int OBJET_MAX_DEPOT_PUBLIC = 60;
+
     private final DossierRepository             dossierRepository;
     private final DeclarantRepository           declarantRepository;
     private final NotificationRepository        notificationRepository;
@@ -184,6 +187,23 @@ public class DossierServiceImpl implements DossierService {
     private DossierResponse enregistrer(DossierCreateRequest request, String ipAddress, boolean parAgent) {
         log.info("Nouvelle soumission — mode: {}", request.getSubmissionMode());
 
+        // Dépôt public en ligne : l'objet est le début du récit (50 caractères côté écran) ; l'agent, lui, peut être plus long.
+        if (!parAgent
+                && request.getSubmissionMode() == SubmissionMode.WEB_FORM
+                && request.getObject() != null
+                && request.getObject().length() > OBJET_MAX_DEPOT_PUBLIC) {
+            throw new BusinessException(
+                    "L'objet ne doit pas dépasser " + OBJET_MAX_DEPOT_PUBLIC + " caractères.");
+        }
+
+        // Dépôt public en ligne : le motif (l'allégation, ou « Autre » avec son texte) est obligatoire, comme à l'écran.
+        // Contrôlé aussi ici : un envoi direct à l'API sans passer par la page ne doit pas passer.
+        if (!parAgent
+                && request.getSubmissionMode() == SubmissionMode.WEB_FORM
+                && request.getMotifDeclare() == null) {
+            throw new BusinessException("Choisissez l'objet de votre signalement.");
+        }
+
         if (request.getDeclarantData() != null
                 && Boolean.TRUE.equals(
                 request.getDeclarantData().getProtectionRequested())
@@ -223,6 +243,9 @@ public class DossierServiceImpl implements DossierService {
         dossier.setTypologieInstitutionnelle(parAgent ? request.getTypologieInstitutionnelle() : null);
         // Le motif, lui, est celui du citoyen (en mots simples) : il le donne ou non, l'agent qualifie ensuite.
         dossier.setMotifDeclare(request.getMotifDeclare());
+        // Le texte libre n'existe que pour « Autre » : nettoyé, et jamais gardé avec une allégation précise.
+        dossier.setMotifAutre(request.getMotifDeclare() == MotifSignalement.AUTRE && request.getMotifAutre() != null
+                ? request.getMotifAutre().trim() : null);
         dossier.setAnonymous(anonymousRequested);
         if (natureSaisine == TypeSaisine.SIGNALEMENT
                 || natureSaisine == TypeSaisine.AUTO_SAISINE) {
@@ -1218,6 +1241,7 @@ public class DossierServiceImpl implements DossierService {
             response.setMotifs(null);
             // le motif choisi par le citoyen dit de quoi il s'agit : aussi sensible que le récit
             response.setMotifDeclare(null);
+            response.setMotifAutre(null);
             response.setIncidentLocation(null);
             response.setEstimatedLoss(null);
             response.setObservations(null);

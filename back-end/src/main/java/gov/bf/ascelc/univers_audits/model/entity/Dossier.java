@@ -106,6 +106,10 @@ public class Dossier extends AuditEntity {
     @Column(name = "motif_declare", length = 40)
     private MotifSignalement motifDeclare;
 
+    /** Texte libre du motif « Autre » (150 mots au maximum). */
+    @Column(name = "motif_autre", length = 2000)
+    private String motifAutre;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "auto_referral_source", length = 30)
     private AutoReferralSource autoReferralSource;

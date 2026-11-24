@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.model.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import gov.bf.ascelc.univers_audits.enums.AutoReferralSource;
 import gov.bf.ascelc.univers_audits.enums.MotifSignalement;
@@ -9,6 +10,7 @@ import gov.bf.ascelc.univers_audits.enums.TypologieInstitutionnelle;
 import gov.bf.ascelc.univers_audits.enums.SocialPlatform;
 import gov.bf.ascelc.univers_audits.enums.SubmissionMode;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -23,6 +25,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DossierCreateRequest {
+
+    /** Nombre de mots maximum du texte libre du motif « Autre ». */
+    public static final int MOTIF_AUTRE_MAX_MOTS = 150;
 
     private QualiteDeclarant quality;
 
@@ -55,8 +60,12 @@ public class DossierCreateRequest {
     /** Réservé à l'agent : typologie institutionnelle de l'entité visée. Ignorée sur le dépôt public. */
     private TypologieInstitutionnelle typologieInstitutionnelle;
 
-    /** Facultatif : motif que le citoyen choisit en mots simples ; l'agent retient seul l'allégation officielle. */
+    /** Facultatif : allégation que le citoyen choisit par son nom officiel ; l'agent retient seul l'allégation finale. */
     private MotifSignalement motifDeclare;
+
+    /** Texte libre, obligatoire quand le motif est « Autre » : 150 mots au maximum. Ignoré pour toute autre allégation. */
+    @Size(max = 2000, message = "Le motif ne doit pas dépasser 2000 caractères")
+    private String motifAutre;
 
     private AutoReferralSource autoReferralSource;
 
@@ -126,5 +135,18 @@ public class DossierCreateRequest {
 
     public void setIsConfidential(Boolean isConfidential) {
         this.isConfidential = isConfidential;
+    }
+
+    /** « Autre » demande un texte libre (obligatoire, 150 mots au maximum) ; les autres allégations n'en demandent aucun. */
+    @AssertTrue(message = "Précisez le motif en 150 mots au maximum")
+    @JsonIgnore
+    public boolean isMotifAutreValide() {
+        if (motifDeclare != MotifSignalement.AUTRE) {
+            return true;
+        }
+        if (motifAutre == null || motifAutre.isBlank()) {
+            return false;
+        }
+        return motifAutre.trim().split("\\s+").length <= MOTIF_AUTRE_MAX_MOTS;
     }
 }

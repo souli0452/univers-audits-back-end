@@ -3,18 +3,12 @@ package gov.bf.ascelc.univers_audits.enums;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Le motif est ce que le citoyen choisit en mots simples ; il renvoie à l'une des allégations officielles publiées
- * (tableau « Situation des plaintes et dénonciations sous l'angle des allégations »). Le choix de l'agent à l'étude
- * d'opportunité reste seul décisif pour les statistiques.
- */
 class MotifSignalementTest {
 
     /** Codes des allégations en base (migrations 006 et 036), pour que le motif ne renvoie jamais à un code inconnu. */
@@ -24,9 +18,21 @@ class MotifSignalementTest {
             "DETOURNEMENT_MALVERSATIONS", "STELLIONAT", "DYSFONCTIONNEMENT", "FAUX_ET_USAGE_DE_FAUX");
 
     @Test
-    void proposeDixChoixDontUnAutre() {
-        assertThat(MotifSignalement.values()).hasSize(10);
+    void proposeLesQuinzeAllegationsPuisAutre() {
+        assertThat(MotifSignalement.values()).hasSize(16);
         assertThat(MotifSignalement.AUTRE.allegation()).isEmpty();
+        assertThat(MotifSignalement.values()[15]).isEqualTo(MotifSignalement.AUTRE);
+    }
+
+    @Test
+    void lesLibellesSontLesNomsOfficielsDesAllegations_dansLOrdreDeLASCE() {
+        List<String> libelles = Arrays.stream(MotifSignalement.values()).map(MotifSignalement::libelle).toList();
+
+        assertThat(libelles).containsExactly(
+                "Conflit d’intérêt", "Blanchiment de capitaux", "Favoritisme", "Enrichissement illicite",
+                "Abus de fonction", "Demande d’intervention pour règlement de dettes", "Fraude", "Concussion",
+                "Délit d’apparence", "Conflit foncier", "Corruption", "Détournement et malversations financières",
+                "Stellionat", "Dysfonctionnement", "Faux et usage de faux", "Autre");
     }
 
     @Test
@@ -39,28 +45,19 @@ class MotifSignalementTest {
     }
 
     @Test
-    void corruptionEtDetournementRenvoientAuxAllegationsLesPlusFrequentes() {
-        assertThat(MotifSignalement.CORRUPTION.allegation()).contains("CORRUPTION");
-        assertThat(MotifSignalement.DETOURNEMENT.allegation()).contains("DETOURNEMENT_MALVERSATIONS");
-        assertThat(MotifSignalement.FAVORITISME.allegation()).contains("FAVORITISME");
+    void leMotifPorteLeCodeDeSonAllegation() {
+        for (MotifSignalement motif : MotifSignalement.values()) {
+            motif.allegation().ifPresent(code -> assertThat(motif.name()).isEqualTo(code));
+        }
     }
 
     @Test
-    void nePropose_auCitoyen_aucuneQualificationJuridiqueTechnique() {
-        // Blanchiment, stellionat, concussion, délit d'apparence, conflit d'intérêt, dettes : réservés à l'agent.
-        Set<String> proposees = new HashSet<>();
-        Arrays.stream(MotifSignalement.values()).forEach(m -> m.allegation().ifPresent(proposees::add));
-
-        assertThat(proposees).doesNotContainAnyElementsOf(List.of(
-                "BLANCHIMENT_CAPITAUX", "STELLIONAT", "CONCUSSION", "DELIT_APPARENCE", "CONFLIT_INTERET",
-                "DEMANDE_INTERVENTION_DETTES"));
-    }
-
-    @Test
-    void chaqueMotifAUnLibelleEnMotsSimplesEtUneExplication() {
+    void chaqueMotifAUnLibelleEtUneExplicationEnMotsSimples() {
         for (MotifSignalement motif : MotifSignalement.values()) {
             assertThat(motif.libelle()).as("libellé de %s", motif).isNotBlank();
             assertThat(motif.explication()).as("explication de %s", motif).isNotBlank();
+            assertThat(motif.explication().split("\\s+").length)
+                    .as("l'explication de %s doit rester courte", motif).isLessThanOrEqualTo(25);
         }
     }
 

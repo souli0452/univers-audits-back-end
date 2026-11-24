@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import gov.bf.ascelc.univers_audits.shared.EspaceAgent;
 
 @Slf4j
 @Service
@@ -219,7 +220,7 @@ public class KeycloakAdminService {
      */
     public void sendPasswordResetEmail(String keycloakId) {
         UserResource user = realmResource().users().get(keycloakId);
-        String redirectUri = frontendUrl.replaceAll("/+$", "") + "/#/app";
+        String redirectUri = EspaceAgent.url(frontendUrl, "");
         try {
             user.executeActionsEmail(FRONTEND_CLIENT_ID, redirectUri, List.of("UPDATE_PASSWORD"));
             log.info("Email d'activation envoyé à: {} (redirection vers {})", keycloakId, redirectUri);

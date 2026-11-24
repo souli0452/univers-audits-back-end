@@ -29,9 +29,9 @@ class DossierMapperTest {
     @Test
     void toEntity_recopieLeMotifDeLaDemande() {
         DossierCreateRequest request = DossierCreateRequest.builder().submissionMode(SubmissionMode.WEB_FORM)
-                .motifDeclare(MotifSignalement.FONCIER).build();
+                .motifDeclare(MotifSignalement.CONFLIT_FONCIER).build();
 
-        assertThat(mapper.toEntity(request).getMotifDeclare()).isEqualTo(MotifSignalement.FONCIER);
+        assertThat(mapper.toEntity(request).getMotifDeclare()).isEqualTo(MotifSignalement.CONFLIT_FONCIER);
     }
 
     @Test

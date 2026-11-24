@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import gov.bf.ascelc.univers_audits.shared.EspaceAgent;
 
 @Slf4j
 @Service
@@ -1440,10 +1441,8 @@ public class InvestigationServiceImpl implements InvestigationService {
             case CONSEIL_JURIDIQUE -> "Conseil juridique";
         };
 
-        String linkDossier       = frontendUrl + "/#/app/dossiers/"
-                + dossier.getId().toString();
-        String linkInvestigation = frontendUrl + "/#/app/investigations/"
-                + inv.getId().toString();
+        String linkDossier       = EspaceAgent.url(frontendUrl, "/dossiers/" + dossier.getId());
+        String linkInvestigation = EspaceAgent.url(frontendUrl, "/investigations/" + inv.getId());
 
         if (agent.getEmail() != null && !agent.getEmail().isBlank()) {
             try {

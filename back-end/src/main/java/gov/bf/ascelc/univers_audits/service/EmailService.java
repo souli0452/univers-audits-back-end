@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 import gov.bf.ascelc.univers_audits.shared.utils.AsceLcInstitutionalInfo;
+import gov.bf.ascelc.univers_audits.shared.EspaceAgent;
 
 @Slf4j
 @Service
@@ -710,7 +711,7 @@ public class EmailService {
     private String buildInternalAlertHtml(String agentName,
                                           String alertTitle,
                                           String alertBody) {
-        String dashboardUrl = portalUrl + "/#/app/dossiers";
+        String dashboardUrl = EspaceAgent.url(portalUrl, "/dossiers");
         return """
             <!DOCTYPE html>
             <html lang="fr">
