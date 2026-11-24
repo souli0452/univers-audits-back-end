@@ -1,4 +1,5 @@
-$secret = "wK2sXd4ovtG3KlYhN8IbkPJfE1nhFfT3"
+$secret = $env:KEYCLOAK_CLIENT_SECRET
+if (-not $secret) { Write-Error "Définir d'abord KEYCLOAK_CLIENT_SECRET (voir .env)"; exit 1 }
 $username = "admin.asce"
 $password = "Admin123"
 

@@ -83,7 +83,7 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       ASCE_ADMIN_SUB: ${ASCE_ADMIN_SUB}
-      AT_API_KEY: ${AT_API_KEY}
+      AT_API_KEY: ${AT_API_KEY:-}
     ports:
       - "8081:8081"
     depends_on:
