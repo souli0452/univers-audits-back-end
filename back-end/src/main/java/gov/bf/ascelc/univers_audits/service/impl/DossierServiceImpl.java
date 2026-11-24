@@ -196,6 +196,14 @@ public class DossierServiceImpl implements DossierService {
                     "L'objet ne doit pas dépasser " + OBJET_MAX_DEPOT_PUBLIC + " caractères.");
         }
 
+        // Dépôt public en ligne : le motif (l'allégation, ou « Autre » avec son texte) est obligatoire, comme à l'écran.
+        // Contrôlé aussi ici : un envoi direct à l'API sans passer par la page ne doit pas passer.
+        if (!parAgent
+                && request.getSubmissionMode() == SubmissionMode.WEB_FORM
+                && request.getMotifDeclare() == null) {
+            throw new BusinessException("Choisissez l'objet de votre signalement.");
+        }
+
         if (request.getDeclarantData() != null
                 && Boolean.TRUE.equals(
                 request.getDeclarantData().getProtectionRequested())
