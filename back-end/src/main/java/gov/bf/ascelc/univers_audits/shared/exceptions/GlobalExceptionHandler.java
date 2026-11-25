@@ -88,6 +88,33 @@ public class GlobalExceptionHandler {
                         "Type de contenu non pris en charge par cette ressource"));
     }
 
+    /** Fichier au-delà de la taille autorisée : erreur du client (413), avec un message compréhensible. */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        log.warn("Envoi trop volumineux : {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ErrorResponse.of(
+                        HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                        "PAYLOAD_TOO_LARGE",
+                        "Fichier trop volumineux"));
+    }
+
+    /** Envoi de fichiers mal formé (pas au format multipart, partie attendue absente) : erreur du client (400). */
+    @ExceptionHandler({
+            org.springframework.web.multipart.MultipartException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class})
+    public ResponseEntity<ErrorResponse> handleMalformedUpload(Exception ex) {
+        log.warn("Envoi de fichiers invalide : {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.of(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "INVALID_REQUEST",
+                        "Requête invalide — vérifiez les données envoyées"));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(
             BusinessException ex) {

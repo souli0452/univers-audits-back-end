@@ -9,7 +9,6 @@ import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
-import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
@@ -355,50 +354,6 @@ public class KeycloakAdminService {
             throw new RuntimeException("Utilisateur introuvable dans Keycloak : " + keycloakId);
         } catch (Exception e) {
             throw new RuntimeException("Impossible de mettre à jour le profil : " + e.getMessage());
-        }
-    }
-
-    /**
-     * Vérifie le mot de passe actuel d'un utilisateur via un flux Direct Access
-     * Grant Keycloak (grant_type=password) — n'émet aucun token utilisable,
-     * ne fait que valider les identifiants avant d'autoriser un changement
-     * de mot de passe.
-     */
-    public boolean verifyCurrentPassword(String username, String password) {
-        if (username == null || username.isBlank()
-                || password == null || password.isBlank()) {
-            return false;
-        }
-        try (Keycloak client = KeycloakBuilder.builder()
-                .serverUrl(serverUrl)
-                .realm(realm)
-                .clientId(clientId)
-                .clientSecret(clientSecret)
-                .grantType(OAuth2Constants.PASSWORD)
-                .username(username)
-                .password(password)
-                .build()) {
-            client.tokenManager().getAccessToken();
-            return true;
-        } catch (Exception e) {
-            log.warn("Échec de vérification du mot de passe actuel pour {} : {}",
-                    username, e.getMessage());
-            return false;
-        }
-    }
-
-    public void changePassword(String keycloakId, String newPassword) {
-        try {
-            CredentialRepresentation credential = new CredentialRepresentation();
-            credential.setType(CredentialRepresentation.PASSWORD);
-            credential.setValue(newPassword);
-            credential.setTemporary(false);
-            realmResource().users().get(keycloakId).resetPassword(credential);
-            log.info("Mot de passe changé pour: {}", keycloakId);
-        } catch (jakarta.ws.rs.NotFoundException e) {
-            throw new RuntimeException("Utilisateur introuvable dans Keycloak : " + keycloakId);
-        } catch (Exception e) {
-            throw new RuntimeException("Impossible de changer le mot de passe : " + e.getMessage());
         }
     }
 
