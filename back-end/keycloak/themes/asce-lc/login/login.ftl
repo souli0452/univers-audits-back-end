@@ -1,5 +1,5 @@
 <#import "template.ftl" as layout>
-<@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password') displayInfo=false; section>
+<@layout.registrationLayout displayMessage=false displayInfo=false; section>
 <#if section = "header"><#elseif section = "form">
 <!DOCTYPE html>
 <html lang="fr">
@@ -248,6 +248,7 @@ body{
   display:flex;align-items:flex-start;gap:8px;
 }
 .err-box svg{width:15px;height:15px;flex-shrink:0;margin-top:1px}
+.info-box{background:#f0f8f3;border-color:#9fcdb2;color:#14552f}
 
 /* Champs */
 .field{margin-bottom:16px}
@@ -383,8 +384,8 @@ body{
       <div class="f-sub">Connectez-vous à votre compte pour continuer</div>
       <div class="f-sep"></div>
 
-      <#if message?has_content && message.type == 'error'>
-        <div class="err-box">
+      <#if message?has_content>
+        <div class="${(message.type == 'error')?then('err-box','err-box info-box')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="12"/>
