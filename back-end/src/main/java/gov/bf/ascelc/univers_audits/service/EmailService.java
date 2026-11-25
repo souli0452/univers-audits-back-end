@@ -201,28 +201,6 @@ public class EmailService {
         }
     }
 
-    @Async
-    public void sendPasswordChangedConfirmation(String toEmail, String fullName) {
-        if (toEmail == null || toEmail.isBlank()) return;
-        try {
-            MimeMessage mail = mailSender.createMimeMessage();
-            MimeMessageHelper helper =
-                    new MimeMessageHelper(mail, true, "UTF-8");
-
-            helper.setFrom(fromAddress, "ASCE-LC");
-            helper.setTo(toEmail);
-            helper.setSubject("ASCE-LC — Votre mot de passe a été modifié");
-            helper.setText(buildPasswordChangedHtml(fullName), true);
-
-            mailSender.send(mail);
-            log.info("[Email] Confirmation changement mot de passe → {}", toEmail);
-
-        } catch (Exception e) {
-            log.error("[Email] Échec confirmation mot de passe → {} : {}",
-                    toEmail, e.getMessage());
-        }
-    }
-
     private static final String STYLES = """
         <style>
           *{box-sizing:border-box;margin:0;padding:0}
@@ -761,39 +739,6 @@ public class EmailService {
     // ═══════════════════════════════════════════════════════════════════
     //  TEMPLATE 7 — Confirmation de changement de mot de passe (pour agents)
     // ═══════════════════════════════════════════════════════════════════
-    private String buildPasswordChangedHtml(String fullName) {
-        return """
-            <!DOCTYPE html>
-            <html lang="fr">
-            <head><meta charset="UTF-8"/>
-            <meta name="viewport" content="width=device-width,initial-scale=1"/>
-            %s
-            </head>
-            <body>
-            <div class="outer"><div class="card">
-              %s
-              <div class="body">
-                %s
-                <p>Le mot de passe de votre compte ASCE-LC vient d'être modifié.</p>
-
-                <div class="block block-amber">
-                  <div class="block-label">Vous n'êtes pas à l'origine de cette action ?</div>
-                  <div class="block-text">
-                    Contactez immédiatement l'administrateur DDIC afin de sécuriser
-                    votre compte.
-                  </div>
-                </div>
-              </div>
-              %s
-            </div></div>
-            </body></html>
-            """.formatted(
-                STYLES,
-                header("Sécurité de votre compte"),
-                salut(fullName),
-                FOOTER);
-    }
-
     // ═══════════════════════════════════════════════════════════════════
     //  Contenu des emails selon le statut du dossier
     // ═══════════════════════════════════════════════════════════════════

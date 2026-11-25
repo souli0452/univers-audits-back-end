@@ -1043,12 +1043,6 @@
   "roles" : [ ],
   "expression" : "hasAuthority('PERM_PORTAIL_CONFIG_MODIFIER')"
 }, {
-  "handler" : "ProfileController#changePassword(Jwt,ChangePasswordRequest)",
-  "httpMethods" : "PUT",
-  "kind" : "AUTHENTICATED",
-  "roles" : [ ],
-  "expression" : "isAuthenticated()"
-}, {
   "handler" : "ProfileController#updateProfile(Jwt,UpdateProfileRequest)",
   "httpMethods" : "PUT",
   "kind" : "AUTHENTICATED",
