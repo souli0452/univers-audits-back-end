@@ -49,7 +49,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             org.springframework.http.converter.HttpMessageNotReadableException.class,
             org.springframework.web.bind.MissingServletRequestParameterException.class,
-            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            java.time.format.DateTimeParseException.class})
     public ResponseEntity<ErrorResponse> handleBadRequest(Exception ex) {
         log.warn("Requête invalide : {}", ex.getMessage());
         return ResponseEntity
@@ -204,6 +205,27 @@ public class GlobalExceptionHandler {
                         HttpStatus.BAD_REQUEST.value(),
                         "INVALID_ARGUMENT",
                         "Paramètre invalide"));
+    }
+
+    /**
+     * Refus de la base : une donnée invalide (classe SQL 22 : texte trop long, caractère nul…) ou une valeur déjà
+     * utilisée est une erreur du client ; tout le reste demeure une erreur interne. Le détail de la base n'est jamais renvoyé.
+     */
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<ErrorResponse> handleDatabase(org.springframework.dao.DataAccessException ex) {
+        String etat = null;
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof java.sql.SQLException sql && sql.getSQLState() != null) {
+                etat = sql.getSQLState();
+            }
+        }
+        if (etat != null && etat.startsWith("22")) {
+            return handleBadRequest(ex);
+        }
+        if ("23505".equals(etat)) {
+            return handleConflict(new ConflictException("Cette valeur est déjà utilisée"));
+        }
+        return handleGeneral(ex);
     }
 
     @ExceptionHandler(Exception.class)

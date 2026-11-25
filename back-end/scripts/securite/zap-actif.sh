@@ -18,6 +18,7 @@ PORT_KC=28080; PORT_APP=28081; PORT_MAIL=28025
 ZAP_IMAGE="${ZAP_IMAGE:-ghcr.io/zaproxy/zaproxy:stable}"
 DUREE_MAX="${DUREE_MAX:-45}"       # minutes maximum d'attaque par scan
 win() { command -v cygpath >/dev/null 2>&1 && cygpath -m "$1" || echo "$1"; }
+W="$(win "$W")"             # curl (Windows) ne sait pas écrire dans un chemin /c/… quand la conversion est coupée
 etat() { cat "$W/$1" 2>/dev/null; }
 
 cmd_down() {
@@ -120,10 +121,14 @@ cmd_scan() {
     -t /zap/wrk/openapi.json -f openapi -O http://app:8081 -r anonyme.html -J anonyme.json -I -z "$COMMUN" > "$W/anonyme.log" 2>&1
   echo "terminé (code $?)"
   echo "== Scan 2/2 : connecté en administrateur (tous les droits : ce que fait un compte piraté) =="
-  local AUTH="-config replacer.full_list\\(0\\).description=auth -config replacer.full_list\\(0\\).enabled=true -config replacer.full_list\\(0\\).matchtype=REQ_HEADER -config replacer.full_list\\(0\\).matchstring=Authorization -config replacer.full_list\\(0\\).regex=false -config replacer.full_list\\(0\\).replacement=\"Bearer $TOKEN\""
-  docker run --rm --network $P -v "$(win "$W/wrk"):/zap/wrk:rw" "$ZAP_IMAGE" zap-api-scan.py \
-    -t /zap/wrk/openapi.json -f openapi -O http://app:8081 -r admin.html -J admin.json -I -z "$COMMUN $AUTH" > "$W/admin.log" 2>&1
+  # ZAP_AUTH_HEADER_VALUE : moyen officiel d'ajouter « Authorization » à chaque requête
+  docker run --rm --network $P -e ZAP_AUTH_HEADER_VALUE="Bearer $TOKEN" -v "$(win "$W/wrk"):/zap/wrk:rw" "$ZAP_IMAGE" zap-api-scan.py \
+    -t /zap/wrk/openapi.json -f openapi -O http://app:8081 -r admin.html -J admin.json -I -z "$COMMUN" > "$W/admin.log" 2>&1
   echo "terminé (code $?)"
+  # Garde-fou : des requêtes rejetées avant d'atteindre l'API ne prouvent rien (vu le 2026-11-25 : en-tête sans nom)
+  if docker logs $P-app 2>&1 | grep -q "Error parsing HTTP request header"; then
+    echo "ECHEC : le serveur a rejeté des en-têtes du scan, le résultat « administrateur » n'est PAS valable"; exit 1
+  fi
   echo "Rapports : $W/wrk/anonyme.html  $W/wrk/admin.html (et .json)"
 }
 
