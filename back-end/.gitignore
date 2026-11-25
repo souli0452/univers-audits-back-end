@@ -63,3 +63,6 @@ desktop.ini
 *.crt
 secrets/
 .worktrees/
+
+# Dossier de travail du scan actif (contient des mots de passe jetables)
+zap-travail/

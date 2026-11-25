@@ -84,6 +84,8 @@ databaseChangeLog:
         - sql:
             sql: "ALTER TABLE public.agent ADD COLUMN zz_essai integer; CREATE INDEX zz_essai_idx ON public.agent(zz_essai); CREATE TABLE public.zz_essai_table(id int); INSERT INTO public.zz_essai_table VALUES (1);"
 EOF
+# Liquibase tourne sous un autre utilisateur (1001) : le dossier temporaire (700) doit être lisible, sinon échec sous Linux
+chmod 755 "$T"; chmod 644 "$T/ddl-essai.yaml"
 SORTIE="$(lb asce_app "$PA" ddl-essai.yaml)"
 check "Liquibase applique l'ajout de colonne, d'index et de table" "$(echo "$SORTIE" | grep -c 'Liquibase: Update has been successful')" "1"
 check "la colonne ajoutée existe"                           "$(comme asce_app "$PA" "SELECT count(*) FROM information_schema.columns WHERE table_name='agent' AND column_name='zz_essai'")" "1"
