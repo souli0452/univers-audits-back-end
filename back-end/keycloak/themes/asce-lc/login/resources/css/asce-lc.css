@@ -23,10 +23,9 @@ html,
     color: var(--asce-texte);
 }
 
-/* ── Cacher l'en-tête Keycloak ─────────────────────────── */
+/* ── Cacher le bandeau Keycloak (le titre de la page reste) ─────────────────────────── */
 #kc-header,
 #kc-header-wrapper,
-.login-pf-header,
 .pf-c-login__header,
 .pf-c-page__header {
     display: none !important;
@@ -206,4 +205,50 @@ a:hover {
 #kc-form-options input[type="checkbox"] {
     accent-color: var(--asce-vert) !important;
     width: auto !important;
+}
+
+/* ── Logo et titre au-dessus du formulaire ─────────────── */
+.login-pf-header {
+    text-align: center;
+    border: none !important;
+}
+.login-pf-header::before {
+    content: "";
+    display: block;
+    height: 84px;
+    margin-bottom: 14px;
+    background: url("../img/favicon.png") center / contain no-repeat;
+}
+
+/* ── Boutons l'un sous l'autre (Soumettre, Annuler) ────── */
+#kc-form-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+#kc-form-buttons button[name="cancel-aia"] {
+    width: 100% !important;
+    padding: 11px 24px !important;
+    background: #fff !important;
+    border: 1px solid var(--asce-bordure) !important;
+    border-radius: 8px !important;
+    color: var(--asce-texte) !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+}
+
+/* ── Bouton « afficher le mot de passe » ───────────────── */
+.pf-c-input-group {
+    display: flex !important;
+    gap: 8px;
+}
+.pf-c-input-group .pf-c-button.pf-m-control {
+    flex: 0 0 48px;
+    border: 1px solid var(--asce-bordure) !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+}
+.pf-c-input-group .pf-c-button.pf-m-control::after {
+    border: none !important;
 }
