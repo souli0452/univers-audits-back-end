@@ -1,5 +1,6 @@
 package gov.bf.ascelc.univers_audits.service;
 
+import gov.bf.ascelc.univers_audits.shared.exceptions.BusinessException;
 import gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException;
 import jakarta.annotation.PostConstruct;
 import jakarta.ws.rs.core.Response;
@@ -72,6 +73,8 @@ public class KeycloakAdminService {
         return keycloakClient.realm(realm);
     }
 
+    private static final String SAISIE_REFUSEE = "Informations refusées — vérifiez le nom, le prénom et l'email";
+
     public String createUser(String email, String firstName,
                              String lastName, String username) {
 
@@ -88,6 +91,7 @@ public class KeycloakAdminService {
 
             if (status == 409) throw new ConflictException(
                     "L'email ou le nom d'utilisateur est déjà utilisé");
+            if (status == 400) throw new BusinessException(SAISIE_REFUSEE);
             if (status != 201) throw new RuntimeException(
                     "Échec création Keycloak, status: " + status);
 
@@ -352,6 +356,13 @@ public class KeycloakAdminService {
             log.info("Profil mis à jour pour: {}", keycloakId);
         } catch (jakarta.ws.rs.NotFoundException e) {
             throw new RuntimeException("Utilisateur introuvable dans Keycloak : " + keycloakId);
+        } catch (jakarta.ws.rs.BadRequestException e) {
+            throw new BusinessException(SAISIE_REFUSEE);
+        } catch (jakarta.ws.rs.ClientErrorException e) {
+            if (e.getResponse().getStatus() == 409) {
+                throw new ConflictException("L'email est déjà utilisé");
+            }
+            throw new RuntimeException("Impossible de mettre à jour le profil : " + e.getMessage());
         } catch (Exception e) {
             throw new RuntimeException("Impossible de mettre à jour le profil : " + e.getMessage());
         }

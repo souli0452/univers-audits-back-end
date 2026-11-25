@@ -85,9 +85,22 @@ class KeycloakRealmSecuriteTest {
     @Test
     void lesProtectionsDesComptesRestentEnPlace() {
         assertThat(royaume.get("bruteForceProtected").asBoolean()).isTrue();
-        assertThat(royaume.get("failureFactor").asInt()).isLessThanOrEqualTo(5);
+        assertThat(royaume.get("failureFactor").asInt()).isLessThanOrEqualTo(3);            // guide ANSSI, R21
         assertThat(royaume.get("passwordPolicy").asText()).contains("length(12)").contains("passwordHistory");
         assertThat(royaume.get("registrationAllowed").asBoolean()).isFalse();
         assertThat(royaume.get("sslRequired").asText()).isIn("external", "all");
+    }
+
+    @Test
+    void leMotDePasseNeReprendAucuneDonneeDeLAgent() {
+        // guide ANSSI, R17
+        assertThat(royaume.get("passwordPolicy").asText())
+                .contains("notUsername").contains("notContainsUsername").contains("notEmail");
+    }
+
+    @Test
+    void laSessionExpireApresQuinzeMinutesSansActivite() {
+        // guide ANSSI, R29 : l'écran déconnecte lui-même l'agent inactif ; Keycloak couvre l'onglet fermé
+        assertThat(royaume.get("ssoSessionIdleTimeout").asInt()).isLessThanOrEqualTo(900);
     }
 }

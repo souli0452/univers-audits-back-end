@@ -9,7 +9,7 @@
   "refreshTokenMaxReuse" : 0,
   "accessTokenLifespan" : 300,
   "accessTokenLifespanForImplicitFlow" : 900,
-  "ssoSessionIdleTimeout" : 1800,
+  "ssoSessionIdleTimeout" : 900,
   "ssoSessionMaxLifespan" : 36000,
   "ssoSessionIdleTimeoutRememberMe" : 0,
   "ssoSessionMaxLifespanRememberMe" : 0,
@@ -44,8 +44,8 @@
   "waitIncrementSeconds" : 60,
   "quickLoginCheckMilliSeconds" : 1000,
   "maxDeltaTimeSeconds" : 43200,
-  "failureFactor" : 5,
-  "passwordPolicy" : "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername and passwordHistory(5)",
+  "failureFactor" : 3,
+  "passwordPolicy" : "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername and notContainsUsername and notEmail and passwordHistory(5)",
   "roles" : {
     "realm" : [ {
       "id" : "f0039597-dba5-43d2-8339-9c8ac3c343a5",
