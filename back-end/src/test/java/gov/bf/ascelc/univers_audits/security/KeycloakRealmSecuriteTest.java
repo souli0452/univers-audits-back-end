@@ -103,4 +103,24 @@ class KeycloakRealmSecuriteTest {
         // guide ANSSI, R29 : l'écran déconnecte lui-même l'agent inactif ; Keycloak couvre l'onglet fermé
         assertThat(royaume.get("ssoSessionIdleTimeout").asInt()).isLessThanOrEqualTo(900);
     }
+
+    @Test
+    void unAgentNePeutPasModifierSonNomNiSonCourriel() throws Exception {
+        // guide ANSSI, R23 : sinon un jeton volé suffit à détourner le compte (API « compte » de Keycloak)
+        com.fasterxml.jackson.databind.JsonNode fournisseur = royaume.path("components")
+                .path("org.keycloak.userprofile.UserProfileProvider").path(0);
+        String configuration = fournisseur.path("config").path("kc.user.profile.config").path(0).asText();
+        com.fasterxml.jackson.databind.JsonNode attributs =
+                new com.fasterxml.jackson.databind.ObjectMapper().readTree(configuration).path("attributes");
+
+        for (String nom : java.util.List.of("email", "firstName", "lastName")) {
+            java.util.List<String> modifiablePar = new java.util.ArrayList<>();
+            attributs.forEach(a -> {
+                if (a.path("name").asText().equals(nom)) {
+                    a.path("permissions").path("edit").forEach(r -> modifiablePar.add(r.asText()));
+                }
+            });
+            assertThat(modifiablePar).as(nom).containsExactly("admin");
+        }
+    }
 }

@@ -67,4 +67,48 @@ class AgentServiceTest {
 
         verifyNoInteractions(keycloakAdminService);
     }
+
+    private Agent agentEnBase() {
+        Agent agent = Agent.builder().keycloakId("kc-9").firstName("Awa").lastName("Sawadogo")
+                .email("awa@jetable.test").build();
+        when(agentRepository.findById(ID)).thenReturn(Optional.of(agent));
+        return agent;
+    }
+
+    private static final java.util.UUID ID = java.util.UUID.randomUUID();
+
+    private static gov.bf.ascelc.univers_audits.model.dto.request.UpdateAgentRequest demande(String email) {
+        return new gov.bf.ascelc.univers_audits.model.dto.request.UpdateAgentRequest(
+                "Awa", "Sawadogo", email, "70000000", "A1", null);
+    }
+
+    @Test
+    void updateAgent_reporteLeNouveauCourrielSurLeCompteDeConnexion() {
+        agentEnBase();
+
+        service.updateAgent(ID, demande("nouveau@jetable.test"));
+
+        org.mockito.Mockito.verify(keycloakAdminService)
+                .updateUserProfile("kc-9", "Awa", "Sawadogo", "nouveau@jetable.test");
+    }
+
+    @Test
+    void updateAgent_neToucheePasAuCompteDeConnexionSiLeNomEtLeCourrielNeChangentPas() {
+        agentEnBase();
+
+        service.updateAgent(ID, demande("awa@jetable.test"));
+
+        verifyNoInteractions(keycloakAdminService);
+    }
+
+    @Test
+    void updateAgent_nEnregistreRienSiKeycloakRefuseLeCourriel() {
+        agentEnBase();
+        org.mockito.Mockito.doThrow(new gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException("pris"))
+                .when(keycloakAdminService).updateUserProfile("kc-9", "Awa", "Sawadogo", "pris@jetable.test");
+
+        assertThatThrownBy(() -> service.updateAgent(ID, demande("pris@jetable.test")))
+                .isInstanceOf(gov.bf.ascelc.univers_audits.shared.exceptions.ConflictException.class);
+        org.mockito.Mockito.verify(agentRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+    }
 }

@@ -1043,12 +1043,6 @@
   "roles" : [ ],
   "expression" : "hasAuthority('PERM_PORTAIL_CONFIG_MODIFIER')"
 }, {
-  "handler" : "ProfileController#updateProfile(Jwt,UpdateProfileRequest)",
-  "httpMethods" : "PUT",
-  "kind" : "AUTHENTICATED",
-  "roles" : [ ],
-  "expression" : "isAuthenticated()"
-}, {
   "handler" : "RapportEnqueteController#getNote(UUID)",
   "httpMethods" : "GET",
   "kind" : "PERMISSION",

@@ -117,9 +117,22 @@ public class AgentService {
 
 
 
+    private static boolean change(String demande, String actuel) {
+        return demande != null && !demande.equals(actuel);
+    }
+
     @Transactional
     public Agent updateAgent(UUID id, UpdateAgentRequest req) {
         Agent agent = findById(id);
+
+        // Le compte de connexion suit (guide ANSSI, R23 : seul l'administrateur change le nom et le courriel).
+        // Avant l'enregistrement : un refus de Keycloak (courriel déjà pris) ne doit rien modifier en base.
+        if (agent.getKeycloakId() != null
+                && (change(req.firstName(), agent.getFirstName())
+                || change(req.lastName(), agent.getLastName())
+                || change(req.email(), agent.getEmail()))) {
+            keycloakAdminService.updateUserProfile(agent.getKeycloakId(), req.firstName(), req.lastName(), req.email());
+        }
 
         agent.setFirstName(req.firstName());
         agent.setLastName(req.lastName());
