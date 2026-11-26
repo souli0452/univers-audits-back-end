@@ -80,6 +80,7 @@ public class AttachmentStorageService {
     private final AgentContextResolver agentContextResolver;
     private final AccessCodeGenerator  accessCodeGenerator;
     private final SectionDossierTravailRepository sectionDossierTravailRepository;
+    private final AnalyseurAntivirus antivirus;
 
     private static final int PERSONNE_REMETTANTE_MAX_LENGTH = 255;
 
@@ -98,7 +99,7 @@ public class AttachmentStorageService {
                                     Long fileSizeBytes, String uploadedAt,
                                     boolean isAudio, String status,
                                     String description, String source,
-                                    String modeObtention, String code) {}
+                                    String modeObtention, String code, String analyseAntivirus) {}
 
     @Transactional
     public List<UploadedFile> upload(
@@ -174,6 +175,7 @@ public class AttachmentStorageService {
                         .code(generateUniqueAttachmentCode(effectiveSource, nextSequence))
                         .section(section)
                         .status(AttachmentStatus.PENDING_VALIDATION)
+                        .analyseAntivirus(piece.analyse())
                         .uploadedAt(LocalDateTime.now())
                         .build();
 
@@ -193,7 +195,8 @@ public class AttachmentStorageService {
         return saved;
     }
 
-    private record PieceAEcrire(String nomOriginal, String mime, byte[] octets) {}
+    private record PieceAEcrire(String nomOriginal, String mime, byte[] octets,
+                               gov.bf.ascelc.univers_audits.enums.AnalyseAntivirus analyse) {}
 
     /**
      * Contrôle chaque fichier (type accepté, image lisible) et, pour un déposant non authentifié, retire les
@@ -221,10 +224,18 @@ public class AttachmentStorageService {
                     refuses.add(nom + " (contenu non conforme à son format)");
                     continue;
                 }
+                // Sur les octets reçus, avant tout nettoyage
+                AnalyseurAntivirus.Verdict verdict = antivirus.analyser(octets);
+                if (verdict == AnalyseurAntivirus.Verdict.INFECTE) {
+                    refuses.add(nom + " (fichier infecté)");
+                    continue;
+                }
                 if (!agentAuthentifie) {
                     octets = AssainisseurPieceJointe.retirerMetadonnees(mime, octets);
                 }
-                pieces.add(new PieceAEcrire(nom, mime, octets));
+                pieces.add(new PieceAEcrire(nom, mime, octets, verdict == AnalyseurAntivirus.Verdict.SAIN
+                        ? gov.bf.ascelc.univers_audits.enums.AnalyseAntivirus.SAIN
+                        : gov.bf.ascelc.univers_audits.enums.AnalyseAntivirus.NON_ANALYSE));
             } catch (IllegalArgumentException e) {
                 refuses.add(nom + " (image illisible)");
             } catch (IOException e) {
@@ -270,7 +281,8 @@ public class AttachmentStorageService {
                         att.getDescription(),
                         att.getSource() != null ? att.getSource().name() : null,
                         att.getModeObtention() != null ? att.getModeObtention().name() : null,
-                        att.getCode()))
+                        att.getCode(),
+                        att.getAnalyseAntivirus() != null ? att.getAnalyseAntivirus().name() : null))
                 .toList();
     }
 

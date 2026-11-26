@@ -46,8 +46,60 @@ class AttachmentStorageServiceTest {
     @Mock private AccessCodeGenerator  accessCodeGenerator;
     @Mock private SectionDossierTravailRepository sectionDossierTravailRepository;
 
+    @Mock
+    private AnalyseurAntivirus antivirus;
+
     @InjectMocks
     private AttachmentStorageService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void antivirusSainParDefaut() {
+        org.mockito.Mockito.lenient().when(antivirus.analyser(any())).thenReturn(AnalyseurAntivirus.Verdict.SAIN);
+    }
+
+    private Attachment pieceEnregistree() {
+        org.mockito.ArgumentCaptor<Attachment> c = org.mockito.ArgumentCaptor.forClass(Attachment.class);
+        verify(attachmentRepository).save(c.capture());
+        return c.getValue();
+    }
+
+    @Test
+    void upload_unFichierInfecteEstRefuse_enLeNommant_sansRienEcrire() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+        when(antivirus.analyser(any())).thenReturn(AnalyseurAntivirus.Verdict.INFECTE);
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(fichier("acte.pdf", "application/pdf")), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("acte.pdf (fichier infecté)");
+
+        verify(attachmentRepository, never()).save(any());
+        assertThat(nombreDeFichiersEcrits()).isZero();
+    }
+
+    @Test
+    void upload_antivirusIndisponible_lePieceEstAccepteeEtMarqueeNonAnalysee() {
+        UUID dossierId = UUID.randomUUID();
+        agentAuthentifie(dossierId);
+        when(antivirus.analyser(any())).thenReturn(AnalyseurAntivirus.Verdict.NON_ANALYSE);
+
+        service.upload(dossierId.toString(), List.of(fichier("acte.pdf", "application/pdf")), null, null, null, null, null);
+
+        assertThat(pieceEnregistree().getAnalyseAntivirus())
+                .isEqualTo(gov.bf.ascelc.univers_audits.enums.AnalyseAntivirus.NON_ANALYSE);
+    }
+
+    @Test
+    void upload_unePieceAnalyseeEtSaineEstMarqueeSaine() {
+        UUID dossierId = UUID.randomUUID();
+        agentAuthentifie(dossierId);
+
+        service.upload(dossierId.toString(), List.of(fichier("acte.pdf", "application/pdf")), null, null, null, null, null);
+
+        assertThat(pieceEnregistree().getAnalyseAntivirus())
+                .isEqualTo(gov.bf.ascelc.univers_audits.enums.AnalyseAntivirus.SAIN);
+    }
 
     @TempDir
     private Path uploadDir;

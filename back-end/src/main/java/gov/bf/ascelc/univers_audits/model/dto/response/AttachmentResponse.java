@@ -23,6 +23,7 @@ public class AttachmentResponse {
     private String mimeType;
     private Long fileSizeBytes;
     private AttachmentStatus status;
+    private gov.bf.ascelc.univers_audits.enums.AnalyseAntivirus analyseAntivirus;
     private String description;
     private String rejectionReason;
     private String downloadUrl;
