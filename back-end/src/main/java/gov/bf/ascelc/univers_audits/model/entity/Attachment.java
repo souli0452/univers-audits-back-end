@@ -76,6 +76,11 @@ public class Attachment extends AuditEntity {
     @Column(name = "hash_sha256", length = 64)
     private String hashSha256;
 
+    /** Null pour les pièces antérieures à l'analyse antivirus. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "analyse_antivirus", length = 20)
+    private gov.bf.ascelc.univers_audits.enums.AnalyseAntivirus analyseAntivirus;
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
