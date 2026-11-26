@@ -1,0 +1,213 @@
+# ── Journaux et vie privée (2026-11-19) ──────────────────────────────────────────────────────────────────
+# Un déposant anonyme ne doit pas pouvoir être retrouvé par son adresse IP dans nos propres journaux.
+#  - Le journal d'accès ne garde que le début de l'adresse (192.168.4.0 ; pour IPv6, les 3 premiers groupes),
+#    ni l'agent navigateur, ni l'adresse de la page d'origine, ni la chaîne de requête.
+#  - Les routes du dépôt citoyen (dépôt, suivi, complément, envoi de pièces) ne sont PAS journalisées du tout :
+#    leur adresse contient le code de suivi du citoyen, qui donne accès à son dossier.
+# L'adresse complète continue d'être transmise au back (en-tête X-Forwarded-For) pour le limiteur de débit ; le
+# back ne la conserve pas pour un dépôt anonyme ou sous protection.
+map $remote_addr $ip_tronquee {
+    "~^(?<debut>\d+\.\d+\.\d+)\.\d+$"                                   "$debut.0";
+    "~^(?<debut6>[0-9a-fA-F]+:[0-9a-fA-F]+:[0-9a-fA-F]+):"                 "$debut6::";
+    default                                                              "0.0.0.0";
+}
+log_format anonyme '$ip_tronquee - [$time_local] "$request_method $uri" $status $body_bytes_sent';
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    server_tokens off;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+    server_tokens off;   # ne pas annoncer la version de nginx
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+
+    client_max_body_size 55m;
+
+    access_log /dev/stdout anonyme;
+
+    # Résolution DNS Docker à l'exécution : nginx démarre même si un service n'est pas encore prêt.
+    resolver 127.0.0.11 valid=10s;
+
+    # Compression : scripts et styles passent d'environ 1,4 Mo à 0,36 Mo (mesuré le 2026-09-26).
+    # Les polices .woff2 sont déjà compressées, les images PNG/JPG aussi : on ne les recompresse pas.
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/css application/javascript application/json image/svg+xml text/plain font/ttf application/vnd.ms-fontobject;
+
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    # REMPLACE l'en-tête au lieu de l'allonger ($proxy_add_x_forwarded_for) : le back (limiteur de débit,
+    # journal d'audit) lit l'adresse du visiteur ici ; une valeur écrite par le client ne doit jamais passer.
+    proxy_set_header X-Forwarded-For   $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host  $host;
+    proxy_set_header X-Forwarded-Port  443;
+
+    location /auth/ {
+        set $kc http://keycloak:8080;
+        proxy_pass $kc;
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+        # Keycloak 25 pose des cookies « hérités » sans Secure ; le site n'est servi qu'en HTTPS
+        proxy_cookie_flags ~_LEGACY$ secure;
+        # En-têtes que Keycloak n'envoie pas. Pas de CSP ajoutée ici : celle de Keycloak reste seule (ses pages et
+        # celles du thème contiennent des scripts et des styles en ligne, une politique plus stricte les bloquerait).
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=()" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+    }
+
+    # Dépôt, suivi, complément et envoi de pièces du citoyen : aucune trace de visiteur dans ces journaux
+    # (ni accès, ni erreur « client: <adresse> »). Les erreurs restent visibles côté back.
+    location ~ ^/api/v1/(dossiers/public|attachments/dossier)/ {
+        access_log off;
+        error_log /dev/null crit;
+        # L'API ne renvoie que des données : rien à exécuter ni à intégrer (le serveur pose déjà nosniff, HSTS, DENY)
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=()" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+        set $be http://backend:8081;
+        proxy_pass $be;
+        proxy_read_timeout 120s;
+    }
+
+    location /api/ {
+        # L'API ne renvoie que des données : rien à exécuter ni à intégrer (le serveur pose déjà nosniff, HSTS, DENY)
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=()" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+        set $be http://backend:8081;
+        proxy_pass $be;
+        proxy_read_timeout 120s;
+    }
+
+    # ── Application Angular ────────────────────────────────────────────────────────────────────
+    # NB : un « add_header » dans un bloc location remplace ceux du niveau supérieur ; les en-têtes de
+    # sécurité sont donc répétés dans chaque bloc statique.
+
+    # Fichiers dont le nom contient une empreinte (main-XXXXXXXX.js, styles-XXXXXXXX.css, media/primeicons-XXXXXXXX.woff2) :
+    # leur contenu ne change jamais sous le même nom → cache d'un an, sans revalidation.
+    location ~ "^/(main|chunk|polyfills|styles)-[A-Z0-9]{8}\.(js|css)$" {
+        root /usr/share/nginx/html;
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    }
+
+    location ~ "^/media/.+-[A-Z0-9]{8}\.(woff2?|ttf|eot|svg)$" {
+        root /usr/share/nginx/html;
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    }
+
+    # Images et polices Lato (noms stables, contenu qui change rarement) : 30 jours.
+    location /assets/ {
+        root /usr/share/nginx/html;
+        expires 30d;
+        add_header Cache-Control "public" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    }
+
+    # La page d'entrée référence les fichiers ci-dessus : elle doit toujours être revalidée,
+    # sinon un visiteur garderait l'ancienne version de l'application.
+    location = /index.html {
+        root /usr/share/nginx/html;
+        add_header Cache-Control "no-cache" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    }
+
+    # Demandés par tous les robots et scanners : réponse 404 avec une politique complète
+    location ~ "^/(robots\.txt|sitemap\.xml)$" {
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" always;
+        return 404;
+    }
+
+    # ── Chemins sensibles : 404 franc ───────────────────────────────────────────────────────────
+    # L'application s'ouvre par « /#/... » (adresses à ancre) : le serveur n'a besoin de servir que « / », ses fichiers et
+    # les routes d'API. Tout le reste répondait 200 avec la page d'accueil, ce que les scanners prennent pour une fuite
+    # (/.git/config, /.env, /actuator/env, sauvegardes…). Rien n'était exposé, mais le doute coûte cher en audit.
+    location ~ "^/(\.|actuator|swagger-ui|v3/api-docs|api-docs|server-status|wp-|phpmyadmin|phpinfo|cgi-bin)" {
+        access_log off;
+        return 404;
+    }
+    # Un fichier à extension qui n'existe pas (/backup.sql, /config.json, /x.js…) : 404, pas la page d'accueil.
+    # Les fichiers à empreinte (main-XXXXXXXX.js…) sont servis par les blocs ci-dessus, avant celui-ci.
+    location ~* "^/(?!(api|auth|assets|media)/).*\.[a-z0-9]{1,6}$" {
+        root /usr/share/nginx/html;
+        try_files $uri =404;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    }
+
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /index.html;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), geolocation=(), payment=(), usb=(), microphone=(self)" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
+        add_header Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+        if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    }
+}

@@ -1,0 +1,17 @@
+Polices Lato hébergées par le site
+==================================
+
+Fichiers : Lato-Regular / Medium / SemiBold / Bold / ExtraBold / Black (.woff2), graisses 400 à 900.
+
+Origine  : Lato 2.0 de Łukasz Dziedzic (TyPoland), récupérée sur fonts.cdnfonts.com, la source
+           que le site utilisait auparavant.
+Licence  : SIL Open Font License 1.1 (https://openfontlicense.org) — autorise l'hébergement,
+           l'usage commercial et la redistribution.
+Traitement : réduction (« subsetting ») au jeu de caractères latin utile au français
+           (U+0020-007E, U+00A0-00FF, œ/Œ, ponctuation typographique, €, ™, flèches),
+           puis conversion en WOFF2. Les glyphes non latins sont retirés : 184 Ko au total pour
+           les six graisses, contre 1,1 Mo pour les fichiers d'origine.
+
+Pourquoi les héberger : la feuille de style du CDN tiers bloquait l'affichage de la page
+(0,9 à 1,4 s de réponse, puis 700 Ko de polices complètes). Les polices sont maintenant servies
+par le site lui-même, avec font-display: swap.
