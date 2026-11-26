@@ -216,6 +216,11 @@ public class AttachmentStorageService {
             }
             try {
                 byte[] octets = file.getBytes();
+                if (!ControleContenuFichier.conforme(mime, octets, agentAuthentifie)) {
+                    log.warn("Upload rejeté — contenu non conforme au type '{}' pour {}", mime, nom);
+                    refuses.add(nom + " (contenu non conforme à son format)");
+                    continue;
+                }
                 if (!agentAuthentifie) {
                     octets = AssainisseurPieceJointe.retirerMetadonnees(mime, octets);
                 }

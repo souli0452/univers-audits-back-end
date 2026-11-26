@@ -98,7 +98,7 @@ class AttachmentStorageServiceTest {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+                "files", "preuve.pdf", "application/pdf", "%PDF-1.7 contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
@@ -127,7 +127,7 @@ class AttachmentStorageServiceTest {
         Dossier dossier = buildDossier(dossierId);
         Agent agent = Agent.builder().id(UUID.randomUUID()).build();
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.jpg", "image/jpeg", "contenu".getBytes());
+                "files", "preuve.jpg", "image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00});
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(agent);
@@ -194,7 +194,7 @@ class AttachmentStorageServiceTest {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+                "files", "preuve.pdf", "application/pdf", "%PDF-1.7 contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
@@ -220,7 +220,7 @@ class AttachmentStorageServiceTest {
         UUID dossierId = UUID.randomUUID();
         Dossier dossier = buildDossier(dossierId);
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+                "files", "preuve.pdf", "application/pdf", "%PDF-1.7 contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
@@ -248,7 +248,7 @@ class AttachmentStorageServiceTest {
         SectionDossierTravail section = SectionDossierTravail.builder().dossier(dossier).build();
         section.setId(sectionId);
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+                "files", "preuve.pdf", "application/pdf", "%PDF-1.7 contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(agentContextResolver.getCurrentAgentOrNull()).thenReturn(null);
@@ -279,7 +279,7 @@ class AttachmentStorageServiceTest {
         SectionDossierTravail section = SectionDossierTravail.builder().dossier(autreDossier).build();
         section.setId(sectionId);
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+                "files", "preuve.pdf", "application/pdf", "%PDF-1.7 contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(sectionDossierTravailRepository.findById(sectionId)).thenReturn(Optional.of(section));
@@ -297,7 +297,7 @@ class AttachmentStorageServiceTest {
         Dossier dossier = buildDossier(dossierId);
         UUID sectionId = UUID.randomUUID();
         MockMultipartFile file = new MockMultipartFile(
-                "files", "preuve.pdf", "application/pdf", "contenu".getBytes());
+                "files", "preuve.pdf", "application/pdf", "%PDF-1.7 contenu".getBytes());
 
         when(dossierRepository.findById(dossierId)).thenReturn(Optional.of(dossier));
         when(sectionDossierTravailRepository.findById(sectionId)).thenReturn(Optional.empty());
@@ -676,7 +676,71 @@ class AttachmentStorageServiceTest {
     }
 
     private static MockMultipartFile fichier(String nom, String mime) {
-        return new MockMultipartFile("files", nom, mime, "x".getBytes());
+        return new MockMultipartFile("files", nom, mime, contenuConforme(mime));
+    }
+
+    /** Le serveur vérifie que le contenu ne contredit pas le type annoncé : les essais envoient la bonne signature. */
+    private static byte[] contenuConforme(String mime) {
+        return switch (mime) {
+            case "application/pdf" -> "%PDF-1.7".getBytes();
+            case "image/gif" -> "GIF89a".getBytes();
+            case "image/jpeg" -> new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+            case "image/png" -> new byte[]{(byte) 0x89, 'P', 'N', 'G'};
+            default -> "x".getBytes();
+        };
+    }
+
+    private static MockMultipartFile pageEnTexte() {
+        return new MockMultipartFile("files", "capture.txt", "text/plain", "<html><body>offre</body></html>".getBytes());
+    }
+
+    @Test
+    void upload_agentAuthentifie_accepteUnePageWebEnregistreeEnTexte_laPreuveResteIntacte() {
+        UUID dossierId = UUID.randomUUID();
+        agentAuthentifie(dossierId);
+
+        service.upload(dossierId.toString(), List.of(pageEnTexte()), null, null, null, null, null);
+
+        verify(attachmentRepository).save(any(Attachment.class));
+    }
+
+    @Test
+    void upload_public_refuseUnePageWebEnregistreeEnTexte() {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(), List.of(pageEnTexte()), null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("capture.txt");
+    }
+
+    @Test
+    void upload_agentAuthentifie_refuseToujoursUnProgramme() {
+        UUID dossierId = UUID.randomUUID();
+        agentAuthentifie(dossierId);
+        byte[] programme = {'M', 'Z', (byte) 0x90, 0, 3, 0, 0, 0};
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(new MockMultipartFile("files", "outil.txt", "text/plain", programme)),
+                null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("outil.txt");
+    }
+
+    @Test
+    void upload_refuseUnProgrammeRenommeEnPdf_enLeNommant_sansRienEcrire() throws Exception {
+        UUID dossierId = UUID.randomUUID();
+        deposantAnonyme(dossierId);
+        byte[] programme = {'M', 'Z', (byte) 0x90, 0, 3, 0, 0, 0};
+
+        assertThatThrownBy(() -> service.upload(dossierId.toString(),
+                List.of(new MockMultipartFile("files", "facture.pdf", "application/pdf", programme)),
+                null, null, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("facture.pdf (contenu non conforme");
+
+        verify(attachmentRepository, never()).save(any());
+        assertThat(nombreDeFichiersEcrits()).isZero();
     }
 
     private static Attachment existante(gov.bf.ascelc.univers_audits.enums.AttachmentType type, AttachmentSource source) {
