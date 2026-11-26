@@ -2,41 +2,27 @@ package gov.bf.ascelc.univers_audits.controller;
 
 import gov.bf.ascelc.univers_audits.service.KeycloakAdminService;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Le mot de passe se change uniquement sur la page de Keycloak (audit du 2026-11-24, S-17) : la plateforme ne reçoit,
- * ne vérifie et ne transmet plus aucun mot de passe d'agent.
+ * Un agent ne modifie plus rien de son compte par la plateforme (guide ANSSI, R23 ; audit S-17) : le mot de passe se
+ * change sur la page de Keycloak, le nom et le courriel par l'administrateur DDIC.
  */
 class ProfileControllerMotDePasseTest {
 
     @Test
-    void laPlateformeNAAucuneRoutePourChangerUnMotDePasse() throws Exception {
-        MockMvc mvc = MockMvcBuilders
-                .standaloneSetup(ProfileController.class.getDeclaredConstructors()[0].newInstance(arguments()))
-                .build();
-
-        mvc.perform(put("/api/v1/profile/password").contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isNotFound());
+    void laPlateformeNAPlusDeRouteDeProfil() {
+        assertThatThrownBy(() -> Class.forName("gov.bf.ascelc.univers_audits.controller.ProfileController"))
+                .isInstanceOf(ClassNotFoundException.class);
     }
 
     @Test
     void leServiceKeycloakNeManipuleAucunMotDePasseSaisiParUnAgent() {
         assertThat(Arrays.stream(KeycloakAdminService.class.getDeclaredMethods()).map(java.lang.reflect.Method::getName))
                 .doesNotContain("verifyCurrentPassword", "changePassword");
-    }
-
-    private static Object[] arguments() {
-        return Arrays.stream(ProfileController.class.getDeclaredConstructors()[0].getParameterTypes())
-                .map(Mockito::mock).toArray();
     }
 }

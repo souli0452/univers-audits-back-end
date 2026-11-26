@@ -93,8 +93,8 @@ class AccessEquivalenceIntegrationTest {
                 continue;
             }
             EndpointAccess actuel = live.get(AccessFixtures.cle(ancien));
-            if (ancien.handler().startsWith("ProfileController#changePassword(")) {
-                // Retrait voulu (audit du 2026-11-24, S-17) : le mot de passe se change sur la page de Keycloak.
+            if (ancien.handler().startsWith("ProfileController#")) {
+                // Retraits voulus (S-17, R23) : mot de passe sur la page de Keycloak, nom et courriel par l'administrateur.
                 assertThat(actuel).as(ancien.handler()).isNull();
                 continue;
             }
@@ -159,8 +159,8 @@ class AccessEquivalenceIntegrationTest {
     void les_points_dentree_sont_ceux_de_avant_plus_les_ajouts_declares() {
         Set<String> attendus = new LinkedHashSet<>(AccessFixtures.cles(avant));
         attendus.addAll(AccessFixtures.POINTS_DENTREE_AJOUTES);
-        // Retrait voulu (S-17) : plus de changement de mot de passe dans la plateforme.
-        assertThat(attendus.removeIf(c -> c.startsWith("ProfileController#changePassword("))).isTrue();
+        // Retraits voulus (S-17, R23) : un agent ne modifie plus son compte par la plateforme.
+        assertThat(attendus.removeIf(c -> c.startsWith("ProfileController#"))).isTrue();
 
         assertThat(AccessFixtures.cles(collector.collect())).isEqualTo(attendus);
     }
