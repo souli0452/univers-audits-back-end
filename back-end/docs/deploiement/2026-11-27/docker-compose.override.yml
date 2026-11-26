@@ -1,0 +1,26 @@
+# Compléments au docker-compose.yml : antivirus des pièces jointes (ClamAV) et mots de passe refusés. À copier à côté de docker-compose.yml : Docker Compose le lit tout seul.
+# Aucun port publié. Le conteneur a besoin d'Internet pour mettre à jour ses signatures (réseau asce-front).
+# Le serveur ne dépend pas de ce conteneur : s'il est arrêté, les pièces sont acceptées et marquées « non analysées ».
+services:
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: asce_clamav
+    restart: unless-stopped
+    environment:
+      # Au moins la plus grosse pièce acceptée par le serveur (25 Mo)
+      CLAMD_CONF_StreamMaxLength: 60M
+    volumes:
+      - asce_clamav_db:/var/lib/clamav
+    networks: [asce-front]
+
+  # Mots de passe refusés (guide ANSSI, R18) : liste lue par la règle « Password Blacklist » du royaume
+  keycloak:
+    volumes:
+      - ./sources/back/back-end/keycloak/password-blacklists:/opt/keycloak/data/password-blacklists:ro
+
+  backend:
+    environment:
+      ANTIVIRUS_HOST: clamav
+
+volumes:
+  asce_clamav_db:
