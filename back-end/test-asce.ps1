@@ -1,7 +1,7 @@
 $secret = $env:KEYCLOAK_CLIENT_SECRET
 if (-not $secret) { Write-Error "Définir d'abord KEYCLOAK_CLIENT_SECRET (voir .env)"; exit 1 }
 $username = "admin.asce"
-$password = "Admin123"
+$password = $env:ASCE_TEST_PASSWORD   # à définir avant de lancer, jamais écrit ici
 
 $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/realms/asce-lc/protocol/openid-connect/token" -ContentType "application/x-www-form-urlencoded" -Body "grant_type=password&client_id=asce-lc-backend&client_secret=$secret&username=$username&password=$password"
 

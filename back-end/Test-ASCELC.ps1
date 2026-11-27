@@ -3,7 +3,7 @@ $BASE_URL     = "http://localhost:8081"
 $REALM        = "asce-lc"
 $CLIENT_ID    = "asce-lc-frontend"
 $USERNAME     = "admin.asce"
-$PASSWORD     = "Admin1234!"
+$PASSWORD     = $env:ASCE_TEST_PASSWORD   # à définir avant de lancer, jamais écrit ici
 
 $AGENT_ID     = "484e681b-99e8-4fdf-a578-8056fa2d3845"
 

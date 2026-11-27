@@ -62,7 +62,7 @@ cmd_up() {
     -e KC_DB=postgres -e KC_DB_URL=jdbc:postgresql://pg:5432/bd_univers_audit -e KC_DB_USERNAME=asce_keycloak -e KC_DB_PASSWORD="$PG_KC" -e KC_DB_SCHEMA=keycloak \
     -e KC_HOSTNAME_STRICT=false -e KC_HOSTNAME_STRICT_HTTPS=false -e KC_HTTP_ENABLED=true -e KEYCLOAK_CLIENT_SECRET="$CLIENT_SECRET" \
     -v "$(win "$W/import"):/opt/keycloak/data/import:ro" -v "$(win "$RACINE/keycloak/themes/asce-lc"):/opt/keycloak/themes/asce-lc:ro" \
-    quay.io/keycloak/keycloak:25.0.2 start-dev --import-realm >/dev/null
+    quay.io/keycloak/keycloak:26.8.2 start-dev --import-realm >/dev/null
   echo "Keycloak démarre (1 à 2 minutes)…"
   for i in $(seq 1 90); do [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$PORT_KC/realms/asce-lc/.well-known/openid-configuration)" = 200 ] && break; sleep 3; done
   [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$PORT_KC/realms/asce-lc/.well-known/openid-configuration)" = 200 ] || { echo "ARRET : Keycloak ne démarre pas"; docker logs --tail 20 $P-kc; exit 1; }
@@ -70,7 +70,7 @@ cmd_up() {
   # Comptes de test : mot de passe connu, sans code à usage unique (le scan ne peut pas le saisir)
   local MDP; MDP="Zap-$(openssl rand -hex 8)"; printf '%s' "$MDP" > "$W/mdp_test"
   docker exec $P-kc /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password "$KC_ADMIN" >/dev/null 2>&1
-  for u in admin.asce asce55555 asce4455565 asce20033; do
+  for u in admin.asce; do
     docker exec $P-kc /opt/keycloak/bin/kcadm.sh set-password -r asce-lc --username "$u" --new-password "$MDP" >/dev/null 2>&1
     local id; id="$(docker exec $P-kc /opt/keycloak/bin/kcadm.sh get users -r asce-lc -q username="$u" --fields id --format csv --noquotes 2>/dev/null | tr -d '\r\n')"
     [ -n "$id" ] && docker exec $P-kc /opt/keycloak/bin/kcadm.sh update "users/$id" -r asce-lc -s 'requiredActions=[]' >/dev/null 2>&1
